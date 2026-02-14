@@ -114,7 +114,8 @@ DB_PASSWORD = os.environ.get('DB_PASSWORD')
 DB_HOST = os.environ.get('DB_HOST')
 DB_PORT = os.environ.get('DB_PORT')
 
-USE_REMOTE_DB = bool(DB_HOST and DB_NAME and DB_USER and DB_PASSWORD)
+FORCE_SQLITE = os.environ.get('USE_SQLITE') == '1'
+USE_REMOTE_DB = bool(DB_HOST and DB_NAME and DB_USER and DB_PASSWORD) and not FORCE_SQLITE
 
 if USE_REMOTE_DB:
     DATABASES = {
