@@ -114,7 +114,9 @@ DB_PASSWORD = os.environ.get('DB_PASSWORD')
 DB_HOST = os.environ.get('DB_HOST')
 DB_PORT = os.environ.get('DB_PORT')
 
-if DB_HOST and DB_NAME and DB_USER and DB_PASSWORD:
+USE_REMOTE_DB = bool(DB_HOST and DB_NAME and DB_USER and DB_PASSWORD)
+
+if USE_REMOTE_DB:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -135,9 +137,14 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            # Use /tmp for Vercel serverless write access
+            'NAME': os.environ.get('SQLITE_PATH', '/tmp/db.sqlite3'),
         }
     }
+
+# When using SQLite fallback on serverless, avoid DB-backed sessions
+if not USE_REMOTE_DB:
+    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 
 # Password validation
