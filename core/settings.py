@@ -108,29 +108,36 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Use Environment Variables from Vercel (preferred) or Fallback to hardcoded for testing
-DB_NAME = os.environ.get('DB_NAME', 'akaf_db')
-DB_USER = os.environ.get('DB_USER', '2n7VpWz69k7A6Wq.root')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'AKAF_PASSWORD_2026')
-DB_HOST = os.environ.get('DB_HOST', 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com')
-DB_PORT = os.environ.get('DB_PORT', '4000')
+DB_NAME = os.environ.get('DB_NAME')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DB_HOST = os.environ.get('DB_HOST')
+DB_PORT = os.environ.get('DB_PORT')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASSWORD,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
-        'OPTIONS': {
-            'ssl': {
-                'ca': None,
+if DB_HOST and DB_NAME and DB_USER and DB_PASSWORD:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASSWORD,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT or '4000',
+            'OPTIONS': {
+                'ssl': {
+                    'ca': None,
+                },
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
