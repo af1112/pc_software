@@ -1,4 +1,4 @@
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import render, HttpResponse, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 import os
@@ -34,7 +34,18 @@ def main_dashboard(request):
 
     
 
+def home_redirect(request):
+    """
+    Root path handler:
+    - If user is authenticated -> go to dashboard
+    - Else -> go to login page
+    """
+    if request.user.is_authenticated:
+        return redirect('main_dashboard')
+    return redirect('/accounts/login/')
+
 def run_migrations_view(request):
+    """
     """
     Safely run migrations on production.
     Usage: /run-migrations/  OR  /run-migrations/?key=AKAF_SECRET_RESTORE_2026&fake=1
