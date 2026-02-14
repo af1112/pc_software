@@ -46,7 +46,6 @@ def home_redirect(request):
 
 def run_migrations_view(request):
     """
-    """
     Safely run migrations on production.
     Usage: /run-migrations/  OR  /run-migrations/?key=AKAF_SECRET_RESTORE_2026&fake=1
     """
