@@ -1,0 +1,14 @@
+app/
+components/
+contexts/
+public/
+next.config.js
+package.json
+package-lock.json
+tsconfig.json
+lib/
+messages/
+types/
+scripts/
+*.ts
+*.tsx
