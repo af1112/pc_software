@@ -126,9 +126,7 @@ if USE_REMOTE_DB:
             'HOST': DB_HOST,
             'PORT': DB_PORT or '4000',
             'OPTIONS': {
-                'ssl': {
-                    'ca': None,
-                },
+                'ssl': {'ca': os.environ.get('DB_CA')} if os.environ.get('DB_CA') else {},
                 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
         }
