@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: pc-software
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    postDeployCommand: python manage.py migrate
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: core.settings
+      - key: USE_SQLITE
+        value: "0"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+    healthCheckPath: /
