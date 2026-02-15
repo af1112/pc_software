@@ -4,6 +4,18 @@ from django.conf import settings
 from django.contrib.auth.models import User, Permission
 from django.contrib.contenttypes.models import ContentType
 
+TIMEZONE_CHOICES = [
+    ('UTC', 'UTC'),
+    ('Asia/Tehran', 'Asia/Tehran'),
+    ('Asia/Muscat', 'Asia/Muscat'),
+    ('Asia/Dubai', 'Asia/Dubai'),
+    ('Europe/London', 'Europe/London'),
+    ('Europe/Berlin', 'Europe/Berlin'),
+    ('America/New_York', 'America/New_York'),
+    ('America/Los_Angeles', 'America/Los_Angeles'),
+]
+
+
 class LanguageSettingsForm(forms.ModelForm):
     preferred_language = forms.ChoiceField(
         choices=settings.LANGUAGES,
@@ -26,9 +38,15 @@ class LanguageSettingsForm(forms.ModelForm):
         label='Decimal Places (e.g. 3)'
     )
 
+    timezone = forms.ChoiceField(
+        choices=TIMEZONE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Time Zone / منطقه زمانی'
+    )
+
     class Meta:
         model = UserProfile
-        fields = ['preferred_language', 'currency_code', 'currency_symbol', 'currency_decimal_places']
+        fields = ['preferred_language', 'currency_code', 'currency_symbol', 'currency_decimal_places', 'timezone']
 
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(

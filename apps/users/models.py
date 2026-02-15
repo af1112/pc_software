@@ -26,6 +26,13 @@ class UserProfile(models.Model):
 
     # Attendance Settings
     require_photo = models.BooleanField(default=True, help_text="Require a photo for attendance clock-in/out")
+    
+    # Timezone Settings (per company/user)
+    timezone = models.CharField(
+        max_length=50,
+        default='UTC',
+        help_text="IANA timezone name (e.g. Asia/Tehran, Europe/London)"
+    )
 
     def __str__(self):
         return f"{self.user.username} Profile"

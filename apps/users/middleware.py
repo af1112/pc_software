@@ -3,6 +3,7 @@
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import activate
+from django.utils import timezone as dj_timezone
 
 class UserLanguageMiddleware:
     def __init__(self, get_response):
@@ -11,10 +12,19 @@ class UserLanguageMiddleware:
     def __call__(self, request):
         if request.user.is_authenticated:
             try:
+                profile = request.user.profile
                 # Use preferred_language from profile
-                lang = request.user.profile.preferred_language
+                lang = profile.preferred_language
                 activate(lang)
                 request.LANGUAGE_CODE = lang
+                
+                # Activate per-user/company timezone if set
+                tz_name = getattr(profile, 'timezone', None)
+                if tz_name:
+                    try:
+                        dj_timezone.activate(tz_name)
+                    except Exception:
+                        dj_timezone.deactivate()
             except Exception:
                 pass
         response = self.get_response(request)
