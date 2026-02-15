@@ -8,6 +8,24 @@ class Attendance(models.Model):
     date = models.DateField(_("Date"), default=timezone.now)
     clock_in = models.DateTimeField(_("Clock In"), null=True, blank=True)
     clock_out = models.DateTimeField(_("Clock Out"), null=True, blank=True)
+    clock_in_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_clockins_recorded',
+        verbose_name=_("Clock-in By"),
+        db_constraint=False
+    )
+    clock_out_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_clockouts_recorded',
+        verbose_name=_("Clock-out By"),
+        db_constraint=False
+    )
     
     # Location tracking
     latitude = models.DecimalField(_("Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)

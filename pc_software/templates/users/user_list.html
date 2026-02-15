@@ -1,6 +1,8 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
+{% trans "Are you sure you want to delete this user?" as confirm_delete_user_text %}
+
 {% block title %}{% trans "User Management" %}{% endblock %}
 {% block page_title %}{% trans "User Management" %}{% endblock %}
 
@@ -13,12 +15,31 @@
         </a>
     </div>
     <div class="card-body">
+        {% if user.is_superuser %}
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold mb-1">{% trans "Organization" %}</label>
+                <select name="org_id" class="form-select">
+                    <option value="">{% trans "All Organizations" %}</option>
+                    {% for org in organizations %}
+                        <option value="{{ org.id }}" {% if selected_org and selected_org.id == org.id %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-auto">
+                <button type="submit" class="btn btn-outline-primary">{% trans "Filter" %}</button>
+                <a href="{% url 'users:user_list' %}" class="btn btn-light">{% trans "Reset" %}</a>
+            </div>
+        </form>
+        {% endif %}
+
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>{% trans "User" %}</th>
-                        <th>{% trans "Email" %}</th>
+                        <th>{% trans "Company" %}</th>
+                        <th>{% trans "Role" %}</th>
                         <th>{% trans "Permissions" %}</th>
                         <th>{% trans "Status" %}</th>
                         <th>{% trans "Actions" %}</th>
@@ -38,7 +59,8 @@
                                 </div>
                             </div>
                         </td>
-                        <td>{{ u.email }}</td>
+                        <td>{{ u.profile.organization.name|default:"-" }}</td>
+                        <td>{{ u.profile.role|default:"-"|title }}</td>
                         <td>
                             {% if u.is_superuser %}
                                 <span class="badge bg-danger rounded-pill">{% trans "Superuser" %}</span>
@@ -63,7 +85,7 @@
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 {% if u != user %}
-                                <form action="{% url 'users:user_delete' u.pk %}" method="post" class="d-inline" onsubmit="return confirm('{% trans "Are you sure you want to delete this user?" %}')">
+                                <form action="{% url 'users:user_delete' u.pk %}" method="post" class="d-inline" onsubmit="return confirm('{{ confirm_delete_user_text|escapejs }}')">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="fas fa-trash"></i>
@@ -75,7 +97,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-4">{% trans "No users found." %}</td>
+                        <td colspan="6" class="text-center py-4">{% trans "No users found." %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -74,6 +74,23 @@
     </div>
     {% endif %}
 
+    <!-- Personnel & Payroll -->
+    {% if can_use_personnel or user.is_superuser %}
+    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+        <a href="{% url 'hr_personnel:employee_list' %}" class="text-decoration-none">
+            <div class="dashboard-card">
+                <div class="card-icon-wrapper bg-light-info">
+                    <i class="fas fa-id-badge"></i>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title-lg">{% trans "Personnel" %}</h3>
+                    <p class="card-desc">{% trans "Employees, payroll and benefits." %}</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Project Control -->
     {% if can_use_projects or user.is_superuser %}
     <div class="col-12 col-md-6 col-lg-4 col-xl-3">

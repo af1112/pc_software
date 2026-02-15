@@ -93,6 +93,7 @@ class UserPermissionsForm(forms.Form):
     CAN_ACCESS_EXPENSES = forms.BooleanField(required=False, label="Access Expense Manager")
     CAN_ACCESS_TICKETING = forms.BooleanField(required=False, label="Access Ticketing System")
     CAN_ACCESS_ATTENDANCE = forms.BooleanField(required=False, label="Access Presence & Attendance")
+    CAN_ACCESS_PERSONNEL = forms.BooleanField(required=False, label="Access Personnel & Payroll")
     CAN_ACCESS_PROJECTS = forms.BooleanField(required=False, label="Access Project Control")
     CAN_ACCESS_DMS = forms.BooleanField(required=False, label="Access Document DMS")
     CAN_ACCESS_AI = forms.BooleanField(required=False, label="Access AI Engine")

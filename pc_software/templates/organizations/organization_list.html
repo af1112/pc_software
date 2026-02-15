@@ -1,0 +1,73 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Organizations" %}{% endblock %}
+{% block page_title %}{% trans "System" %} / {% trans "Organizations" %}{% endblock %}
+{% block content_title %}{% trans "Organizations" %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">{% trans "Registered Organizations" %}</h5>
+    <a href="{% url 'organizations:create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i> {% trans "Add Organization" %}
+    </a>
+{% comment %} No comments allowed by policy, left empty intentionally {% endcomment %}
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>{% trans "Name" %}</th>
+                    <th>{% trans "Slug" %}</th>
+                    <th>{% trans "Subscription" %}</th>
+                    <th>{% trans "Ends" %}</th>
+                    <th>{% trans "Modules" %}</th>
+                    <th class="text-end">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for org in organizations %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ org.name }}</td>
+                    <td><span class="text-muted">{{ org.slug }}</span></td>
+                    <td>
+                        {% if org.is_active %}
+                        <span class="badge bg-success">{% trans "Active" %}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{% trans "Inactive" %}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ org.subscription_end_date|default:"—" }}</td>
+                    <td class="small">
+                        {% if org.can_use_expenses %}<span class="badge bg-light text-dark border me-1">Expenses</span>{% endif %}
+                        {% if org.can_use_ticketing %}<span class="badge bg-light text-dark border me-1">Ticketing</span>{% endif %}
+                        {% if org.can_use_attendance %}<span class="badge bg-light text-dark border me-1">Attendance</span>{% endif %}
+                        {% if org.can_use_personnel %}<span class="badge bg-light text-dark border me-1">Personnel</span>{% endif %}
+                        {% if org.can_use_projects %}<span class="badge bg-light text-dark border me-1">Projects</span>{% endif %}
+                        {% if org.can_use_dms %}<span class="badge bg-light text-dark border me-1">DMS</span>{% endif %}
+                        {% if org.can_use_ai %}<span class="badge bg-light text-dark border me-1">AI</span>{% endif %}
+                        {% if org.can_use_menu %}<span class="badge bg-light text-dark border me-1">Menu</span>{% endif %}
+                        {% if org.can_use_club %}<span class="badge bg-light text-dark border me-1">Club</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'organizations:edit' org.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit me-1"></i> {% trans "Edit" %}
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">{% trans "No organizations yet." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% comment %} No comments allowed by policy, left empty intentionally {% endcomment %}
+</div>
+{% endblock %}
+

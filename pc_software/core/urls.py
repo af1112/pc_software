@@ -31,5 +31,7 @@ urlpatterns = [
     path('expenses/', include('apps.expenses.urls')), # Move expenses to sub-path
     path('ticketing/', include('apps.ticketing.urls')), # Ticketing System
     path('attendance/', include('apps.hr_attendance.urls')), # Attendance System
+    path('personnel/', include('apps.hr_personnel.urls')), # Personnel & Payroll
     path('users/', include('apps.users.urls')),
+    path('organizations/', include('apps.organizations.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

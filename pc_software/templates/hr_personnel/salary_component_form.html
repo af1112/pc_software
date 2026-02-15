@@ -1,0 +1,35 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{% trans "Personnel" %}{% endblock %}
+{% block content_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        {% for field in form %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark small">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger x-small mt-1">{{ field.errors|first }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-4 d-flex justify-content-end gap-2">
+                        <a href="{% url 'hr_personnel:employee_detail' employee.id %}" class="btn btn-light rounded-pill">{% trans "Cancel" %}</a>
+                        <button type="submit" class="btn btn-primary rounded-pill">{% trans "Add" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

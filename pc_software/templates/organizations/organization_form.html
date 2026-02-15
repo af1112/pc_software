@@ -1,0 +1,139 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Create Organization" %}{% endblock %}
+{% block page_title %}{% trans "System" %} / {% trans "Organizations" %}{% endblock %}
+{% block content_title %}{% trans "Create Organization" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {{ form.name.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.slug.label }}</label>
+                        {{ form.slug }}
+                        {{ form.slug.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.logo.label }}</label>
+                        {{ form.logo }}
+                        {{ form.logo.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.representative_name.label }}</label>
+                        {{ form.representative_name }}
+                        {{ form.representative_name.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.representative_phone.label }}</label>
+                        {{ form.representative_phone }}
+                        {{ form.representative_phone.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.company_email.label }}</label>
+                        {{ form.company_email }}
+                        {{ form.company_email.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.timezone.label }}</label>
+                        {{ form.timezone }}
+                        {{ form.timezone.errors }}
+                    </div>
+                    <div class="mb-3 form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label">{{ form.is_active.label }}</label>
+                        {{ form.is_active.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.subscription_end_date.label }}</label>
+                        {{ form.subscription_end_date }}
+                        {{ form.subscription_end_date.errors }}
+                    </div>
+                    <h5 class="mt-4 mb-3">{% trans "Module Activation" %}</h5>
+                    <div class="row">
+                        <div class="col-12 col-md-6">
+                            <div class="form-check mb-2">
+                                {{ form.can_use_expenses }}
+                                <label class="form-check-label">{{ form.can_use_expenses.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_ticketing }}
+                                <label class="form-check-label">{{ form.can_use_ticketing.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_attendance }}
+                                <label class="form-check-label">{{ form.can_use_attendance.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_projects }}
+                                <label class="form-check-label">{{ form.can_use_projects.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_personnel }}
+                                <label class="form-check-label">{{ form.can_use_personnel.label }}</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check mb-2">
+                                {{ form.can_use_dms }}
+                                <label class="form-check-label">{{ form.can_use_dms.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_ai }}
+                                <label class="form-check-label">{{ form.can_use_ai.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_menu }}
+                                <label class="form-check-label">{{ form.can_use_menu.label }}</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form.can_use_club }}
+                                <label class="form-check-label">{{ form.can_use_club.label }}</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            {% trans "Save Organization" %}
+                        </button>
+                        <a href="{% url 'main_dashboard' %}" class="btn btn-outline-secondary">
+                            {% trans "Cancel" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    (function() {
+        const nameInput = document.getElementById('id_name');
+        const slugInput = document.getElementById('id_slug');
+        let userEditedSlug = false;
+        if (!nameInput || !slugInput) return;
+        slugInput.addEventListener('input', () => { userEditedSlug = true; });
+        function slugify(text) {
+            return text.toString().toLowerCase()
+                .trim()
+                .replace(/[\u0600-\u06FF]/g, '')      // strip Arabic letters for simplicity
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        }
+        nameInput.addEventListener('input', (e) => {
+            if (userEditedSlug) return;
+            const val = e.target.value || '';
+            const s = slugify(val);
+            if (s) slugInput.value = s;
+        });
+    })();
+</script>
+{% endblock %}

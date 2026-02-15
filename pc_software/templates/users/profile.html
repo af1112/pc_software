@@ -1,0 +1,59 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "My Profile" %}{% endblock %}
+{% block page_title %}{% trans "Profile" %}{% endblock %}
+{% block content_title %}{% trans "My Profile" %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">{% trans "Account Details" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">{% trans "Username" %}</label>
+                        <input class="form-control" value="{{ profile_user.username }}" disabled>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">{% trans "Email" %}</label>
+                        <input class="form-control" value="{{ profile_user.email|default:'' }}" disabled>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">{% trans "Role" %}</label>
+                        <input class="form-control" value="{{ profile_role|default:'-'|title }}" disabled>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">{% trans "Organization" %}</label>
+                        <input class="form-control" value="{{ profile_org.name|default:'-' }}" disabled>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">{% trans "Full Name" %}</label>
+                        <input class="form-control" value="{{ profile_user.get_full_name|default:'-' }}" disabled>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <h6 class="fw-bold mb-3">{% trans "Permissions" %}</h6>
+                <div>
+                    {% if profile_user.is_superuser %}
+                        <span class="badge bg-danger">{% trans "Superuser" %}</span>
+                    {% else %}
+                        {% for p in profile_permissions %}
+                            <span class="badge bg-light-info text-info rounded-pill mb-1">{{ p.name }}</span>
+                        {% empty %}
+                            <span class="text-muted small">{% trans "No special permissions." %}</span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

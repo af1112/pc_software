@@ -22,6 +22,7 @@ def main_dashboard(request):
         'can_use_expenses': request.user.is_superuser or ((organization.can_use_expenses if organization else True) and request.user.has_perm('users.can_access_expenses')),
         'can_use_ticketing': request.user.is_superuser or ((organization.can_use_ticketing if organization else True) and request.user.has_perm('users.can_access_ticketing')),
         'can_use_attendance': request.user.is_superuser or ((organization.can_use_attendance if organization else True) and request.user.has_perm('users.can_access_attendance')),
+        'can_use_personnel': request.user.is_superuser or ((getattr(organization, 'can_use_personnel', True) if organization else True) and request.user.has_perm('users.can_access_personnel')),
         'can_use_projects': request.user.is_superuser or ((organization.can_use_projects if organization else True) and request.user.has_perm('users.can_access_projects')),
         'can_use_dms': request.user.is_superuser or ((organization.can_use_dms if organization else True) and request.user.has_perm('users.can_access_dms')),
         'can_use_ai': request.user.is_superuser or ((organization.can_use_ai if organization else True) and request.user.has_perm('users.can_access_ai')),

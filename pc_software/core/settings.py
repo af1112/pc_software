@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'apps.ticketing',
     'apps.hr_attendance',
     'apps.organizations', # New App
+    'apps.hr_personnel',
 ]
 
 # Support WhiteNoise for static files on Vercel
@@ -109,10 +110,10 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # Use Environment Variables from Vercel (preferred) or Fallback to hardcoded for testing
-DB_NAME = os.environ.get('DB_NAME', 'akaf_db')
-DB_USER = os.environ.get('DB_USER', '2n7VpWz69k7A6Wq.root')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'AKAF_PASSWORD_2026')
-DB_HOST = os.environ.get('DB_HOST', 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com')
+DB_NAME = os.environ.get('DB_NAME', 'akaf_dev')
+DB_USER = os.environ.get('DB_USER', '3T8qABXcqrWPrb4.root')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'DAVmYUYPcEiVlle0')
+DB_HOST = os.environ.get('DB_HOST', 'gateway01.us-east-1.prod.aws.tidbcloud.com')
 DB_PORT = os.environ.get('DB_PORT', '4000')
 
 DATABASES = {

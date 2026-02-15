@@ -7,9 +7,29 @@ from .forms import LanguageSettingsForm, UserCreateForm, UserPermissionsForm
 from django.utils.translation import activate
 from django.utils.translation import gettext as _
 from django.contrib.auth.models import User, Permission
+from apps.organizations.models import Organization
 
 def is_admin(user):
     return user.is_superuser or user.is_staff
+
+@login_required
+def profile_view(request):
+    user = request.user
+    profile = getattr(user, 'profile', None)
+    org = getattr(profile, 'organization', None) if profile else None
+    role = getattr(profile, 'role', None) if profile else None
+    perms = user.user_permissions.all().order_by('name')
+    return render(
+        request,
+        'users/profile.html',
+        {
+            'profile_user': user,
+            'profile_org': org,
+            'profile_role': role,
+            'profile_permissions': perms,
+        },
+    )
+
 
 @login_required
 def settings_view(request):
@@ -38,8 +58,40 @@ def settings_view(request):
 @login_required
 @user_passes_test(is_admin)
 def user_list(request):
-    users = User.objects.all().order_by('-date_joined')
-    return render(request, 'users/user_list.html', {'users': users})
+    users = User.objects.select_related('profile', 'profile__organization').all().order_by('-date_joined')
+
+    selected_org = None
+    organizations = []
+
+    if request.user.is_superuser:
+        organizations = list(Organization.objects.order_by('name'))
+        org_id = request.GET.get('org_id')
+        if org_id:
+            try:
+                selected_org = Organization.objects.get(id=org_id)
+                users = users.filter(profile__organization_id=selected_org.id)
+            except Exception:
+                selected_org = None
+    else:
+        try:
+            org = request.user.profile.organization
+            if org:
+                selected_org = org
+                users = users.filter(profile__organization=org)
+            else:
+                users = User.objects.none()
+        except UserProfile.DoesNotExist:
+            users = User.objects.none()
+
+    return render(
+        request,
+        'users/user_list.html',
+        {
+            'users': users,
+            'organizations': organizations,
+            'selected_org': selected_org,
+        },
+    )
 
 @login_required
 @user_passes_test(is_admin)
@@ -56,6 +108,13 @@ def user_create(request):
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.preferred_language = user_form.cleaned_data.get('preferred_language', 'en')
             profile.role = user_form.cleaned_data.get('role', 'user')
+            if request.user.is_superuser:
+                profile.organization = user_form.cleaned_data.get('organization')
+            else:
+                try:
+                    profile.organization = request.user.profile.organization
+                except UserProfile.DoesNotExist:
+                    profile.organization = None
             profile.save()
             
             # Update user staff status based on role
@@ -125,6 +184,15 @@ def user_edit(request, pk):
         profile = user.profile
     except UserProfile.DoesNotExist:
         profile = UserProfile.objects.create(user=user)
+
+    if not request.user.is_superuser:
+        try:
+            current_org = request.user.profile.organization
+        except UserProfile.DoesNotExist:
+            current_org = None
+        if not current_org or profile.organization_id != current_org.id:
+            messages.error(request, _('You do not have permission to edit this user.'))
+            return redirect('users:user_list')
 
     if request.method == 'POST':
         # Update basic info
@@ -205,9 +273,23 @@ def user_edit(request, pk):
 def user_delete(request, pk):
     if request.method == 'POST':
         user = get_object_or_404(User, pk=pk)
-        if user != request.user:
+        try:
+            target_profile = user.profile
+        except UserProfile.DoesNotExist:
+            target_profile = None
+
+        if not request.user.is_superuser:
+            try:
+                current_org = request.user.profile.organization
+            except UserProfile.DoesNotExist:
+                current_org = None
+            if not current_org or not target_profile or target_profile.organization_id != current_org.id:
+                messages.error(request, _('You do not have permission to delete this user.'))
+                return redirect('users:user_list')
+
+        if user == request.user:
+            messages.error(request, _('You cannot delete yourself.'))
+        else:
             user.delete()
             messages.success(request, _('User deleted successfully.'))
-        else:
-            messages.error(request, _('You cannot delete yourself.'))
     return redirect('users:user_list')

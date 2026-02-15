@@ -9,14 +9,14 @@ class OrganizationAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'slug', 'logo')
+            'fields': ('name', 'slug', 'logo', 'representative_name', 'representative_phone', 'company_email', 'timezone')
         }),
         ('Subscription Status', {
             'fields': ('is_active', 'subscription_end_date')
         }),
         ('Module Activation (Software Support Only)', {
             'fields': (
-                'can_use_expenses', 'can_use_ticketing', 'can_use_projects',
+                'can_use_expenses', 'can_use_ticketing', 'can_use_attendance', 'can_use_projects',
                 'can_use_dms', 'can_use_ai', 'can_use_menu', 'can_use_club'
             ),
             'description': 'Only the software support team should manage these settings.'
@@ -27,7 +27,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         # If the user is not a superuser, they cannot change module activation
         if not request.user.is_superuser:
             return [
-                'can_use_expenses', 'can_use_ticketing', 'can_use_projects',
+                'can_use_expenses', 'can_use_ticketing', 'can_use_attendance', 'can_use_projects',
                 'can_use_dms', 'can_use_ai', 'can_use_menu', 'can_use_club'
             ]
         return super().get_readonly_fields(request, obj)

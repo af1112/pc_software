@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'apps.ticketing',
     'apps.hr_attendance',
     'apps.organizations', # New App
+    'apps.hr_personnel',
 ]
 
 # Support WhiteNoise for static files on Vercel

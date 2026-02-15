@@ -25,6 +25,7 @@ def user_settings(request):
                     'can_use_expenses': request.user.is_superuser or ((org.can_use_expenses if org else True) and request.user.has_perm('users.can_access_expenses')),
                     'can_use_ticketing': request.user.is_superuser or ((org.can_use_ticketing if org else True) and request.user.has_perm('users.can_access_ticketing')),
                     'can_use_attendance': request.user.is_superuser or ((org.can_use_attendance if org else True) and request.user.has_perm('users.can_access_attendance')),
+                    'can_use_personnel': request.user.is_superuser or ((getattr(org, 'can_use_personnel', True) if org else True) and request.user.has_perm('users.can_access_personnel')),
                     'can_use_projects': request.user.is_superuser or ((org.can_use_projects if org else True) and request.user.has_perm('users.can_access_projects')),
                     'can_use_dms': request.user.is_superuser or ((org.can_use_dms if org else True) and request.user.has_perm('users.can_access_dms')),
                     'can_use_ai': request.user.is_superuser or ((org.can_use_ai if org else True) and request.user.has_perm('users.can_access_ai')),
@@ -44,6 +45,7 @@ def user_settings(request):
                     'can_use_expenses': False,
                     'can_use_ticketing': False,
                     'can_use_attendance': False,
+                    'can_use_personnel': False,
                     'can_use_projects': False,
                     'can_use_dms': False,
                     'can_use_ai': False,
@@ -59,4 +61,5 @@ def user_settings(request):
         'user_currency_code': 'OMR',
         'user_currency_symbol': 'ر.ع.',
         'user_decimal_places': 3,
+        'can_use_personnel': False,
     }

@@ -5,6 +5,10 @@ class Organization(models.Model):
     name = models.CharField(_("Organization Name"), max_length=255)
     slug = models.SlugField(_("Subdomain/Slug"), unique=True, help_text=_("Used for URL routing (e.g., company-name)"))
     logo = models.FileField(_("Logo"), upload_to='org_logos/', blank=True, null=True)
+    representative_name = models.CharField(_("Representative Name"), max_length=255, blank=True, null=True)
+    representative_phone = models.CharField(_("Representative Phone"), max_length=50, blank=True, null=True)
+    company_email = models.EmailField(_("Company Email"), blank=True, null=True)
+    timezone = models.CharField(_("Time Zone"), max_length=64, default="UTC", help_text=_("e.g., Asia/Tehran, Europe/London"))
     
     # Subscription & Modules
     is_active = models.BooleanField(_("Is Active Subscription"), default=True)
@@ -19,6 +23,7 @@ class Organization(models.Model):
     can_use_ai = models.BooleanField(_("Enable AI Engine"), default=False)
     can_use_menu = models.BooleanField(_("Enable Digital Menu"), default=False)
     can_use_club = models.BooleanField(_("Enable Customer Club"), default=False)
+    can_use_personnel = models.BooleanField(_("Enable Personnel & Payroll"), default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

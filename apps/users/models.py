@@ -42,6 +42,7 @@ class UserProfile(models.Model):
             ("can_access_expenses", "Can access Expense Manager"),
             ("can_access_ticketing", "Can access Ticketing System"),
             ("can_access_attendance", "Can access Presence & Attendance"),
+            ("can_access_personnel", "Can access Personnel & Payroll"),
             ("can_access_projects", "Can access Project Control"),
             ("can_access_dms", "Can access Document DMS"),
             ("can_access_ai", "Can access AI Engine"),

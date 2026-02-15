@@ -10,25 +10,9 @@ def main_dashboard(request):
     """
     Main landing dashboard showing available modules based on organization subscription.
     """
-    # Get user profile and organization
-    profile = getattr(request.user, 'profile', None)
-    organization = profile.organization if profile else None
-    
-    context = {
-        'organization': organization,
-        # Default all to False if no organization
-        'can_use_expenses': organization.can_use_expenses if organization else False,
-        'can_use_ticketing': organization.can_use_ticketing if organization else False,
-        'can_use_attendance': organization.can_use_attendance if organization else False,
-        'can_use_projects': organization.can_use_projects if organization else False,
-        'can_use_dms': organization.can_use_dms if organization else False,
-        'can_use_ai': organization.can_use_ai if organization else False,
-        'can_use_menu': organization.can_use_menu if organization else False,
-        'can_use_club': organization.can_use_club if organization else False,
-        'is_superuser': request.user.is_superuser
-    }
-    
-    return render(request, 'main_dashboard.html', context)
+    # Rely on context processor (user_settings) for can_use_* flags
+    # to respect both organization activation and per-user permissions.
+    return render(request, 'main_dashboard.html', {})
 
     
 

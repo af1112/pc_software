@@ -1,0 +1,63 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; color: #111; }
+    h2 { margin: 0 0 8px 0; }
+    .meta { margin-bottom: 12px; color: #444; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px; }
+    th { background: #f4f7fe; text-align: left; }
+    .muted { color: #666; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h2>{% trans "Attendance Report" %}</h2>
+  <div class="meta">
+    <div><strong>{% trans "Date" %}:</strong> {{ date|date:"Y-m-d" }}</div>
+    <div><strong>{% trans "Organization" %}:</strong> {{ org.name|default:"-" }}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{% trans "Username" %}</th>
+        <th>{% trans "Name" %}</th>
+        <th>{% trans "Clock In" %}</th>
+        <th>{% trans "Clock Out" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in records %}
+      {% with u=row.user e=row.employee a=row.attendance %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ u.username }}</td>
+        <td>{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:"-" }}{% endif %}</td>
+        <td>
+          {% if a and a.clock_in %}
+            {{ a.clock_in|time:"H:i" }}
+            {% if a.clock_in_by and a.clock_in_by != u %}
+              <span class="muted">({% trans "by" %} {{ a.clock_in_by.username }})</span>
+            {% endif %}
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {% if a and a.clock_out %}
+            {{ a.clock_out|time:"H:i" }}
+            {% if a.clock_out_by and a.clock_out_by != u %}
+              <span class="muted">({% trans "by" %} {{ a.clock_out_by.username }})</span>
+            {% endif %}
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endwith %}
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

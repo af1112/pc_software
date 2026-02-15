@@ -11,6 +11,12 @@
         // Check for saved theme preference or use system preference
         const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', savedTheme);
+
+        // Sidebar collapsed state
+        const sidebarCollapsed = localStorage.getItem('sidebar_collapsed') === '1';
+        if (sidebarCollapsed) {
+            document.documentElement.classList.add('sidebar-collapsed');
+        }
     </script>
     <!-- Preconnect to CDNs -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -47,6 +53,13 @@
 </head>
 <body>
 
+    <div id="global-loading" class="global-loading" aria-live="polite" aria-busy="true">
+        <div class="loading-card">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="loading-text">{% trans "Loading..." %}</div>
+        </div>
+    </div>
+
     <!-- Sidebar -->
     <div class="sidebar d-flex flex-column">
         <a href="{% url 'main_dashboard' %}" class="brand-logo p-3">
@@ -59,13 +72,13 @@
         </a>
         
         <div class="nav flex-column px-3 mt-4">
-            <a href="{% url 'main_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
+            <a href="{% url 'main_dashboard' %}" data-title="{% trans 'Dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
                 <i class="fas fa-home"></i>
                 <span>{% trans "Dashboard" %}</span>
             </a>
             
             {% if user.is_staff or user.is_superuser %}
-            <a href="{% url 'users:user_list' %}" class="nav-link {% if 'users' in request.path %}active{% endif %}">
+            <a href="{% url 'users:user_list' %}" data-title="{% trans 'User Management' %}" class="nav-link {% if 'users' in request.path %}active{% endif %}">
                 <i class="fas fa-user-shield text-danger"></i>
                 <span class="fw-bold">{% trans "User Management" %}</span>
             </a>
@@ -74,26 +87,33 @@
             <p class="text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "Modules" %}</p>
             
             {% if can_use_expenses and perms.users.can_access_expenses or user.is_superuser %}
-            <a href="{% url 'expenses:dashboard' %}" class="nav-link {% if 'expenses' in request.path %}active{% endif %}">
+            <a href="{% url 'expenses:dashboard' %}" data-title="{% trans 'Expenses' %}" class="nav-link {% if 'expenses' in request.path %}active{% endif %}">
                 <i class="fas fa-wallet"></i>
                 <span>{% trans "Expenses" %}</span>
             </a>
             {% endif %}
 
             {% if can_use_ticketing and perms.users.can_access_ticketing or user.is_superuser %}
-            <a href="{% url 'ticketing:ticket_list' %}" class="nav-link {% if 'ticketing' in request.path %}active{% endif %}">
+            <a href="{% url 'ticketing:ticket_list' %}" data-title="{% trans 'Ticketing' %}" class="nav-link {% if 'ticketing' in request.path %}active{% endif %}">
                 <i class="fas fa-ticket-alt"></i>
                 <span>{% trans "Ticketing" %}</span>
             </a>
             {% endif %}
 
             {% if can_use_attendance and perms.users.can_access_attendance or user.is_superuser %}
-            <a href="{% url 'hr_attendance:dashboard' %}" class="nav-link {% if 'attendance' in request.path %}active{% endif %}">
+            <a href="{% url 'hr_attendance:dashboard' %}" data-title="{% trans 'Attendance' %}" class="nav-link {% if 'attendance' in request.path %}active{% endif %}">
                 <i class="fas fa-clock"></i>
                 <span>{% trans "Attendance" %}</span>
             </a>
             {% endif %}
-            
+
+            {% if can_use_personnel or user.is_superuser %}
+            <a href="{% url 'hr_personnel:employee_list' %}" data-title="{% trans 'Personnel' %}" class="nav-link {% if 'personnel' in request.path %}active{% endif %}">
+                <i class="fas fa-id-badge"></i>
+                <span>{% trans "Personnel" %}</span>
+            </a>
+            {% endif %}
+
             {% if can_use_projects and perms.users.can_access_projects or user.is_superuser %}
             <a href="#" class="nav-link {% if 'projects' in request.path %}active{% endif %}">
                 <i class="fas fa-project-diagram"></i>
@@ -132,6 +152,13 @@
              <p class="text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "System" %}</p>
             
 
+            {% if user.is_superuser %}
+            <a href="{% url 'organizations:list' %}" class="nav-link {% if 'organizations' in request.path %}active{% endif %}">
+                <i class="fas fa-building"></i>
+                <span>{% trans "Organizations" %}</span>
+            </a>
+            {% endif %}
+
             <a href="{% url 'users:settings' %}" class="nav-link {% if 'settings' in request.path %}active{% endif %}">
                 <i class="fas fa-cog"></i>
                 <span>{% trans "Settings" %}</span>
@@ -159,6 +186,9 @@
             </div>
             
             <div class="d-flex align-items-center gap-3">
+                <button id="sidebar-toggle" class="btn btn-icon-only shadow-none border-0 p-2" type="button" title="{% trans 'Toggle Sidebar' %}">
+                    <i class="fas fa-bars fs-5 text-secondary"></i>
+                </button>
                 <button id="theme-toggle" class="btn btn-icon-only shadow-none border-0 p-2" type="button" title="{% trans 'Toggle Theme' %}">
                     <i class="fas fa-moon fs-5 text-secondary dark-icon"></i>
                     <i class="fas fa-sun fs-5 text-warning light-icon d-none"></i>
@@ -177,7 +207,11 @@
                         <span class="d-none d-md-block fw-bold text-dark">{{ user.first_name|default:user.username }}</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                        <li><a class="dropdown-item" href="{% url 'users:settings' %}">{% trans "Profile Settings" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:profile' %}">{% trans "Profile" %}</a></li>
+                        {% if user.employee %}
+                        <li><a class="dropdown-item" href="{% url 'hr_personnel:employee_me' %}">{% trans "Personnel Profile" %}</a></li>
+                        {% endif %}
+                        <li><a class="dropdown-item" href="{% url 'users:settings' %}">{% trans "Settings" %}</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{% url 'logout' %}" method="post">
@@ -209,6 +243,54 @@
     <script>
         // Emergency cleanup for "frozen" screen issues (residual backdrops)
         document.addEventListener('DOMContentLoaded', function() {
+            const loadingEl = document.getElementById('global-loading');
+            const showLoading = () => {
+                if (loadingEl) loadingEl.classList.add('show');
+            };
+            const hideLoading = () => {
+                if (loadingEl) loadingEl.classList.remove('show');
+            };
+
+            window.addEventListener('pageshow', () => {
+                hideLoading();
+                document.querySelectorAll('button[data-loading-disabled="1"]').forEach(btn => {
+                    btn.disabled = false;
+                    btn.removeAttribute('data-loading-disabled');
+                });
+            });
+
+            document.addEventListener('submit', (e) => {
+                try {
+                    const form = e.target;
+                    if (!(form instanceof HTMLFormElement)) return;
+                    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(btn => {
+                        if (!btn.disabled) {
+                            btn.setAttribute('data-loading-disabled', '1');
+                            btn.disabled = true;
+                        }
+                    });
+                } catch (err) {}
+                showLoading();
+            }, true);
+
+            document.addEventListener('click', (e) => {
+                const a = e.target.closest('a');
+                if (!a) return;
+                const href = a.getAttribute('href') || '';
+                if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+                if (a.getAttribute('target') === '_blank') return;
+                if (a.hasAttribute('download')) return;
+
+                try {
+                    const url = new URL(href, window.location.href);
+                    if (url.origin !== window.location.origin) return;
+                } catch (err) {
+                    return;
+                }
+
+                showLoading();
+            }, true);
+
             // Remove any lingering bootstrap backdrops
             const backdrops = document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop');
             backdrops.forEach(b => b.remove());
@@ -244,6 +326,15 @@
             localStorage.setItem('theme', newTheme);
             updateIcons(newTheme);
         });
+
+        // Sidebar Toggle Logic
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                const isCollapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+                localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+            });
+        }
     });
     </script>
     {% block extra_js %}{% endblock %}

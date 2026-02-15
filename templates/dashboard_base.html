@@ -93,6 +93,13 @@
                 <span>{% trans "Attendance" %}</span>
             </a>
             {% endif %}
+
+            {% if can_use_personnel and perms.users.can_access_personnel or user.is_superuser %}
+            <a href="{% url 'hr_personnel:employee_list' %}" class="nav-link {% if 'personnel' in request.path %}active{% endif %}">
+                <i class="fas fa-id-badge"></i>
+                <span>{% trans "Personnel" %}</span>
+            </a>
+            {% endif %}
             
             {% if can_use_projects and perms.users.can_access_projects or user.is_superuser %}
             <a href="#" class="nav-link {% if 'projects' in request.path %}active{% endif %}">

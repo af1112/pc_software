@@ -1,0 +1,105 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Supervisor Panel" %}{% endblock %}
+{% block page_title %}{% trans "Attendance" %}{% endblock %}
+{% block content_title %}{% trans "Supervisor Panel" %}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0">{% trans "Manage Today's Attendance" %} — {{ today|date:"Y/m/d" }}</h5>
+      <a href="{% url 'hr_attendance:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> {% trans "Back to My Attendance" %}
+      </a>
+    </div>
+
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-bold mb-1">{% trans "Date" %}</label>
+        <form method="get" class="d-flex gap-2">
+          <input type="date" name="date" class="form-control" value="{{ date_str }}">
+          <button type="submit" class="btn btn-outline-primary">{% trans "Go" %}</button>
+        </form>
+      </div>
+
+      <div class="col-12 col-md-9 text-end">
+        <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="btn btn-sm btn-outline-danger">
+          <i class="fas fa-file-pdf me-1"></i> {% trans "Export PDF" %}
+        </a>
+        <a href="mailto:?subject=Attendance%20Report%20{{ date_str }}&body={{ pdf_url|urlencode }}" class="btn btn-sm btn-outline-secondary">
+          <i class="fas fa-envelope me-1"></i> {% trans "Share by Email" %}
+        </a>
+        <a href="https://wa.me/?text={{ pdf_url|urlencode }}" target="_blank" class="btn btn-sm btn-outline-success">
+          <i class="fab fa-whatsapp me-1"></i> {% trans "Share WhatsApp" %}
+        </a>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="bg-light">
+          <tr>
+            <th>#</th>
+            <th>{% trans "Username" %}</th>
+            <th>{% trans "Name" %}</th>
+            <th>{% trans "Clock In" %}</th>
+            <th>{% trans "Clock Out" %}</th>
+            <th>{% trans "Actions" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in records %}
+          {% with u=row.user e=row.employee a=row.attendance %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ u.username }}</td>
+            <td>
+              {% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:"-" }}{% endif %}
+            </td>
+            <td>
+              {% if a and a.clock_in %}
+                {{ a.clock_in|time:"H:i" }}
+                {% if a.clock_in_by and a.clock_in_by != u %}
+                  <small class="text-muted">({% trans "by" %} {{ a.clock_in_by.username }})</small>
+                {% endif %}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if a and a.clock_out %}
+                {{ a.clock_out|time:"H:i" }}
+                {% if a.clock_out_by and a.clock_out_by != u %}
+                  <small class="text-muted">({% trans "by" %} {{ a.clock_out_by.username }})</small>
+                {% endif %}
+              {% else %}-{% endif %}
+            </td>
+            <td class="d-flex gap-2">
+              <form method="post" action="{% url 'hr_attendance:supervisor_clock_in' u.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ date_str }}">
+                <button class="btn btn-sm btn-success" {% if a and a.clock_in %}disabled{% endif %}>
+                  <i class="fas fa-sign-in-alt"></i> {% trans "Clock In" %}
+                </button>
+              </form>
+              <form method="post" action="{% url 'hr_attendance:supervisor_clock_out' u.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ date_str }}">
+                <button class="btn btn-sm btn-danger" {% if not a or not a.clock_in or a.clock_out %}disabled{% endif %}>
+                  <i class="fas fa-sign-out-alt"></i> {% trans "Clock Out" %}
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">{% trans "No users found for your organization." %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+{% endblock %}

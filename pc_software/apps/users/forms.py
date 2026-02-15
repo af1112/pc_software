@@ -3,6 +3,7 @@ from .models import UserProfile
 from django.conf import settings
 from django.contrib.auth.models import User, Permission
 from django.contrib.contenttypes.models import ContentType
+from apps.organizations.models import Organization
 
 class LanguageSettingsForm(forms.ModelForm):
     preferred_language = forms.ChoiceField(
@@ -51,6 +52,12 @@ class UserCreateForm(forms.ModelForm):
         label="User Role",
         initial='user'
     )
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Organization"
+    )
 
     class Meta:
         model = User
@@ -75,6 +82,7 @@ class UserPermissionsForm(forms.Form):
     CAN_ACCESS_EXPENSES = forms.BooleanField(required=False, label="Access Expense Manager")
     CAN_ACCESS_TICKETING = forms.BooleanField(required=False, label="Access Ticketing System")
     CAN_ACCESS_ATTENDANCE = forms.BooleanField(required=False, label="Access Presence & Attendance")
+    CAN_ACCESS_PERSONNEL = forms.BooleanField(required=False, label="Access Personnel & Payroll")
     CAN_ACCESS_PROJECTS = forms.BooleanField(required=False, label="Access Project Control")
     CAN_ACCESS_DMS = forms.BooleanField(required=False, label="Access Document DMS")
     CAN_ACCESS_AI = forms.BooleanField(required=False, label="Access AI Engine")
