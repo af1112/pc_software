@@ -258,6 +258,51 @@ msgstr "خوش آمدید"
 msgid "Manage your business modules, track expenses, and monitor performance all in one place."
 msgstr "ماژول‌های کسب‌وکار خود را مدیریت کنید، هزینه‌ها را پیگیری کنید و عملکرد را در یک جا نظارت کنید."
 
+msgid "Open"
+msgstr "باز"
+
+msgid "Waiting for Response"
+msgstr "در انتظار پاسخ"
+
+msgid "Under Review"
+msgstr "در حال بررسی"
+
+msgid "Referred to Expert"
+msgstr "ارجاع شده به کارشناس"
+
+msgid "In Progress"
+msgstr "در حال انجام"
+
+msgid "Needs More Info"
+msgstr "نیازمند اطلاعات بیشتر"
+
+msgid "Closed"
+msgstr "بسته شده"
+
+msgid "Low"
+msgstr "کم"
+
+msgid "Medium"
+msgstr "متوسط"
+
+msgid "High"
+msgstr "زیاد"
+
+msgid "Critical"
+msgstr "بحرانی"
+
+msgid "Bug"
+msgstr "اشکال"
+
+msgid "Feature Request"
+msgstr "درخواست قابلیت جدید"
+
+msgid "Support"
+msgstr "پشتیبانی"
+
+msgid "Other"
+msgstr "سایر"
+
 msgid "Business Modules"
 msgstr "ماژول‌های کسب‌وکار"
 
