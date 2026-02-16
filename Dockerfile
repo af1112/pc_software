@@ -29,5 +29,5 @@ WORKDIR /app/pc_software
 # باز کردن پورت ۸۰۰۰
 EXPOSE 8000
 
-# اجرای مهاجرت‌ها هنگام استارت و سپس اجرای گانیکورن
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application"]
+# اجرای مهاجرت‌ها و جمع‌آوری استاتیک در استارت، سپس اجرای گانیکورن روی پورت محیطی Render
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application"]
