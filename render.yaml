@@ -5,7 +5,6 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     autoDeploy: true
-    postDeployCommand: python manage.py migrate
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: core.settings

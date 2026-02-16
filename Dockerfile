@@ -23,11 +23,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # کپی کردن کل پروژه به داخل کانتینر
 COPY . .
 
-# جمع‌آوری فایل‌های استاتیک
-RUN python manage.py collectstatic --noinput
-
 # باز کردن پورت ۸۰۰۰
 EXPOSE 8000
 
-# دستور شروع به کار با Gunicorn (وب‌سرور صنعتی)
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "core.wsgi:application"]
+# اجرای مهاجرت‌ها هنگام استارت و سپس اجرای گانیکورن
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application"]
