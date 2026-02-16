@@ -30,4 +30,4 @@ WORKDIR /app/pc_software
 EXPOSE 8000
 
 # اجرای مهاجرت‌ها و جمع‌آوری استاتیک در استارت، سپس اجرای گانیکورن روی پورت محیطی Render
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application"]
+CMD ["sh", "-c", "if [ -n \"$DB_CA\" ]; then echo \"$DB_CA\" > /tmp/db_ca.pem && export DB_CA_PATH=/tmp/db_ca.pem; fi; python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application"]

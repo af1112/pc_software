@@ -115,6 +115,13 @@ DB_USER = os.environ.get('DB_USER', '3T8qABXcqrWPrb4.root')
 DB_PASSWORD = os.environ.get('DB_PASSWORD', 'DAVmYUYPcEiVlle0')
 DB_HOST = os.environ.get('DB_HOST', 'gateway01.us-east-1.prod.aws.tidbcloud.com')
 DB_PORT = os.environ.get('DB_PORT', '4000')
+DB_CA_PATH = os.environ.get('DB_CA_PATH')
+
+db_options = {
+    'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+}
+if DB_CA_PATH:
+    db_options['ssl'] = {'ca': DB_CA_PATH}
 
 DATABASES = {
     'default': {
@@ -124,12 +131,7 @@ DATABASES = {
         'PASSWORD': DB_PASSWORD,
         'HOST': DB_HOST,
         'PORT': DB_PORT,
-        'OPTIONS': {
-            'ssl': {
-                'ca': None,
-            },
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        'OPTIONS': db_options,
     }
 }
 

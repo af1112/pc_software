@@ -20,4 +20,6 @@ services:
         sync: false
       - key: DB_PORT
         value: "4000"
+      - key: DB_CA
+        sync: false
     healthCheckPath: /
