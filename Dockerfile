@@ -27,4 +27,4 @@ COPY . .
 EXPOSE 8000
 
 # اجرای مهاجرت‌ها هنگام استارت و سپس اجرای گانیکورن
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application"]
