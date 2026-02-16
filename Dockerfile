@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # کپی کردن کل پروژه به داخل کانتینر
 COPY . .
 
+# اجرای دستورات از محل فایل manage.py
+WORKDIR /app/pc_software
+
 # باز کردن پورت ۸۰۰۰
 EXPOSE 8000
 
