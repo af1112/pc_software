@@ -31,19 +31,30 @@ sys.path.insert(0, str(BASE_DIR / 'apps'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv'
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').strip().lower() in ('1', 'true', 'yes', 'y', 'on')
 
-ALLOWED_HOSTS = ['*']
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*']
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://akafbusiness.com',
-    'https://www.akafbusiness.com',
-    'https://akafco.com',
-    'https://www.akafco.com',
-]
+csrf_trusted_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if csrf_trusted_origins_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_origins_env.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://akafbusiness.com',
+        'https://www.akafbusiness.com',
+        'https://akafco.com',
+        'https://www.akafco.com',
+    ]
 
 
 # Application definition
@@ -110,30 +121,62 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # Use Environment Variables from Vercel (preferred) or Fallback to hardcoded for testing
+DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.mysql')
 DB_NAME = os.environ.get('DB_NAME', 'akaf_dev')
 DB_USER = os.environ.get('DB_USER', '3T8qABXcqrWPrb4.root')
 DB_PASSWORD = os.environ.get('DB_PASSWORD', 'DAVmYUYPcEiVlle0')
 DB_HOST = os.environ.get('DB_HOST', 'gateway01.us-east-1.prod.aws.tidbcloud.com')
 DB_PORT = os.environ.get('DB_PORT', '4000')
 DB_CA_PATH = os.environ.get('DB_CA_PATH')
+DB_CA_B64 = os.environ.get('DB_CA_B64')
+DB_OPTIONS_SSL_MODE = os.environ.get('DB_OPTIONS_SSL_MODE')
 
-db_options = {
-    'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-}
-if DB_CA_PATH:
-    db_options['ssl'] = {'ca': DB_CA_PATH}
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASSWORD,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
-        'OPTIONS': db_options,
+if DB_ENGINE == 'django.db.backends.sqlite3':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    db_options = {
+        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+    }
+
+    if DB_CA_B64 and not DB_CA_PATH:
+        try:
+            import base64
+            ca_bytes = base64.b64decode(DB_CA_B64)
+            ca_file_path = BASE_DIR / 'tidb-ca.pem'
+            if not ca_file_path.exists():
+                ca_file_path.write_bytes(ca_bytes)
+            DB_CA_PATH = str(ca_file_path)
+        except Exception:
+            DB_CA_PATH = None
+
+    ssl_mode_required = DB_OPTIONS_SSL_MODE and DB_OPTIONS_SSL_MODE.upper() == 'REQUIRED'
+
+    if DB_CA_PATH:
+        db_options['ssl'] = {'ca': DB_CA_PATH}
+    elif ssl_mode_required or 'tidbcloud.com' in (DB_HOST or '').lower():
+        # TiDB Cloud requires TLS. If no custom CA is provided, fall back to certifi bundle.
+        try:
+            import certifi
+            db_options['ssl'] = {'ca': certifi.where()}
+        except Exception:
+            db_options['ssl'] = {}
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASSWORD,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT,
+            'OPTIONS': db_options,
+        }
+    }
 
 
 # Password validation
