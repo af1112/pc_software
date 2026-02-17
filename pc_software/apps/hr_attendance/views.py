@@ -31,7 +31,7 @@ def attendance_dashboard(request):
             selected_date = timezone.localtime(timezone.now()).date()
     else:
         selected_date = timezone.localtime(timezone.now()).date()
-    attendance, created = Attendance.objects.get_or_create(user=request.user, date=today)
+    attendance, created = Attendance.objects.get_or_create(user=request.user, date=selected_date)
     
     recent_attendances = Attendance.objects.filter(user=request.user).order_by('-date')[:5]
     
@@ -43,7 +43,7 @@ def attendance_dashboard(request):
     context = {
         'attendance': attendance,
         'recent_attendances': recent_attendances,
-        'today': today,
+        'today': selected_date,
         'require_photo': require_photo,
     }
     return render(request, 'hr_attendance/dashboard.html', context)
@@ -134,12 +134,29 @@ def supervisor_panel(request):
         org = request.user.profile.organization
     except Exception:
         org = None
-    users_qs = User.objects.filter(employee__isnull=False).order_by('username')
+    users_qs = User.objects.filter(employee__isnull=False).select_related('profile').order_by('username')
     if not request.user.is_superuser and org:
         users_qs = users_qs.filter(employee__organization=org)
     elif not request.user.is_superuser and not org:
         users_qs = User.objects.none()
-    today = timezone.localtime(timezone.now()).date()
+
+    if not request.user.is_superuser:
+        try:
+            role = getattr(request.user.profile, 'role', 'user')
+        except Exception:
+            role = 'user'
+        if role == 'supervisor':
+            users_qs = users_qs.filter(profile__supervisor=request.user).exclude(profile__role='admin').exclude(is_superuser=True)
+
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            selected_date = datetime.date.fromisoformat(date_str)
+        except Exception:
+            selected_date = timezone.localtime(timezone.now()).date()
+    else:
+        selected_date = timezone.localtime(timezone.now()).date()
+
     # Build list with selected date attendance
     records = []
     for u in users_qs:
@@ -182,11 +199,19 @@ def supervisor_report_pdf(request):
     else:
         selected_date = timezone.localtime(timezone.now()).date()
 
-    users_qs = User.objects.filter(employee__isnull=False).order_by('username')
+    users_qs = User.objects.filter(employee__isnull=False).select_related('profile').order_by('username')
     if not request.user.is_superuser and org:
         users_qs = users_qs.filter(employee__organization=org)
     elif not request.user.is_superuser and not org:
         users_qs = User.objects.none()
+
+    if not request.user.is_superuser:
+        try:
+            role = getattr(request.user.profile, 'role', 'user')
+        except Exception:
+            role = 'user'
+        if role == 'supervisor':
+            users_qs = users_qs.filter(profile__supervisor=request.user).exclude(profile__role='admin').exclude(is_superuser=True)
 
     records = []
     for u in users_qs:

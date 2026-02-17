@@ -64,6 +64,18 @@
                             </div>
                             {% endif %}
                             {% endfor %}
+
+                            {% if request.user.is_superuser or request.user.profile.role == 'admin' %}
+                            <div id="supervisor-field-create" class="col-md-6">
+                                <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %}</label>
+                                <select name="supervisor" class="form-select">
+                                    <option value="">-</option>
+                                    {% for s in supervisors %}
+                                        <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% endif %}
                         </div>
                         {% else %}
                         <div class="row g-4">
@@ -99,6 +111,17 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        {% if request.user.is_superuser or request.user.profile.role == 'admin' %}
+                        <div id="supervisor-field-edit" class="col-md-3">
+                            <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %}</label>
+                            <select name="supervisor" class="form-select">
+                                <option value="">-</option>
+                                {% for s in supervisors %}
+                                    <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
                     </div>
                         {% endif %}
                     </div>
@@ -185,6 +208,22 @@
             
             attendanceSwitch.addEventListener('change', toggleSettings);
             toggleSettings(); // Initial state
+        }
+
+        const roleSelect = document.querySelector('select[name="role"], #id_role');
+        const supervisorCreate = document.getElementById('supervisor-field-create');
+        const supervisorEdit = document.getElementById('supervisor-field-edit');
+
+        const syncSupervisorVisibility = () => {
+            const role = roleSelect ? (roleSelect.value || '').toLowerCase() : '';
+            const show = role === 'user';
+            if (supervisorCreate) supervisorCreate.style.display = show ? '' : 'none';
+            if (supervisorEdit) supervisorEdit.style.display = show ? '' : 'none';
+        };
+
+        if (roleSelect) {
+            roleSelect.addEventListener('change', syncSupervisorVisibility);
+            syncSupervisorVisibility();
         }
     });
 </script>

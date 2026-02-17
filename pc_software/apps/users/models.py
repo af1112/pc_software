@@ -14,6 +14,14 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     organization = models.ForeignKey('organizations.Organization', on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_users',
+        db_constraint=False,
+    )
     preferred_language = models.CharField(
         max_length=10,
         choices=settings.LANGUAGES,

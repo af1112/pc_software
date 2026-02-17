@@ -83,6 +83,15 @@ def user_list(request):
         except UserProfile.DoesNotExist:
             users = User.objects.none()
 
+        # Hierarchy: supervisors only see their direct reports (and never admins/superusers)
+        try:
+            role = getattr(request.user.profile, 'role', 'user')
+        except Exception:
+            role = 'user'
+
+        if role == 'supervisor':
+            users = users.filter(profile__supervisor=request.user).exclude(is_superuser=True).exclude(profile__role='admin')
+
     return render(
         request,
         'users/user_list.html',
@@ -115,6 +124,37 @@ def user_create(request):
                     profile.organization = request.user.profile.organization
                 except UserProfile.DoesNotExist:
                     profile.organization = None
+
+            # Hierarchy assignment (only meaningful for role=user)
+            selected_supervisor_id = request.POST.get('supervisor')
+            profile.supervisor = None
+            if profile.role == 'user':
+                if request.user.is_superuser:
+                    if selected_supervisor_id:
+                        try:
+                            candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
+                            if getattr(candidate.profile, 'role', None) == 'supervisor':
+                                profile.supervisor = candidate
+                        except Exception:
+                            profile.supervisor = None
+                else:
+                    try:
+                        current_role = getattr(request.user.profile, 'role', 'user')
+                    except Exception:
+                        current_role = 'user'
+                    if current_role == 'supervisor':
+                        profile.supervisor = request.user
+                    elif current_role == 'admin':
+                        if selected_supervisor_id:
+                            try:
+                                candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
+                                if (
+                                    candidate.profile.organization_id == profile.organization_id
+                                    and candidate.profile.role == 'supervisor'
+                                ):
+                                    profile.supervisor = candidate
+                            except Exception:
+                                profile.supervisor = None
             profile.save()
             
             # Update user staff status based on role
@@ -167,13 +207,36 @@ def user_create(request):
     else:
         user_form = UserCreateForm()
         perm_form = UserPermissionsForm()
-    
+
+    supervisors = User.objects.none()
+    selected_supervisor = None
+    if request.user.is_superuser:
+        org = None
+        if request.method == 'POST':
+            try:
+                org = user_form.cleaned_data.get('organization')
+            except Exception:
+                org = None
+        supervisors = User.objects.select_related('profile').filter(profile__role='supervisor')
+        if org:
+            supervisors = supervisors.filter(profile__organization=org)
+        supervisors = supervisors.order_by('username')
+    else:
+        try:
+            org = request.user.profile.organization
+        except Exception:
+            org = None
+        if org:
+            supervisors = User.objects.select_related('profile').filter(profile__organization=org, profile__role='supervisor').order_by('username')
+
     return render(request, 'users/user_form.html', {
         'user_form': user_form,
         'perm_form': perm_form,
         'title': _('Create New User'),
         'LANGUAGES': settings.LANGUAGES,
-        'ROLES': UserProfile.ROLE_CHOICES
+        'ROLES': UserProfile.ROLE_CHOICES,
+        'supervisors': supervisors,
+        'selected_supervisor': selected_supervisor,
     })
 
 @login_required
@@ -204,6 +267,39 @@ def user_edit(request, pk):
         # Update profile language and role
         profile.preferred_language = request.POST.get('preferred_language', profile.preferred_language)
         profile.role = request.POST.get('role', profile.role)
+
+        # Hierarchy assignment (only meaningful for role=user)
+        selected_supervisor_id = request.POST.get('supervisor')
+        profile.supervisor = None
+        if profile.role == 'user':
+            if request.user.is_superuser:
+                if selected_supervisor_id:
+                    try:
+                        candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
+                        if candidate.id != user.id and getattr(candidate.profile, 'role', None) == 'supervisor':
+                            profile.supervisor = candidate
+                    except Exception:
+                        profile.supervisor = None
+            else:
+                try:
+                    current_role = getattr(request.user.profile, 'role', 'user')
+                except Exception:
+                    current_role = 'user'
+                if current_role == 'supervisor':
+                    profile.supervisor = request.user
+                elif current_role == 'admin':
+                    if selected_supervisor_id:
+                        try:
+                            candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
+                            if (
+                                candidate.id != user.id
+                                and candidate.profile.organization_id == profile.organization_id
+                                and candidate.profile.role == 'supervisor'
+                            ):
+                                profile.supervisor = candidate
+                        except Exception:
+                            profile.supervisor = None
+
         profile.save()
         
         # Update user staff status based on role
@@ -265,7 +361,12 @@ def user_edit(request, pk):
         'perm_form': perm_form,
         'title': _('Edit User'),
         'LANGUAGES': settings.LANGUAGES,
-        'ROLES': UserProfile.ROLE_CHOICES
+        'ROLES': UserProfile.ROLE_CHOICES,
+        'supervisors': User.objects.select_related('profile').filter(
+            profile__organization=profile.organization,
+            profile__role='supervisor',
+        ).exclude(id=user.id).order_by('username') if profile.organization_id else User.objects.none(),
+        'selected_supervisor': profile.supervisor_id,
     })
 
 @login_required
