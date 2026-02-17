@@ -267,6 +267,14 @@ def user_edit(request, pk):
         # Update profile language and role
         profile.preferred_language = request.POST.get('preferred_language', profile.preferred_language)
         profile.role = request.POST.get('role', profile.role)
+        if request.user.is_superuser:
+            selected_org_id = request.POST.get('organization')
+            profile.organization = Organization.objects.filter(id=selected_org_id).first() if selected_org_id else None
+        else:
+            try:
+                profile.organization = request.user.profile.organization
+            except UserProfile.DoesNotExist:
+                profile.organization = None
 
         # Hierarchy assignment (only meaningful for role=user)
         selected_supervisor_id = request.POST.get('supervisor')
@@ -355,6 +363,28 @@ def user_edit(request, pk):
             messages.error(request, _('Please correct the errors below.'))
     else:
         perm_form = UserPermissionsForm(user=user)
+
+    selected_org = profile.organization
+    if request.user.is_superuser and request.method == 'POST':
+        posted_org_id = request.POST.get('organization')
+        selected_org = Organization.objects.filter(id=posted_org_id).first() if posted_org_id else None
+
+    if request.user.is_superuser:
+        organizations = Organization.objects.order_by('name')
+        supervisors = User.objects.select_related('profile').filter(profile__role='supervisor')
+        if selected_org:
+            supervisors = supervisors.filter(profile__organization=selected_org)
+        supervisors = supervisors.exclude(id=user.id).order_by('username')
+    else:
+        organizations = Organization.objects.none()
+        supervisors = (
+            User.objects.select_related('profile')
+            .filter(profile__organization=profile.organization, profile__role='supervisor')
+            .exclude(id=user.id)
+            .order_by('username')
+            if profile.organization_id
+            else User.objects.none()
+        )
     
     return render(request, 'users/user_form.html', {
         'edit_user': user,
@@ -362,10 +392,9 @@ def user_edit(request, pk):
         'title': _('Edit User'),
         'LANGUAGES': settings.LANGUAGES,
         'ROLES': UserProfile.ROLE_CHOICES,
-        'supervisors': User.objects.select_related('profile').filter(
-            profile__organization=profile.organization,
-            profile__role='supervisor',
-        ).exclude(id=user.id).order_by('username') if profile.organization_id else User.objects.none(),
+        'organizations': organizations,
+        'selected_org_id': selected_org.id if selected_org else None,
+        'supervisors': supervisors,
         'selected_supervisor': profile.supervisor_id,
     })
 

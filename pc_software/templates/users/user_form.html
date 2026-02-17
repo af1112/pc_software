@@ -111,6 +111,17 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        {% if request.user.is_superuser %}
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-dark small">{% trans "Organization" %}</label>
+                            <select name="organization" class="form-select">
+                                <option value="">-</option>
+                                {% for org in organizations %}
+                                <option value="{{ org.id }}" {% if selected_org_id == org.id %}selected{% endif %}>{{ org.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
                         {% if request.user.is_superuser or request.user.profile.role == 'admin' %}
                         <div id="supervisor-field-edit" class="col-md-3">
                             <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %}</label>
