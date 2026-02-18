@@ -31,6 +31,7 @@ class UserProfile(models.Model):
     currency_code = models.CharField(max_length=10, default='OMR', help_text="ISO 4217 Currency Code (e.g. OMR, USD)")
     currency_symbol = models.CharField(max_length=10, default='ر.ع.', help_text="Currency Symbol (e.g. $, €)")
     currency_decimal_places = models.IntegerField(default=3, help_text="Number of decimal places (e.g. 3 for OMR, 2 for USD)")
+    timezone = models.CharField(max_length=64, default='Asia/Tehran', help_text="IANA timezone (e.g. Asia/Tehran)")
 
     # Attendance Settings
     require_photo = models.BooleanField(default=True, help_text="Require a photo for attendance clock-in/out")
@@ -58,4 +59,7 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    instance.profile.save()
+    try:
+        instance.profile.save()
+    except UserProfile.DoesNotExist:
+        UserProfile.objects.create(user=instance)
