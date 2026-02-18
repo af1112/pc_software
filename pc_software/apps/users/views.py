@@ -108,6 +108,11 @@ def user_create(request):
     if request.method == 'POST':
         user_form = UserCreateForm(request.POST)
         perm_form = UserPermissionsForm(request.POST)
+        selected_supervisor = request.POST.get('supervisor')
+        try:
+            selected_supervisor = int(selected_supervisor) if selected_supervisor else None
+        except Exception:
+            selected_supervisor = None
         if user_form.is_valid() and perm_form.is_valid():
             user = user_form.save(commit=False)
             user.set_password(user_form.cleaned_data['password'])
@@ -133,7 +138,10 @@ def user_create(request):
                     if selected_supervisor_id:
                         try:
                             candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
-                            if getattr(candidate.profile, 'role', None) == 'supervisor':
+                            if (
+                                getattr(candidate.profile, 'role', None) == 'supervisor'
+                                and candidate.profile.organization_id == profile.organization_id
+                            ):
                                 profile.supervisor = candidate
                         except Exception:
                             profile.supervisor = None
@@ -207,19 +215,17 @@ def user_create(request):
     else:
         user_form = UserCreateForm()
         perm_form = UserPermissionsForm()
+        selected_supervisor = None
 
     supervisors = User.objects.none()
-    selected_supervisor = None
+    selected_org_id = None
     if request.user.is_superuser:
-        org = None
-        if request.method == 'POST':
-            try:
-                org = user_form.cleaned_data.get('organization')
-            except Exception:
-                org = None
+        try:
+            selected_org = user_form.cleaned_data.get('organization') if request.method == 'POST' else None
+        except Exception:
+            selected_org = None
+        selected_org_id = selected_org.id if selected_org else None
         supervisors = User.objects.select_related('profile').filter(profile__role='supervisor')
-        if org:
-            supervisors = supervisors.filter(profile__organization=org)
         supervisors = supervisors.order_by('username')
     else:
         try:
@@ -227,6 +233,7 @@ def user_create(request):
         except Exception:
             org = None
         if org:
+            selected_org_id = org.id
             supervisors = User.objects.select_related('profile').filter(profile__organization=org, profile__role='supervisor').order_by('username')
 
     try:
@@ -245,6 +252,7 @@ def user_create(request):
         'ROLES': UserProfile.ROLE_CHOICES,
         'supervisors': supervisors,
         'selected_supervisor': selected_supervisor,
+        'selected_org_id': selected_org_id,
         'can_assign_organization': can_assign_organization,
         'can_assign_supervisor': can_assign_supervisor,
     })
@@ -294,7 +302,11 @@ def user_edit(request, pk):
                 if selected_supervisor_id:
                     try:
                         candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
-                        if candidate.id != user.id and getattr(candidate.profile, 'role', None) == 'supervisor':
+                        if (
+                            candidate.id != user.id
+                            and getattr(candidate.profile, 'role', None) == 'supervisor'
+                            and candidate.profile.organization_id == profile.organization_id
+                        ):
                             profile.supervisor = candidate
                     except Exception:
                         profile.supervisor = None

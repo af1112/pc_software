@@ -71,7 +71,7 @@
                                 <select name="supervisor" class="form-select">
                                     <option value="">-</option>
                                     {% for s in supervisors %}
-                                        <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
+                                        <option value="{{ s.id }}" data-org-id="{{ s.profile.organization_id|default:'' }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -128,7 +128,7 @@
                             <select name="supervisor" class="form-select">
                                 <option value="">-</option>
                                 {% for s in supervisors %}
-                                    <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
+                                    <option value="{{ s.id }}" data-org-id="{{ s.profile.organization_id|default:'' }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -222,8 +222,13 @@
         }
 
         const roleSelect = document.querySelector('select[name="role"], #id_role');
+        const organizationSelect = document.querySelector('select[name="organization"], #id_organization');
         const supervisorCreate = document.getElementById('supervisor-field-create');
         const supervisorEdit = document.getElementById('supervisor-field-edit');
+        const supervisorSelects = [
+            supervisorCreate ? supervisorCreate.querySelector('select[name="supervisor"]') : null,
+            supervisorEdit ? supervisorEdit.querySelector('select[name="supervisor"]') : null,
+        ].filter(Boolean);
 
         const syncSupervisorVisibility = () => {
             const role = roleSelect ? (roleSelect.value || '').toLowerCase() : '';
@@ -235,6 +240,37 @@
         if (roleSelect) {
             roleSelect.addEventListener('change', syncSupervisorVisibility);
             syncSupervisorVisibility();
+        }
+
+        const syncSupervisorsByOrganization = () => {
+            if (!organizationSelect || !supervisorSelects.length) return;
+            const selectedOrg = organizationSelect.value || '';
+
+            supervisorSelects.forEach((selectEl) => {
+                const selectedOption = selectEl.options[selectEl.selectedIndex];
+
+                Array.from(selectEl.options).forEach((opt) => {
+                    if (!opt.value) {
+                        opt.hidden = false;
+                        opt.disabled = false;
+                        return;
+                    }
+
+                    const optionOrg = opt.dataset.orgId || '';
+                    const allowed = !!selectedOrg && optionOrg === selectedOrg;
+                    opt.hidden = !allowed;
+                    opt.disabled = !allowed;
+                });
+
+                if (selectedOption && selectedOption.value && selectedOption.disabled) {
+                    selectEl.value = '';
+                }
+            });
+        };
+
+        if (organizationSelect) {
+            organizationSelect.addEventListener('change', syncSupervisorsByOrganization);
+            syncSupervisorsByOrganization();
         }
     });
 </script>
