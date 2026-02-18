@@ -44,6 +44,12 @@
                             {% endif %}
                         </div>
 
+                        <div class="col-12">
+                            <a href="{% url 'users:password_change' %}" class="btn btn-outline-primary rounded-pill">
+                                <i class="fas fa-key me-2"></i>{% trans "Change Password" %}
+                            </a>
+                        </div>
+
                         <!-- Currency Section -->
                         <div class="col-12 mt-4">
                             <h6 class="text-uppercase text-secondary small fw-bold mb-3 border-bottom pb-2">

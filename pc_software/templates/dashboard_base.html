@@ -212,6 +212,7 @@
                         <li><a class="dropdown-item" href="{% url 'hr_personnel:employee_me' %}">{% trans "Personnel Profile" %}</a></li>
                         {% endif %}
                         <li><a class="dropdown-item" href="{% url 'users:settings' %}">{% trans "Settings" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:password_change' %}">{% trans "Change Password" %}</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{% url 'logout' %}" method="post">
