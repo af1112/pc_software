@@ -17,6 +17,12 @@ def organization_create(request):
         form = OrganizationForm(request.POST, request.FILES)
         if form.is_valid():
             organization = form.save()
+            try:
+                settings_key = f'user_settings_{request.user.id}'
+                if settings_key in request.session:
+                    del request.session[settings_key]
+            except Exception:
+                pass
             messages.success(request, _('Organization created successfully.'))
             return redirect('main_dashboard')
     else:
@@ -37,7 +43,15 @@ def organization_edit(request, pk):
     if request.method == 'POST':
         form = OrganizationForm(request.POST, request.FILES, instance=organization)
         if form.is_valid():
-            form.save()
+            updated_org = form.save()
+            try:
+                profile = getattr(request.user, 'profile', None)
+                if profile and profile.organization_id == updated_org.id:
+                    settings_key = f'user_settings_{request.user.id}'
+                    if settings_key in request.session:
+                        del request.session[settings_key]
+            except Exception:
+                pass
             messages.success(request, _('Organization updated successfully.'))
             return redirect('organizations:list')
     else:

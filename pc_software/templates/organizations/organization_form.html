@@ -26,6 +26,9 @@
                     <div class="mb-3">
                         <label class="form-label">{{ form.logo.label }}</label>
                         {{ form.logo }}
+                        {% if form.logo.help_text %}
+                        <div class="form-text">{{ form.logo.help_text }}</div>
+                        {% endif %}
                         {{ form.logo.errors }}
                     </div>
                     <div class="mb-3">

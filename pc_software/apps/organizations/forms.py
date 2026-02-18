@@ -19,6 +19,8 @@ TIMEZONE_CHOICES = _preferred + _rest
 
 
 class OrganizationForm(forms.ModelForm):
+    MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024
+
     class Meta:
         model = Organization
         fields = [
@@ -46,6 +48,11 @@ class OrganizationForm(forms.ModelForm):
             'timezone': forms.Select(choices=TIMEZONE_CHOICES, attrs={'class': 'form-select'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['logo'].help_text = 'Allowed: JPG, JPEG, PNG, WEBP, SVG | Max size: 2MB | Recommended: 240x80 px'
+        self.fields['logo'].widget.attrs.update({'accept': '.jpg,.jpeg,.png,.webp,.svg'})
+
     def clean(self):
         cleaned = super().clean()
         name = cleaned.get('name') or ''
@@ -61,3 +68,18 @@ class OrganizationForm(forms.ModelForm):
             cleaned['slug'] = candidate
             self.cleaned_data['slug'] = candidate
         return cleaned
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo')
+        if not logo:
+            return logo
+
+        filename = (logo.name or '').lower()
+        allowed = ('.jpg', '.jpeg', '.png', '.webp', '.svg')
+        if not filename.endswith(allowed):
+            raise forms.ValidationError('Logo format must be JPG, JPEG, PNG, WEBP, or SVG.')
+
+        if getattr(logo, 'size', 0) > self.MAX_LOGO_SIZE_BYTES:
+            raise forms.ValidationError('Logo file size must be less than 2MB.')
+
+        return logo

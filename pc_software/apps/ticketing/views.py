@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 import json
 
 User = get_user_model()
+MAX_TICKET_ATTACHMENTS = 5
 
 @login_required
 def ticket_list(request):
@@ -136,6 +137,14 @@ def ticket_create(request):
         category = request.POST.get('category')
         remote_software_name = request.POST.get('remote_software_name')
         remote_software_id = request.POST.get('remote_software_id')
+        files = request.FILES.getlist('attachments')
+
+        if len(files) > MAX_TICKET_ATTACHMENTS:
+            messages.error(
+                request,
+                _("You can upload up to %(max_count)s files per ticket.") % {'max_count': MAX_TICKET_ATTACHMENTS}
+            )
+            return render(request, 'ticketing/ticket_form.html', context={})
         
         if title and description:
             ticket = Ticket.objects.create(
@@ -149,7 +158,6 @@ def ticket_create(request):
             )
             
             # Handle multiple file attachments
-            files = request.FILES.getlist('attachments')
             for f in files:
                 TicketAttachment.objects.create(
                     ticket=ticket,
