@@ -5,6 +5,7 @@ app_name = 'hr_attendance'
 
 urlpatterns = [
     path('', views.attendance_dashboard, name='dashboard'),
+    path('quick/', views.quick_clock, name='quick_clock'),
     path('clock-in/', views.clock_in, name='clock_in'),
     path('clock-out/', views.clock_out, name='clock_out'),
     path('supervisor/', views.supervisor_panel, name='supervisor_panel'),

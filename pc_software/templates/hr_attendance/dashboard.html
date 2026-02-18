@@ -87,13 +87,16 @@
 
 {% block content %}
 <div class="container-fluid">
-    {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
-    <div class="mb-3 text-end">
+    <div class="mb-3 text-end d-flex justify-content-end gap-2 flex-wrap">
+        <a href="{% url 'hr_attendance:quick_clock' %}" class="btn btn-outline-dark btn-sm">
+            <i class="fas fa-mobile-alt me-1"></i> {% trans "Open Simple Mobile Clock Page" %}
+        </a>
+        {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
         <a href="{% url 'hr_attendance:supervisor_panel' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-user-check me-1"></i> {% trans "Open Supervisor Panel" %}
         </a>
+        {% endif %}
     </div>
-    {% endif %}
     <div class="row justify-content-center">
         <div class="col-lg-8 mb-4">
             <div class="clock-card p-5 text-center">
@@ -281,8 +284,6 @@
     }
 
     // Camera
-    const requirePhoto = {{ require_photo|yesno:"true,false" }};
-    
     if (startCameraBtn) {
         startCameraBtn.addEventListener('click', async () => {
                 try {

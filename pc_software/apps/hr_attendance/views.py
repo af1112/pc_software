@@ -10,6 +10,33 @@ from apps.expenses.utils import render_to_pdf
 import base64
 import datetime
 
+
+def _parse_location_from_request(request):
+    lat = request.POST.get('latitude')
+    lng = request.POST.get('longitude')
+    if not lat or not lng:
+        return None, None
+    return lat, lng
+
+
+def _save_location(attendance, lat, lng, event_type):
+    if not lat or not lng:
+        return
+    attendance.latitude = lat
+    attendance.longitude = lng
+    if event_type == 'in':
+        attendance.clock_in_latitude = lat
+        attendance.clock_in_longitude = lng
+    elif event_type == 'out':
+        attendance.clock_out_latitude = lat
+        attendance.clock_out_longitude = lng
+
+
+def _clock_redirect(request):
+    if request.POST.get('next') == 'quick':
+        return redirect('hr_attendance:quick_clock')
+    return redirect('hr_attendance:dashboard')
+
 def is_supervisor_or_admin(user):
     if not user.is_authenticated:
         return False
@@ -48,6 +75,17 @@ def attendance_dashboard(request):
     }
     return render(request, 'hr_attendance/dashboard.html', context)
 
+
+@login_required
+def quick_clock(request):
+    selected_date = timezone.localtime(timezone.now()).date()
+    attendance, _ = Attendance.objects.get_or_create(user=request.user, date=selected_date)
+    context = {
+        'attendance': attendance,
+        'today': selected_date,
+    }
+    return render(request, 'hr_attendance/quick_clock.html', context)
+
 @login_required
 def clock_in(request):
     if request.method == 'POST':
@@ -59,11 +97,8 @@ def clock_in(request):
             attendance.clock_in_by = request.user
             
             # Save location if provided
-            lat = request.POST.get('latitude')
-            lng = request.POST.get('longitude')
-            if lat and lng:
-                attendance.latitude = lat
-                attendance.longitude = lng
+            lat, lng = _parse_location_from_request(request)
+            _save_location(attendance, lat, lng, 'in')
             
             # Save photo if provided
             photo_data = request.POST.get('photo')
@@ -84,7 +119,7 @@ def clock_in(request):
         else:
             messages.warning(request, _("You have already clocked in today."))
             
-    return redirect('hr_attendance:dashboard')
+    return _clock_redirect(request)
 
 @login_required
 def clock_out(request):
@@ -97,11 +132,8 @@ def clock_out(request):
                 attendance.clock_out_by = request.user
                 
                 # Update location if provided (exit location)
-                lat = request.POST.get('latitude')
-                lng = request.POST.get('longitude')
-                if lat and lng:
-                    attendance.latitude = lat
-                    attendance.longitude = lng
+                lat, lng = _parse_location_from_request(request)
+                _save_location(attendance, lat, lng, 'out')
                 
                 # Save photo if provided
                 photo_data = request.POST.get('photo')
@@ -119,7 +151,7 @@ def clock_out(request):
         except Attendance.DoesNotExist:
             messages.error(request, _("No attendance record found for today. Please clock in first."))
             
-    return redirect('hr_attendance:dashboard')
+    return _clock_redirect(request)
 
 
 @login_required
@@ -264,6 +296,8 @@ def supervisor_clock_in(request, user_id):
         if not attendance.clock_in:
             attendance.clock_in = timezone.now()
             attendance.clock_in_by = request.user
+            lat, lng = _parse_location_from_request(request)
+            _save_location(attendance, lat, lng, 'in')
             attendance.save()
             messages.success(request, _("Clock-in recorded for ") + target.username)
         else:
@@ -299,6 +333,8 @@ def supervisor_clock_out(request, user_id):
         if attendance.clock_in and not attendance.clock_out:
             attendance.clock_out = timezone.now()
             attendance.clock_out_by = request.user
+            lat, lng = _parse_location_from_request(request)
+            _save_location(attendance, lat, lng, 'out')
             attendance.save()
             messages.success(request, _("Clock-out recorded for ") + target.username)
         elif not attendance.clock_in:

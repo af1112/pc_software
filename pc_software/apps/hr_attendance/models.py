@@ -30,6 +30,10 @@ class Attendance(models.Model):
     # Location tracking
     latitude = models.DecimalField(_("Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(_("Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    clock_in_latitude = models.DecimalField(_("Clock-in Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    clock_in_longitude = models.DecimalField(_("Clock-in Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    clock_out_latitude = models.DecimalField(_("Clock-out Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    clock_out_longitude = models.DecimalField(_("Clock-out Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
     
     # Photo proof (Stored as LongText for large Base64 strings)
     photo_in = models.TextField(_("Photo In"), null=True, blank=True)
@@ -57,3 +61,19 @@ class Attendance(models.Model):
             minutes, seconds = divmod(remainder, 60)
             return f"{hours:02}:{minutes:02}:{seconds:02}"
         return None
+
+    @property
+    def clock_in_location_text(self):
+        lat = self.clock_in_latitude if self.clock_in_latitude is not None else self.latitude
+        lng = self.clock_in_longitude if self.clock_in_longitude is not None else self.longitude
+        if lat is None or lng is None:
+            return None
+        return f"{lat}, {lng}"
+
+    @property
+    def clock_out_location_text(self):
+        lat = self.clock_out_latitude
+        lng = self.clock_out_longitude
+        if lat is None or lng is None:
+            return None
+        return f"{lat}, {lng}"

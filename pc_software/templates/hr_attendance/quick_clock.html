@@ -1,0 +1,220 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ request.LANGUAGE_CODE }}" {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}dir="rtl"{% endif %}>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% trans "Quick Attendance" %}</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #1f2a44;
+      --muted: #6b7280;
+      --ok: #10966d;
+      --danger: #d63f3f;
+      --accent: #275efe;
+      --shadow: 0 18px 44px rgba(24, 36, 56, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "IRANYekan", "Tahoma", sans-serif;
+      background: radial-gradient(circle at 20% 10%, #e9f0ff 0%, transparent 45%), var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+    .quick-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    .title {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 800;
+      text-align: center;
+    }
+    .meta {
+      margin-top: 8px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .clock {
+      margin: 20px 0;
+      text-align: center;
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .status {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #f59e0b;
+    }
+    .status-dot.working { background: var(--ok); }
+    .status-dot.done { background: var(--danger); }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 15px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-in { background: linear-gradient(120deg, #18b36f, #0a8c57); }
+    .btn-out { background: linear-gradient(120deg, #ef5350, #cc2f2f); }
+    .helper {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 0.86rem;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    .link-row {
+      margin-top: 16px;
+      text-align: center;
+    }
+    .link-row a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="quick-card">
+    <h1 class="title">{% if request.LANGUAGE_CODE == 'fa' %}ثبت سریع حضور و غیاب{% else %}{% trans "Quick Attendance" %}{% endif %}</h1>
+    <div class="meta">{{ today|date:"Y/m/d" }}</div>
+    <div class="clock" id="liveClock">00:00:00</div>
+
+    <div class="status" id="geoStatusWrap">
+      {% if not attendance.clock_in %}
+        <span class="status-dot"></span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}هنوز ورود ثبت نشده{% else %}{% trans "Not clocked in yet" %}{% endif %}</span>
+      {% elif attendance.clock_in and not attendance.clock_out %}
+        <span class="status-dot working"></span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}در حال کار{% else %}{% trans "Working" %}{% endif %}</span>
+      {% else %}
+        <span class="status-dot done"></span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}ورود و خروج امروز تکمیل شده{% else %}{% trans "Today is completed" %}{% endif %}</span>
+      {% endif %}
+    </div>
+
+    {% if not attendance.clock_in %}
+      <form id="quickAttendanceForm" method="post" action="{% url 'hr_attendance:clock_in' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="quick">
+        <input type="hidden" name="latitude" id="id_latitude">
+        <input type="hidden" name="longitude" id="id_longitude">
+        <button type="button" id="submitAttendanceBtn" class="btn btn-in">
+          {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم ورود{% else %}{% trans "Clock In" %}{% endif %}
+        </button>
+      </form>
+    {% elif attendance.clock_in and not attendance.clock_out %}
+      <form id="quickAttendanceForm" method="post" action="{% url 'hr_attendance:clock_out' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="quick">
+        <input type="hidden" name="latitude" id="id_latitude">
+        <input type="hidden" name="longitude" id="id_longitude">
+        <button type="button" id="submitAttendanceBtn" class="btn btn-out">
+          {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم خروج{% else %}{% trans "Clock Out" %}{% endif %}
+        </button>
+      </form>
+    {% else %}
+      <button class="btn btn-out" disabled>
+        {% if request.LANGUAGE_CODE == 'fa' %}ثبت امروز انجام شده است{% else %}{% trans "Already completed" %}{% endif %}
+      </button>
+    {% endif %}
+
+    <div class="helper" id="geoStatusText"></div>
+
+    <div class="link-row">
+      <a href="{% url 'hr_attendance:dashboard' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت به پنل حضور و غیاب{% else %}{% trans "Open Full Attendance Panel" %}{% endif %}</a>
+    </div>
+  </div>
+
+  <script>
+    const isFa = '{{ request.LANGUAGE_CODE }}' === 'fa';
+    const liveClockEl = document.getElementById('liveClock');
+    const form = document.getElementById('quickAttendanceForm');
+    const submitBtn = document.getElementById('submitAttendanceBtn');
+    const latInput = document.getElementById('id_latitude');
+    const lngInput = document.getElementById('id_longitude');
+    const geoStatusText = document.getElementById('geoStatusText');
+
+    function tickClock() {
+      const now = new Date();
+      liveClockEl.textContent = now.toLocaleTimeString(isFa ? 'fa-IR' : 'en-US', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    function submitWithLocation() {
+      if (!form || !submitBtn) return;
+      submitBtn.disabled = true;
+      geoStatusText.textContent = isFa ? 'در حال دریافت موقعیت مکانی...' : 'Fetching location...';
+
+      const submitDirectly = () => {
+        geoStatusText.textContent = isFa ? 'در حال ثبت...' : 'Submitting...';
+        form.submit();
+      };
+
+      if (!navigator.geolocation) {
+        geoStatusText.textContent = isFa ? 'دستگاه شما از لوکیشن پشتیبانی نمی‌کند؛ ثبت بدون لوکیشن انجام می‌شود.' : 'Geolocation is not supported; submitting without location.';
+        submitDirectly();
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          latInput.value = position.coords.latitude;
+          lngInput.value = position.coords.longitude;
+          geoStatusText.textContent = isFa ? 'موقعیت دریافت شد. در حال ثبت...' : 'Location captured. Submitting...';
+          submitDirectly();
+        },
+        () => {
+          geoStatusText.textContent = isFa ? 'دسترسی لوکیشن رد شد؛ ثبت بدون لوکیشن انجام می‌شود.' : 'Location permission denied; submitting without location.';
+          submitDirectly();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 9000,
+          maximumAge: 0,
+        }
+      );
+    }
+
+    if (submitBtn) {
+      submitBtn.addEventListener('click', submitWithLocation);
+    }
+  </script>
+</body>
+</html>
