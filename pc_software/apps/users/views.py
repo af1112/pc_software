@@ -229,6 +229,14 @@ def user_create(request):
         if org:
             supervisors = User.objects.select_related('profile').filter(profile__organization=org, profile__role='supervisor').order_by('username')
 
+    try:
+        current_role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        current_role = 'user'
+
+    can_assign_organization = request.user.is_superuser
+    can_assign_supervisor = request.user.is_superuser or current_role == 'admin'
+
     return render(request, 'users/user_form.html', {
         'user_form': user_form,
         'perm_form': perm_form,
@@ -237,6 +245,8 @@ def user_create(request):
         'ROLES': UserProfile.ROLE_CHOICES,
         'supervisors': supervisors,
         'selected_supervisor': selected_supervisor,
+        'can_assign_organization': can_assign_organization,
+        'can_assign_supervisor': can_assign_supervisor,
     })
 
 @login_required
@@ -386,6 +396,14 @@ def user_edit(request, pk):
             else User.objects.none()
         )
     
+    try:
+        current_role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        current_role = 'user'
+
+    can_assign_organization = request.user.is_superuser
+    can_assign_supervisor = request.user.is_superuser or current_role == 'admin'
+
     return render(request, 'users/user_form.html', {
         'edit_user': user,
         'perm_form': perm_form,
@@ -396,6 +414,8 @@ def user_edit(request, pk):
         'selected_org_id': selected_org.id if selected_org else None,
         'supervisors': supervisors,
         'selected_supervisor': profile.supervisor_id,
+        'can_assign_organization': can_assign_organization,
+        'can_assign_supervisor': can_assign_supervisor,
     })
 
 @login_required
