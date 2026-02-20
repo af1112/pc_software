@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% block title %}{{ title }}{% endblock %}
-{% block page_title %}{% trans "Personnel" %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
 {% block content_title %}{{ title }}{% endblock %}
 
 {% block content %}
@@ -24,8 +24,8 @@
                         {% endfor %}
                     </div>
                     <div class="mt-4 d-flex justify-content-end gap-2">
-                        <a href="{% url 'hr_personnel:employee_detail' employee.id %}" class="btn btn-light rounded-pill">{% trans "Cancel" %}</a>
-                        <button type="submit" class="btn btn-primary rounded-pill">{% trans "Add" %}</button>
+                        <a href="{% url 'hr_personnel:employee_detail' employee.id %}" class="btn btn-light rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}انصراف{% else %}{% trans "Cancel" %}{% endif %}</a>
+                        <button type="submit" class="btn btn-primary rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}افزودن{% else %}{% trans "Add" %}{% endif %}</button>
                     </div>
                 </form>
             </div>

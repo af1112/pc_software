@@ -1,0 +1,41 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}HRMS{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}داشبورد HRMS{% else %}{% trans "HRMS Dashboard" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Shift Templates" %}</div><div class="display-6 fw-bold">{{ shift_templates_count }}</div></div></div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Shift Versions" %}</div><div class="display-6 fw-bold">{{ shift_versions_count }}</div></div></div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Work Calendar Days" %}</div><div class="display-6 fw-bold">{{ work_calendar_count }}</div></div></div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Active Overtime Policies" %}</div><div class="display-6 fw-bold">{{ active_overtime_policies_count }}</div></div></div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Timesheets (Current Month)" %}</div><div class="display-6 fw-bold">{{ timesheets_month_count }}</div></div></div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">{% trans "Payroll Overtime Entries (Current Month)" %}</div><div class="display-6 fw-bold">{{ payroll_overtime_month_count }}</div></div></div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white py-3"><h6 class="mb-0 fw-bold">{% trans "Quick Actions" %}</h6></div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <a href="{% url 'hrms:shift_template_list' %}" class="btn btn-outline-primary rounded-pill">{% trans "Shift Templates" %}</a>
+        <a href="{% url 'hrms:shift_version_list' %}" class="btn btn-outline-primary rounded-pill">{% trans "Shift Versions" %}</a>
+        <a href="{% url 'hrms:shift_assignment_list' %}" class="btn btn-outline-primary rounded-pill">{% trans "Shift Assignments" %}</a>
+        <a href="{% url 'hrms:work_calendar_list' %}" class="btn btn-outline-primary rounded-pill">{% trans "Work Calendar" %}</a>
+        <a href="{% url 'hrms:work_calendar_bulk_generate' %}" class="btn btn-outline-primary rounded-pill">{% trans "Generate Work Calendar" %}</a>
+        <a href="{% url 'hrms:overtime_policy_list' %}" class="btn btn-outline-primary rounded-pill">{% trans "Overtime Policies" %}</a>
+    </div>
+</div>
+{% endblock %}

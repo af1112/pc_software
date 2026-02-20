@@ -12,7 +12,14 @@ class UserProfile(models.Model):
         ('user', 'User'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    organization = models.ForeignKey('organizations.Organization', on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+        db_constraint=False,
+    )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     supervisor = models.ForeignKey(
         User,

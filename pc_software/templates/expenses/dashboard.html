@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n local_dates %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -232,7 +232,8 @@
             <a href="{% url 'expenses:report_detail' report.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                 <div>
                     <div class="fw-bold">{{ report.title }}</div>
-                    <small class="text-muted">{{ report.created_at|date:"d M Y" }}</small>
+                    <small class="text-muted">{% localized_date report.created_at "d M Y" %}</small>
+
                 </div>
                 <div class="text-end">
                     <span class="badge badge-draft mb-1">{{ report.status|title }}</span>
@@ -259,7 +260,7 @@
                     <small class="text-muted">{{ advance.notes|truncatechars:20 }}</small>
                 </div>
                 <div class="text-end">
-                    <small>{{ advance.date|date:"d M" }}</small>
+                    <small>{% localized_date advance.date "d M" %}</small>
                 </div>
             </div>
             {% empty %}

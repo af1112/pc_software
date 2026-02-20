@@ -1,0 +1,114 @@
+{% load i18n static local_dates l10n %}
+<!DOCTYPE html>
+<html lang="{{ request.LANGUAGE_CODE }}" {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}dir="rtl"{% endif %}>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% trans "Clock-in Success" %}</title>
+  <link rel="stylesheet" href="{% static 'css/typography.css' %}">
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #1f2a44;
+      --muted: #6b7280;
+      --ok: #10966d;
+      --accent: #275efe;
+      --shadow: 0 18px 44px rgba(24, 36, 56, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "IRANYekan", "IRANYekanX", "Tahoma", sans-serif;
+      background: radial-gradient(circle at 20% 10%, #e9f0ff 0%, transparent 45%), var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    .ok {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(16, 150, 109, 0.14);
+      color: var(--ok);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px auto;
+      font-size: 26px;
+      font-weight: 800;
+    }
+    h1 { margin: 0; text-align: center; font-size: 1.35rem; }
+    .meta { margin-top: 8px; text-align: center; color: var(--muted); font-size: .9rem; }
+    .hint { margin-top: 10px; text-align: center; color: var(--text); font-size: .92rem; }
+    .summary { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .box { background: #f7f9ff; border-radius: 12px; padding: 10px; text-align: center; }
+    .box .label { color: var(--muted); font-size: .78rem; }
+    .box .value { margin-top: 4px; font-weight: 800; font-size: 1.05rem; }
+    .actions { margin-top: 16px; }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(120deg, #275efe, #1743c6);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="ok">✓</div>
+    <h1>{% if request.LANGUAGE_CODE == 'fa' %}ساعت ورود با موفقیت ثبت شد{% else %}{% trans "Clock-in recorded successfully" %}{% endif %}</h1>
+    <div class="meta">{% localized_date today "Y/m/d" %}</div>
+    <div class="hint">
+      {% if request.LANGUAGE_CODE == 'fa' %}
+        هر زمان آماده بودید، برای ثبت ساعت خروج روی دکمه زیر بزنید.
+      {% else %}
+        Whenever you are ready, use the button below to register your clock-out.
+      {% endif %}
+    </div>
+
+    <div class="summary">
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}حضور این ماه{% else %}{% trans "Present days" %}{% endif %}</div>
+        <div class="value">{{ summary.days_present|unlocalize }}</div>
+      </div>
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}غیبت این ماه{% else %}{% trans "Absent days" %}{% endif %}</div>
+        <div class="value">{{ summary.days_absent|unlocalize }}</div>
+      </div>
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات{% else %}{% trans "Total hours" %}{% endif %}</div>
+        <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a href="{% url 'hr_attendance:quick_clock' %}" class="btn">
+        {% if can_clock_out %}
+          {% if request.LANGUAGE_CODE == 'fa' %}ثبت ساعت خروج{% else %}{% trans "Open Quick Clock for Clock-out" %}{% endif %}
+        {% else %}
+          {% if request.LANGUAGE_CODE == 'fa' %}بازگشت به ثبت سریع حضور{% else %}{% trans "Back to Quick Clock" %}{% endif %}
+        {% endif %}
+      </a>
+    </div>
+  </div>
+</body>
+</html>

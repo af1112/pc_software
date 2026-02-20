@@ -1,5 +1,5 @@
 {% extends 'dashboard_base.html' %}
-{% load i18n %}
+{% load i18n local_dates %}
 
 {% block title %}{% trans "Supervisor Panel" %}{% endblock %}
 {% block page_title %}{% trans "Attendance" %}{% endblock %}
@@ -9,7 +9,7 @@
 <div class="card shadow-sm border-0">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold mb-0">{% trans "Manage Today's Attendance" %} — {{ today|date:"Y/m/d" }}</h5>
+      <h5 class="fw-bold mb-0">{% trans "Manage Today's Attendance" %} — {% localized_date today "Y/m/d" %}</h5>
       <a href="{% url 'hr_attendance:dashboard' %}" class="btn btn-sm btn-outline-secondary">
         <i class="fas fa-arrow-left me-1"></i> {% trans "Back to My Attendance" %}
       </a>
@@ -25,7 +25,7 @@
       </div>
 
       <div class="col-12 col-md-9 text-end">
-        <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="btn btn-sm btn-outline-danger">
+        <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="btn btn-sm btn-outline-danger" data-no-loading="1">
           <i class="fas fa-file-pdf me-1"></i> {% trans "Export PDF" %}
         </a>
         <a href="mailto:?subject=Attendance%20Report%20{{ date_str }}&body={{ pdf_url|urlencode }}" class="btn btn-sm btn-outline-secondary">
@@ -62,7 +62,13 @@
             </td>
             <td>
               {% if a and a.clock_in %}
-                {{ a.clock_in|time:"H:i" }}
+                <div class="fw-bold">{{ a.clock_in|time:"H:i" }}</div>
+                {% if a.user_clock_in %}
+                  <div><small class="text-muted">{% trans "User entry:" %} {{ a.user_clock_in|time:"H:i" }}</small></div>
+                {% endif %}
+                {% if a.supervisor_clock_in %}
+                  <div><small class="text-warning">{% trans "Supervisor correction:" %} {{ a.supervisor_clock_in|time:"H:i" }}</small></div>
+                {% endif %}
                 {% if a.clock_in_by and a.clock_in_by != u %}
                   <div><small class="text-warning">{% trans "Recorded by supervisor:" %} {{ a.clock_in_by.username }}</small></div>
                 {% endif %}
@@ -77,7 +83,13 @@
             </td>
             <td>
               {% if a and a.clock_out %}
-                {{ a.clock_out|time:"H:i" }}
+                <div class="fw-bold">{{ a.clock_out|time:"H:i" }}</div>
+                {% if a.user_clock_out %}
+                  <div><small class="text-muted">{% trans "User entry:" %} {{ a.user_clock_out|time:"H:i" }}</small></div>
+                {% endif %}
+                {% if a.supervisor_clock_out %}
+                  <div><small class="text-warning">{% trans "Supervisor correction:" %} {{ a.supervisor_clock_out|time:"H:i" }}</small></div>
+                {% endif %}
                 {% if a.clock_out_by and a.clock_out_by != u %}
                   <div><small class="text-warning">{% trans "Recorded by supervisor:" %} {{ a.clock_out_by.username }}</small></div>
                 {% endif %}
@@ -90,21 +102,25 @@
                 -
               {% endif %}
             </td>
-            <td class="d-flex gap-2">
-              <form method="post" action="{% url 'hr_attendance:supervisor_clock_in' u.id %}">
+            <td>
+              <div class="d-flex flex-column gap-2" style="min-width: 260px;">
+              <form method="post" action="{% url 'hr_attendance:supervisor_clock_in' u.id %}" class="d-flex gap-2 align-items-center">
                 {% csrf_token %}
                 <input type="hidden" name="date" value="{{ date_str }}">
-                <button class="btn btn-sm btn-success" {% if a and a.clock_in %}disabled{% endif %}>
-                  <i class="fas fa-sign-in-alt"></i> {% trans "Clock In" %}
+                <input type="time" name="manual_clock_in" class="form-control form-control-sm" value="{% if a and a.clock_in %}{{ a.clock_in|time:'H:i' }}{% endif %}">
+                <button class="btn btn-sm btn-success">
+                  <i class="fas fa-sign-in-alt"></i> {% trans "Save In" %}
                 </button>
               </form>
-              <form method="post" action="{% url 'hr_attendance:supervisor_clock_out' u.id %}">
+              <form method="post" action="{% url 'hr_attendance:supervisor_clock_out' u.id %}" class="d-flex gap-2 align-items-center">
                 {% csrf_token %}
                 <input type="hidden" name="date" value="{{ date_str }}">
-                <button class="btn btn-sm btn-danger" {% if not a or not a.clock_in or a.clock_out %}disabled{% endif %}>
-                  <i class="fas fa-sign-out-alt"></i> {% trans "Clock Out" %}
+                <input type="time" name="manual_clock_out" class="form-control form-control-sm" value="{% if a and a.clock_out %}{{ a.clock_out|time:'H:i' }}{% endif %}">
+                <button class="btn btn-sm btn-danger" {% if not a or not a.clock_in %}disabled{% endif %}>
+                  <i class="fas fa-sign-out-alt"></i> {% trans "Save Out" %}
                 </button>
               </form>
+              </div>
             </td>
           </tr>
           {% endwith %}

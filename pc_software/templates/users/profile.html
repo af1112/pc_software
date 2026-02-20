@@ -1,53 +1,53 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "My Profile" %}{% endblock %}
-{% block page_title %}{% trans "Profile" %}{% endblock %}
-{% block content_title %}{% trans "My Profile" %}{% endblock %}
+{% block title %}{% if request.LANGUAGE_CODE == 'fa' %}پروفایل من{% else %}{% trans "My Profile" %}{% endif %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پروفایل{% else %}{% trans "Profile" %}{% endif %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}پروفایل من{% else %}{% trans "My Profile" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-9">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-bold">{% trans "Account Details" %}</h5>
+                <h5 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}جزئیات حساب{% else %}{% trans "Account Details" %}{% endif %}</h5>
             </div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% trans "Username" %}</label>
+                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام کاربری{% else %}{% trans "Username" %}{% endif %}</label>
                         <input class="form-control" value="{{ profile_user.username }}" disabled>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% trans "Email" %}</label>
+                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ایمیل{% else %}{% trans "Email" %}{% endif %}</label>
                         <input class="form-control" value="{{ profile_user.email|default:'' }}" disabled>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% trans "Role" %}</label>
-                        <input class="form-control" value="{{ profile_role|default:'-'|title }}" disabled>
+                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نقش{% else %}{% trans "Role" %}{% endif %}</label>
+                        <input class="form-control" value="{{ profile_role_label|default:'-' }}" disabled>
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">{% trans "Organization" %}</label>
+                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}سازمان{% else %}{% trans "Organization" %}{% endif %}</label>
                         <input class="form-control" value="{{ profile_org.name|default:'-' }}" disabled>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">{% trans "Full Name" %}</label>
+                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام کامل{% else %}{% trans "Full Name" %}{% endif %}</label>
                         <input class="form-control" value="{{ profile_user.get_full_name|default:'-' }}" disabled>
                     </div>
                 </div>
 
                 <hr class="my-4">
 
-                <h6 class="fw-bold mb-3">{% trans "Permissions" %}</h6>
+                <h6 class="fw-bold mb-3">{% if request.LANGUAGE_CODE == 'fa' %}دسترسی‌ها{% else %}{% trans "Permissions" %}{% endif %}</h6>
                 <div>
                     {% if profile_user.is_superuser %}
-                        <span class="badge bg-danger">{% trans "Superuser" %}</span>
+                        <span class="badge bg-danger">{% if request.LANGUAGE_CODE == 'fa' %}مدیر کل{% else %}{% trans "Superuser" %}{% endif %}</span>
                     {% else %}
-                        {% for p in profile_permissions %}
-                            <span class="badge bg-light-info text-info rounded-pill mb-1">{{ p.name }}</span>
+                        {% for permission_label in profile_permission_labels %}
+                            <span class="badge bg-light-info text-info rounded-pill mb-1">{{ permission_label }}</span>
                         {% empty %}
-                            <span class="text-muted small">{% trans "No special permissions." %}</span>
+                            <span class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}دسترسی ویژه‌ای ثبت نشده است.{% else %}{% trans "No special permissions." %}{% endif %}</span>
                         {% endfor %}
                     {% endif %}
                 </div>

@@ -1,10 +1,11 @@
-{% load i18n %}
+{% load i18n static local_dates l10n %}
 <!DOCTYPE html>
 <html lang="{{ request.LANGUAGE_CODE }}" {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}dir="rtl"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% trans "Quick Attendance" %}</title>
+  <link rel="stylesheet" href="{% static 'css/typography.css' %}">
   <style>
     :root {
       --bg: #f4f7fb;
@@ -23,7 +24,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: "IRANYekan", "Tahoma", sans-serif;
+      font-family: "IRANYekan", "IRANYekanX", "Tahoma", sans-serif;
       background: radial-gradient(circle at 20% 10%, #e9f0ff 0%, transparent 45%), var(--bg);
       color: var(--text);
       padding: 18px;
@@ -51,9 +52,13 @@
     .clock {
       margin: 20px 0;
       text-align: center;
-      font-size: 2.1rem;
+      font-size: 3.2rem;
       font-weight: 800;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
+      line-height: 1.1;
+      direction: ltr;
+      font-variant-numeric: tabular-nums;
+      font-family: "IRANYekan", "IRANYekanX", "Tahoma", sans-serif;
     }
     .status {
       display: flex;
@@ -105,12 +110,56 @@
       font-size: 0.85rem;
       font-weight: 600;
     }
+    .summary {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .summary-box {
+      background: #f7f9ff;
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+    }
+    .summary-box .label {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .summary-box .value {
+      margin-top: 2px;
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+    .action-stack {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .action-link {
+      display: inline-block;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 12px;
+      padding: 11px 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .action-link.primary {
+      background: linear-gradient(120deg, #275efe, #1743c6);
+      color: #fff;
+    }
+    .action-link.secondary {
+      border: 1px solid #c7d3f9;
+      color: var(--accent);
+      background: #f7f9ff;
+    }
   </style>
 </head>
 <body>
   <div class="quick-card">
     <h1 class="title">{% if request.LANGUAGE_CODE == 'fa' %}ثبت سریع حضور و غیاب{% else %}{% trans "Quick Attendance" %}{% endif %}</h1>
-    <div class="meta">{{ today|date:"Y/m/d" }}</div>
+    <div class="meta">{% localized_date today "Y/m/d" %}</div>
     <div class="clock" id="liveClock">00:00:00</div>
 
     <div class="status" id="geoStatusWrap">
@@ -129,9 +178,12 @@
     {% if not attendance.clock_in %}
       <form id="quickAttendanceForm" method="post" action="{% url 'hr_attendance:clock_in' %}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="quick">
+        <input type="hidden" name="next" value="quick_success">
         <input type="hidden" name="latitude" id="id_latitude">
         <input type="hidden" name="longitude" id="id_longitude">
+        <input type="hidden" name="source" value="mobile">
+        <input type="hidden" name="capture_mode" value="mobile_gps">
+        <input type="hidden" name="device_id" id="id_device_id" value="mobile-{{ request.user.id }}">
         <button type="button" id="submitAttendanceBtn" class="btn btn-in">
           {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم ورود{% else %}{% trans "Clock In" %}{% endif %}
         </button>
@@ -142,6 +194,9 @@
         <input type="hidden" name="next" value="quick">
         <input type="hidden" name="latitude" id="id_latitude">
         <input type="hidden" name="longitude" id="id_longitude">
+        <input type="hidden" name="source" value="mobile">
+        <input type="hidden" name="capture_mode" value="mobile_gps">
+        <input type="hidden" name="device_id" id="id_device_id" value="mobile-{{ request.user.id }}">
         <button type="button" id="submitAttendanceBtn" class="btn btn-out">
           {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم خروج{% else %}{% trans "Clock Out" %}{% endif %}
         </button>
@@ -150,12 +205,36 @@
       <button class="btn btn-out" disabled>
         {% if request.LANGUAGE_CODE == 'fa' %}ثبت امروز انجام شده است{% else %}{% trans "Already completed" %}{% endif %}
       </button>
+      <div class="summary">
+        <div class="summary-box">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}حضور این ماه{% else %}{% trans "Present days" %}{% endif %}</div>
+          <div class="value">{{ summary.days_present|unlocalize }}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}غیبت این ماه{% else %}{% trans "Absent days" %}{% endif %}</div>
+          <div class="value">{{ summary.days_absent|unlocalize }}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات{% else %}{% trans "Total hours" %}{% endif %}</div>
+          <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
+        </div>
+      </div>
+      <div class="action-stack">
+        <a class="action-link primary" href="{% url 'hr_attendance:my_attendance_card' %}">
+          {% if request.LANGUAGE_CODE == 'fa' %}مشاهده کارت ساعت این ماه{% else %}{% trans "View My Monthly Attendance Card" %}{% endif %}
+        </a>
+        <a class="action-link secondary" href="{% url 'hr_attendance:my_attendance_card' %}?month={{ summary.month_label }}&details=1">
+          {% if request.LANGUAGE_CODE == 'fa' %}مشاهده ریز ورود/خروج ماه{% else %}{% trans "View Monthly In/Out Details" %}{% endif %}
+        </a>
+      </div>
     {% endif %}
 
     <div class="helper" id="geoStatusText"></div>
 
     <div class="link-row">
+      {% if can_open_dashboard %}
       <a href="{% url 'hr_attendance:dashboard' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت به پنل حضور و غیاب{% else %}{% trans "Open Full Attendance Panel" %}{% endif %}</a>
+      {% endif %}
     </div>
   </div>
 
@@ -166,12 +245,18 @@
     const submitBtn = document.getElementById('submitAttendanceBtn');
     const latInput = document.getElementById('id_latitude');
     const lngInput = document.getElementById('id_longitude');
+    const deviceIdInput = document.getElementById('id_device_id');
     const geoStatusText = document.getElementById('geoStatusText');
+
+    if (deviceIdInput) {
+      deviceIdInput.value = `mobile-${navigator.userAgent.slice(0, 80)}`;
+    }
 
     function tickClock() {
       const now = new Date();
-      liveClockEl.textContent = now.toLocaleTimeString(isFa ? 'fa-IR' : 'en-US', {
+      liveClockEl.textContent = now.toLocaleTimeString('en-GB', {
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        numberingSystem: 'latn',
       });
     }
     tickClock();

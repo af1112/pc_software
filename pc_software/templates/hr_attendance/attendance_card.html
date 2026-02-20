@@ -1,0 +1,103 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n l10n local_dates %}
+
+{% block title %}{% trans "Attendance Card" %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}کارت حضور و غیاب ماهانه{% else %}{% trans "Monthly Attendance Card" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-12 col-md-5">
+                    <label class="form-label fw-bold small">{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}</label>
+                    <select name="user_id" class="form-select" required>
+                        {% for u in users %}
+                            <option value="{{ u.id }}" {% if selected_user_id == u.id|stringformat:'s' %}selected{% endif %}>
+                                {{ u.get_full_name|default:u.username }} ({{ u.username }})
+                            </option>
+                        {% empty %}
+                            <option value="">{% trans "No personnel available" %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-bold small">{% if request.LANGUAGE_CODE == 'fa' %}ماه{% else %}{% trans "Month" %}{% endif %}</label>
+                    <input type="month" name="month" class="form-control" value="{{ month_value }}">
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button type="submit" class="btn btn-primary">{% trans "Load" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present Days" %}{% endif %}</div>
+                <div class="h4 mb-0">{{ summary.days_present|unlocalize }}</div>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent Days" %}{% endif %}</div>
+                <div class="h4 mb-0">{{ summary.days_absent|unlocalize }}</div>
+            </div></div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات کار{% else %}{% trans "Total Worked Hours" %}{% endif %}</div>
+                <div class="h4 mb-0">{{ summary.total_worked_hours|unlocalize }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Date" %}</th>
+                            <th>{% trans "Clock In" %}</th>
+                            <th>{% trans "Clock Out" %}</th>
+                            <th>{% trans "Duration" %}</th>
+                            <th>{% trans "Worked Hours" %}</th>
+                            <th>{% trans "Overtime" %}</th>
+                            <th>{% trans "Late (min)" %}</th>
+                            <th>{% trans "Early Leave (min)" %}</th>
+                            <th>{% trans "Status" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{% localized_date row.date "Y/m/d" %}</td>
+                            <td>{{ row.attendance.clock_in|time:"H:i"|default:"--"|unlocalize }}</td>
+                            <td>{{ row.attendance.clock_out|time:"H:i"|default:"--"|unlocalize }}</td>
+                            <td>{{ row.attendance.duration|default:"--"|unlocalize }}</td>
+                            <td>{{ row.worked_hours|unlocalize }}</td>
+                            <td>{{ row.timesheet.overtime_hours|default:"0"|unlocalize }}</td>
+                            <td>{{ row.timesheet.late_minutes|default:"0"|unlocalize }}</td>
+                            <td>{{ row.timesheet.early_leave_minutes|default:"0"|unlocalize }}</td>
+                            <td>
+                                {% if row.attendance and row.attendance.clock_in %}
+                                    <span class="badge bg-success">{% trans "Present" %}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{% trans "Absent" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">{% trans "No records for selected filter." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

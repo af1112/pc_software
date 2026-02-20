@@ -1,0 +1,32 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Shift Templates" %}{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% trans "Shift Templates" %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">{% trans "Shift Templates" %}</h5>
+        <a href="{% url 'hrms:shift_template_create' %}" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-plus me-1"></i>{% trans "Add Template" %}</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr><th>{% trans "Name" %}</th><th>{% trans "Description" %}</th></tr></thead>
+                <tbody>
+                    {% for row in templates %}
+                    <tr>
+                        <td class="fw-bold">{{ row.name }}</td>
+                        <td>{{ row.description|default:'-' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

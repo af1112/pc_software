@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 import sys
+import importlib.util
 from pathlib import Path
 
 # Fix for MySQL on Vercel/Shared Hosting
@@ -79,7 +80,11 @@ INSTALLED_APPS = [
     'apps.hr_attendance',
     'apps.organizations', # New App
     'apps.hr_personnel',
+    'apps.hrms',
 ]
+
+if importlib.util.find_spec('rest_framework'):
+    INSTALLED_APPS.append('rest_framework')
 
 # Support WhiteNoise for static files on Vercel
 MIDDLEWARE = [
@@ -104,6 +109,9 @@ TEMPLATES = [
         'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
+            'libraries': {
+                'local_dates': 'apps.users.templatetags.local_dates',
+            },
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -253,3 +261,26 @@ MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'main_dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 25,
+}
+
+if importlib.util.find_spec('rest_framework_simplejwt'):
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ]
+
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TIMEZONE = TIME_ZONE

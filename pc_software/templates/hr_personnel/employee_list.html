@@ -1,17 +1,17 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Personnel" %}{% endblock %}
-{% block page_title %}{% trans "Personnel" %}{% endblock %}
-{% block content_title %}{% trans "Employees" %}{% endblock %}
+{% block title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}کارکنان{% else %}{% trans "Employees" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-bold">{% trans "Employees" %}</h5>
+        <h5 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}کارکنان{% else %}{% trans "Employees" %}{% endif %}</h5>
         {% if is_manager %}
         <a href="{% url 'hr_personnel:employee_create' %}" class="btn btn-primary btn-sm rounded-pill">
-            <i class="fas fa-plus me-1"></i> {% trans "Add Employee" %}
+            <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن پرسنل{% else %}{% trans "Add Employee" %}{% endif %}
         </a>
         {% endif %}
     </div>
@@ -20,11 +20,11 @@
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>{% trans "Name" %}</th>
-                        <th>{% trans "Department" %}</th>
-                        <th>{% trans "Position" %}</th>
-                        <th>{% trans "Status" %}</th>
-                        <th>{% trans "Actions" %}</th>
+                        <th>{% if request.LANGUAGE_CODE == 'fa' %}نام{% else %}{% trans "Name" %}{% endif %}</th>
+                        <th>{% if request.LANGUAGE_CODE == 'fa' %}دپارتمان{% else %}{% trans "Department" %}{% endif %}</th>
+                        <th>{% if request.LANGUAGE_CODE == 'fa' %}سمت{% else %}{% trans "Position" %}{% endif %}</th>
+                        <th>{% if request.LANGUAGE_CODE == 'fa' %}وضعیت{% else %}{% trans "Status" %}{% endif %}</th>
+                        <th>{% if request.LANGUAGE_CODE == 'fa' %}عملیات{% else %}{% trans "Actions" %}{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,9 +35,9 @@
                         <td>{{ e.position_title|default:"-" }}</td>
                         <td>
                             {% if e.is_active %}
-                                <span class="badge bg-success rounded-pill">{% trans "Active" %}</span>
+                                <span class="badge bg-success rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}فعال{% else %}{% trans "Active" %}{% endif %}</span>
                             {% else %}
-                                <span class="badge bg-secondary rounded-pill">{% trans "Inactive" %}</span>
+                                <span class="badge bg-secondary rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}غیرفعال{% else %}{% trans "Inactive" %}{% endif %}</span>
                             {% endif %}
                         </td>
                         <td>
@@ -55,7 +55,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">{% trans "No employees found." %}</td>
+                        <td colspan="5" class="text-center py-4 text-muted">{% if request.LANGUAGE_CODE == 'fa' %}هیچ پرسنلی یافت نشد.{% else %}{% trans "No employees found." %}{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

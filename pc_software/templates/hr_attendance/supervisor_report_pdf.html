@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n local_dates %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +17,7 @@
 <body>
   <h2>{% trans "Attendance Report" %}</h2>
   <div class="meta">
-    <div><strong>{% trans "Date" %}:</strong> {{ date|date:"Y-m-d" }}</div>
+    <div><strong>{% trans "Date" %}:</strong> {% localized_date date "Y-m-d" %}</div>
     <div><strong>{% trans "Organization" %}:</strong> {{ org.name|default:"-" }}</div>
   </div>
 
@@ -40,17 +40,29 @@
         <td>{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:"-" }}{% endif %}</td>
         <td>
           {% if a and a.clock_in %}
-            {{ a.clock_in|time:"H:i" }}
-            {% if a.clock_in_by and a.clock_in_by != u %}
-              <span class="muted">({% trans "by" %} {{ a.clock_in_by.username }})</span>
+            <div>{{ a.clock_in|time:"H:i" }}</div>
+            {% if a.user_clock_in %}
+              <div class="muted">{% trans "User entry" %}: {{ a.user_clock_in|time:"H:i" }}</div>
+            {% endif %}
+            {% if a.supervisor_clock_in %}
+              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_clock_in|time:"H:i" }}</div>
+            {% endif %}
+            {% if a.clock_in_by %}
+              <div class="muted">({% trans "by" %} {{ a.clock_in_by.username }})</div>
             {% endif %}
           {% else %}-{% endif %}
         </td>
         <td>
           {% if a and a.clock_out %}
-            {{ a.clock_out|time:"H:i" }}
-            {% if a.clock_out_by and a.clock_out_by != u %}
-              <span class="muted">({% trans "by" %} {{ a.clock_out_by.username }})</span>
+            <div>{{ a.clock_out|time:"H:i" }}</div>
+            {% if a.user_clock_out %}
+              <div class="muted">{% trans "User entry" %}: {{ a.user_clock_out|time:"H:i" }}</div>
+            {% endif %}
+            {% if a.supervisor_clock_out %}
+              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_clock_out|time:"H:i" }}</div>
+            {% endif %}
+            {% if a.clock_out_by %}
+              <div class="muted">({% trans "by" %} {{ a.clock_out_by.username }})</div>
             {% endif %}
           {% else %}-{% endif %}
         </td>

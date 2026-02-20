@@ -57,8 +57,11 @@
 
                     <div class="mb-4">
                         <label class="form-label">{% trans "Attachments" %}</label>
-                        <input type="file" name="attachments" class="form-control" multiple>
-                        <div class="form-text">{% trans "You can select multiple files." %}</div>
+                        <div class="d-flex gap-2">
+                            <input id="attachmentsInput" type="file" name="attachments" class="form-control" multiple>
+                            <button type="button" id="pasteScreenshotBtn" class="btn btn-outline-success btn-sm">{% trans "Paste Screenshot" %}</button>
+                        </div>
+                        <div class="form-text">{% trans "You can select multiple files or paste a screenshot." %}</div>
                     </div>
 
                     <!-- Voice & Video Recording Section -->
@@ -103,6 +106,62 @@ const recordingStatus = document.getElementById('recordingStatus');
 const statusText = document.getElementById('statusText');
 const previews = document.getElementById('previews');
 const ticketForm = document.querySelector('form');
+const attachmentsInput = document.getElementById('attachmentsInput');
+const pasteScreenshotBtn = document.getElementById('pasteScreenshotBtn');
+
+async function readClipboardImageFile() {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+        return null;
+    }
+    try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+            for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                    const blob = await item.getType(type);
+                    return new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                }
+            }
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function appendFileToMultipleInput(input, file) {
+    const dt = new DataTransfer();
+    for (const f of input.files) dt.items.add(f);
+    dt.items.add(file);
+    input.files = dt.files;
+}
+
+if (pasteScreenshotBtn) {
+    pasteScreenshotBtn.addEventListener('click', async () => {
+        const file = await readClipboardImageFile();
+        if (!file) {
+            alert('No image found in clipboard. Press PrtSc first, then try again.');
+            return;
+        }
+        appendFileToMultipleInput(attachmentsInput, file);
+    });
+}
+
+document.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+        if (it.type && it.type.indexOf('image') !== -1) {
+            const blob = it.getAsFile();
+            if (blob) {
+                const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                appendFileToMultipleInput(attachmentsInput, file);
+                e.preventDefault();
+                break;
+            }
+        }
+    }
+});
 
 async function startRecording(type) {
     recordedChunks = [];

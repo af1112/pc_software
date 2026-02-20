@@ -1,0 +1,33 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Create Shift Version" %}{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% trans "Create Shift Version" %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 d-flex justify-content-between">
+                <h6 class="mb-0 fw-bold">{% trans "Shift Version" %}</h6>
+                <a href="{% url 'hrms:shift_version_list' %}" class="btn btn-light btn-sm rounded-pill">{% trans "Back" %}</a>
+            </div>
+            <div class="card-body">
+                <form method="post">{% csrf_token %}
+                    <div class="row g-3">
+                    {% for field in form %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|first }}</div>{% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                    <div class="mt-3"><button type="submit" class="btn btn-primary rounded-pill px-4">{% trans "Save" %}</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

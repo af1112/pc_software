@@ -1,39 +1,140 @@
 {% extends 'dashboard_base.html' %}
-{% load i18n %}
+{% load i18n local_dates %}
 
 {% block title %}{% trans "Tickets" %}{% endblock %}
-{% block page_title %}{% trans "Support" %}{% endblock %}
-{% block content_title %}{% trans "My Tickets" %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پشتیبانی{% else %}{% trans "Support" %}{% endif %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}تیکت‌های من{% else %}{% trans "My Tickets" %}{% endif %}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12 text-end">
-        <a href="{% url 'ticketing:ticket_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> {% trans "New Ticket" %}
-        </a>
+<form method="get" class="card p-3 mb-3 shadow-sm">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}جستجو{% else %}{% trans "Search" %}{% endif %}</label>
+            <input type="text" name="q" value="{{ selected.q }}" class="form-control" placeholder="{% trans 'Search...' %}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}وضعیت{% else %}{% trans 'Status' %}{% endif %}</label>
+            <select name="status" class="form-select">
+                <option value="">{% trans 'All' %}</option>
+                {% for val,label in status_choices %}
+                <option value="{{ val }}" {% if selected.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}اولویت{% else %}{% trans 'Priority' %}{% endif %}</label>
+            <select name="priority" class="form-select">
+                <option value="">{% trans 'All' %}</option>
+                {% for val,label in priority_choices %}
+                <option value="{{ val }}" {% if selected.priority == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}دسته‌بندی{% else %}{% trans 'Category' %}{% endif %}</label>
+            <select name="category" class="form-select">
+                <option value="">{% trans 'All' %}</option>
+                {% for val,label in category_choices %}
+                <option value="{{ val }}" {% if selected.category == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if users %}
+        <div class="col-md-2">
+            <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}صادرکننده{% else %}{% trans 'Created By' %}{% endif %}</label>
+            <select name="created_by" class="form-select">
+                <option value="">{% trans 'All' %}</option>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if selected.created_by|default:'' == u.id|stringformat:'s' %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-md-12 text-end">
+            <a href="{% url 'ticketing:ticket_create' %}" class="btn btn-primary me-2">
+                <i class="fas fa-plus"></i> {% trans "New Ticket" %}
+            </a>
+            <button class="btn btn-outline-secondary">{% if request.LANGUAGE_CODE == 'fa' %}اعمال فیلتر{% else %}{% trans 'Apply' %}{% endif %}</button>
+        </div>
     </div>
-</div>
+</form>
 
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table id="ticketTable" class="table table-hover align-middle mb-0 ticket-table">
+                <colgroup>
+                    <col style="width: 110px;">
+                    <col style="width: 90px;">
+                    <col style="width: 160px;">
+                    <col style="width: 360px;">
+                    <col style="width: 120px;">
+                    <col style="width: 170px;">
+                    <col style="width: 120px;">
+                    <col style="width: 100px;">
+                </colgroup>
                 <thead class="bg-light">
                     <tr>
-                        <th class="ps-4">{% trans "ID" %}</th>
-                        <th>{% trans "Title" %}</th>
-                        <th>{% trans "Status" %}</th>
-                        <th>{% trans "Priority" %}</th>
-                        <th>{% trans "Category" %}</th>
-                        <th>{% trans "Date" %}</th>
-                        <th>{% trans "Action" %}</th>
+                        <th class="resizable">{% trans "Action" %}</th>
+                        <th class="ps-4 resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=id&direction={% if selected.sort == 'id' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% if request.LANGUAGE_CODE == 'fa' %}سریال{% else %}{% trans "ID" %}{% endif %}
+                                <span class="sort-indicator">{% if selected.sort == 'id' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=created_at&direction={% if selected.sort == 'created_at' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% trans "Date" %}
+                                <span class="sort-indicator">{% if selected.sort == 'created_at' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=title&direction={% if selected.sort == 'title' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% if request.LANGUAGE_CODE == 'fa' %}عنوان{% else %}{% trans "Title" %}{% endif %}
+                                <span class="sort-indicator">{% if selected.sort == 'title' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=status&direction={% if selected.sort == 'status' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% trans "Status" %}
+                                <span class="sort-indicator">{% if selected.sort == 'status' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=created_by&direction={% if selected.sort == 'created_by' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% if request.LANGUAGE_CODE == 'fa' %}صادرکننده{% else %}{% trans "Created By" %}{% endif %}
+                                <span class="sort-indicator">{% if selected.sort == 'created_by' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=category&direction={% if selected.sort == 'category' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% if request.LANGUAGE_CODE == 'fa' %}دسته‌بندی{% else %}{% trans "Category" %}{% endif %}
+                                <span class="sort-indicator">{% if selected.sort == 'category' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="resizable">
+                            <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=priority&direction={% if selected.sort == 'priority' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
+                                {% if request.LANGUAGE_CODE == 'fa' %}اولویت{% else %}{% trans "Priority" %}{% endif %}
+                                <span class="sort-indicator">{% if selected.sort == 'priority' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for ticket in tickets %}
                     <tr>
-                        <td class="ps-4 fw-bold">#{{ ticket.id }}</td>
-                        <td>{{ ticket.title }}</td>
+                        <td>
+                            <a href="{% url 'ticketing:ticket_detail' ticket.id %}" class="btn btn-sm btn-outline-primary">
+                                {% trans "View" %}
+                            </a>
+                        </td>
+                        <td class="ps-4 fw-bold">{{ ticket.id }}</td>
+                        <td class="text-muted small">{% localized_date ticket.created_at "Y-m-d H:i" %}</td>
+                        <td>
+                            <a href="{% url 'ticketing:ticket_detail' ticket.id %}" class="ticket-title-link" title="{{ ticket.title }}">
+                                <span class="ticket-title-ellipsis">{{ ticket.title }}</span>
+                            </a>
+                        </td>
                         <td>
                             {% if ticket.status == 'open' %}
                                 <span class="badge bg-success">{{ ticket.get_status_display }}</span>
@@ -46,25 +147,40 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if ticket.priority == 'critical' %}
-                                <span class="text-danger fw-bold"><i class="fas fa-exclamation-circle"></i> {{ ticket.get_priority_display }}</span>
-                            {% elif ticket.priority == 'high' %}
-                                <span class="text-danger">{{ ticket.get_priority_display }}</span>
+                            <span class="ticket-title-ellipsis" title="{{ ticket.created_by.get_full_name|default:ticket.created_by.username }}">{{ ticket.created_by.get_full_name|default:ticket.created_by.username }}</span>
+                        </td>
+                        <td>
+                            {% if request.LANGUAGE_CODE == 'fa' %}
+                                {% if ticket.category == 'bug' %}باگ{% elif ticket.category == 'feature' %}درخواست قابلیت{% elif ticket.category == 'support' %}پشتیبانی{% else %}سایر{% endif %}
                             {% else %}
-                                <span>{{ ticket.get_priority_display }}</span>
+                                {{ ticket.get_category_display }}
                             {% endif %}
                         </td>
-                        <td>{{ ticket.get_category_display }}</td>
-                        <td class="text-muted small">{{ ticket.created_at|date:"M d, Y" }}</td>
                         <td>
-                            <a href="{% url 'ticketing:ticket_detail' ticket.id %}" class="btn btn-sm btn-outline-primary">
-                                {% trans "View" %}
-                            </a>
+                            {% if request.LANGUAGE_CODE == 'fa' %}
+                                {% if ticket.priority == 'critical' %}
+                                    <span class="text-danger fw-bold"><i class="fas fa-exclamation-circle"></i> بحرانی</span>
+                                {% elif ticket.priority == 'high' %}
+                                    <span class="text-danger">زیاد</span>
+                                {% elif ticket.priority == 'medium' %}
+                                    <span>متوسط</span>
+                                {% else %}
+                                    <span>کم</span>
+                                {% endif %}
+                            {% else %}
+                                {% if ticket.priority == 'critical' %}
+                                    <span class="text-danger fw-bold"><i class="fas fa-exclamation-circle"></i> {{ ticket.get_priority_display }}</span>
+                                {% elif ticket.priority == 'high' %}
+                                    <span class="text-danger">{{ ticket.get_priority_display }}</span>
+                                {% else %}
+                                    <span>{{ ticket.get_priority_display }}</span>
+                                {% endif %}
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-5 text-muted">
+                        <td colspan="8" class="text-center py-5 text-muted">
                             <i class="fas fa-ticket-alt fa-3x mb-3 opacity-50"></i>
                             <p>{% trans "No tickets found." %}</p>
                         </td>
@@ -75,4 +191,110 @@
         </div>
     </div>
 </div>
+
+<style>
+    .ticket-table {
+        table-layout: fixed;
+        min-width: 1080px;
+    }
+
+    .ticket-table th,
+    .ticket-table td {
+        overflow: hidden;
+        text-align: start;
+        white-space: nowrap;
+    }
+
+    .sort-link {
+        color: inherit;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.25rem;
+        cursor: pointer;
+    }
+
+    .sort-link:hover {
+        text-decoration: underline;
+    }
+
+    .sort-indicator {
+        font-size: 0.75rem;
+        opacity: 0.8;
+    }
+
+    .ticket-title-ellipsis {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ticket-title-link {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .ticket-title-link:hover {
+        text-decoration: underline;
+    }
+
+    th.resizable { position: relative; }
+    th.resizable .resizer {
+        position: absolute;
+        top: 0;
+        inset-inline-end: 0;
+        width: 8px;
+        height: 100%;
+        cursor: col-resize;
+        user-select: none;
+        touch-action: none;
+    }
+</style>
+<script>
+(() => {
+  const table = document.getElementById('ticketTable');
+  if (!table) return;
+
+  const cols = table.querySelectorAll('colgroup col');
+  const headers = table.querySelectorAll('thead th.resizable');
+  const isRtl = getComputedStyle(table).direction === 'rtl';
+
+  headers.forEach((th, index) => {
+    const handle = document.createElement('div');
+    handle.className = 'resizer';
+    th.appendChild(handle);
+
+    let startX = 0;
+    let startWidth = 0;
+
+    const onMouseMove = (e) => {
+      const rawDiff = e.pageX - startX;
+      const diff = isRtl ? -rawDiff : rawDiff;
+      const nextWidth = Math.max(90, startWidth + diff);
+      if (cols[index]) {
+        cols[index].style.width = `${nextWidth}px`;
+      }
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startX = e.pageX;
+      startWidth = cols[index] ? cols[index].offsetWidth : th.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  });
+})();
+</script>
 {% endblock %}

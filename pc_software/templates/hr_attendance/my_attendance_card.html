@@ -1,0 +1,125 @@
+{% load i18n l10n local_dates %}
+<!DOCTYPE html>
+<html lang="{{ request.LANGUAGE_CODE }}" {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}dir="rtl"{% endif %}>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% trans "My Attendance Card" %}</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #1f2a44;
+      --muted: #6b7280;
+      --accent: #275efe;
+      --line: #e6ecff;
+      --shadow: 0 18px 44px rgba(24, 36, 56, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IRANYekan", "IRANYekanX", Tahoma, sans-serif;
+      background: radial-gradient(circle at 20% 10%, #e9f0ff 0%, transparent 45%), var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+    .card {
+      max-width: 920px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    h1 { margin: 0; font-size: 1.3rem; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
+    .form { display: flex; gap: 8px; align-items: center; }
+    input, button, a.btn { font: inherit; }
+    input[type="month"] { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+    button, a.btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-weight: 700;
+    }
+    .btn-primary { background: linear-gradient(120deg, #275efe, #1743c6); color: #fff; }
+    .btn-light { background: #f7f9ff; color: var(--accent); border: 1px solid #c7d3f9; }
+    .summary { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .box { background: #f7f9ff; border-radius: 12px; padding: 10px; text-align: center; }
+    .label { color: var(--muted); font-size: .8rem; }
+    .value { margin-top: 4px; font-size: 1.05rem; font-weight: 800; }
+    .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: start; font-size: .9rem; }
+    th { background: #f8faff; }
+    @media (max-width: 760px) {
+      .summary { grid-template-columns: 1fr; }
+      .form { width: 100%; }
+      input[type="month"] { flex: 1; }
+      table { font-size: .82rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <h1>{% if request.LANGUAGE_CODE == 'fa' %}کارت ساعت من{% else %}{% trans "My Attendance Card" %}{% endif %}</h1>
+      <form method="get" class="form">
+        <input type="month" name="month" value="{{ month_value }}">
+        <button type="submit" class="btn-primary">{% trans "Load" %}</button>
+      </form>
+    </div>
+
+    <div class="summary">
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present days" %}{% endif %}</div>
+        <div class="value">{{ summary.days_present|unlocalize }}</div>
+      </div>
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent days" %}{% endif %}</div>
+        <div class="value">{{ summary.days_absent|unlocalize }}</div>
+      </div>
+      <div class="box">
+        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}جمع ساعات کار{% else %}{% trans "Total worked hours" %}{% endif %}</div>
+        <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-light" href="?month={{ month_value }}">{% if request.LANGUAGE_CODE == 'fa' %}فقط خلاصه{% else %}{% trans "Summary only" %}{% endif %}</a>
+      <a class="btn btn-primary" href="?month={{ month_value }}&details=1">{% if request.LANGUAGE_CODE == 'fa' %}نمایش ریز ورود/خروج{% else %}{% trans "Show in/out details" %}{% endif %}</a>
+      <a class="btn btn-light" href="{% url 'hr_attendance:quick_clock' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}</a>
+    </div>
+
+    {% if show_details %}
+    <table>
+      <thead>
+        <tr>
+          <th>{% trans "Date" %}</th>
+          <th>{% trans "Clock In" %}</th>
+          <th>{% trans "Clock Out" %}</th>
+          <th>{% trans "Worked Hours" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{% localized_date row.date "Y/m/d" %}</td>
+          <td>{% if row.attendance and row.attendance.clock_in %}{{ row.attendance.clock_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+          <td>{% if row.attendance and row.attendance.clock_out %}{{ row.attendance.clock_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+          <td>{{ row.worked_hours|unlocalize }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" style="text-align:center;color:#6b7280;">{% trans "No records for selected month." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</body>
+</html>

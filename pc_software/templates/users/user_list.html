@@ -1,7 +1,7 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
-{% trans "Are you sure you want to delete this user?" as confirm_delete_user_text %}
+{# Intentionally left without top-level assigned translations; inline translations are used to ensure execution within blocks #}
 
 {% block title %}{% trans "User Management" %}{% endblock %}
 {% block page_title %}{% trans "User Management" %}{% endblock %}
@@ -84,13 +84,25 @@
                                 <a href="{% url 'users:user_edit' u.pk %}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                {% if user.is_superuser %}
+                                {% with confirm_text=_("Reset this user's password to default (Aa@123456)?") %}
+                                    <form action="{% url 'users:user_reset_password' u.pk %}" method="post" class="d-inline" onsubmit="return confirm('{{ confirm_text|escapejs }}')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" title="{% trans 'Reset Password to Default' %}">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                    </form>
+                                {% endwith %}
+                                {% endif %}
                                 {% if u != user %}
-                                <form action="{% url 'users:user_delete' u.pk %}" method="post" class="d-inline" onsubmit="return confirm('{{ confirm_delete_user_text|escapejs }}')">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                {% with confirm_delete=_("Are you sure you want to delete this user?") %}
+                                    <form action="{% url 'users:user_delete' u.pk %}" method="post" class="d-inline" onsubmit="return confirm('{{ confirm_delete|escapejs }}')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                {% endwith %}
                                 {% endif %}
                             </div>
                         </td>

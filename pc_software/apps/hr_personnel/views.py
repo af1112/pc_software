@@ -14,6 +14,13 @@ from .forms import (
 from .models import Employee, PayrollSlip, SalaryProfile
 
 
+def _tr(request, en_text, fa_text):
+    lang = str(getattr(request, 'LANGUAGE_CODE', '')).lower()
+    if lang.startswith('fa'):
+        return fa_text
+    return _(en_text)
+
+
 def is_supervisor_or_admin(user):
     if not user.is_authenticated:
         return False
@@ -38,7 +45,7 @@ def employee_me(request):
     try:
         employee = request.user.employee
     except Exception:
-        messages.error(request, _('No personnel profile is linked to your account.'))
+        messages.error(request, _tr(request, 'No personnel profile is linked to your account.', 'پروفایل پرسنلی به حساب شما متصل نیست.'))
         return redirect('main_dashboard')
 
     return redirect('hr_personnel:employee_detail', employee_id=employee.id)
@@ -62,12 +69,12 @@ def employee_create(request):
             employee = form.save(commit=False)
             employee.organization = getattr(request, 'organization', None)
             employee.save()
-            messages.success(request, _('Employee created successfully.'))
+            messages.success(request, _tr(request, 'Employee created successfully.', 'پرسنل با موفقیت ایجاد شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
         form = EmployeeForm(organization=getattr(request, 'organization', None))
 
-    return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _('Create Employee')})
+    return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _tr(request, 'Create Employee', 'ایجاد پرسنل')})
 
 
 @login_required
@@ -79,12 +86,12 @@ def employee_edit(request, employee_id):
         form = EmployeeForm(request.POST, instance=employee, organization=getattr(request, 'organization', None))
         if form.is_valid():
             form.save()
-            messages.success(request, _('Employee updated successfully.'))
+            messages.success(request, _tr(request, 'Employee updated successfully.', 'اطلاعات پرسنل با موفقیت بروزرسانی شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
         form = EmployeeForm(instance=employee, organization=getattr(request, 'organization', None))
 
-    return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _('Edit Employee')})
+    return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _tr(request, 'Edit Employee', 'ویرایش پرسنل')})
 
 
 @login_required
@@ -93,7 +100,7 @@ def employee_delete(request, employee_id):
     employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
     if request.method == 'POST':
         employee.delete()
-        messages.success(request, _('Employee deleted successfully.'))
+        messages.success(request, _tr(request, 'Employee deleted successfully.', 'پرسنل با موفقیت حذف شد.'))
         return redirect('hr_personnel:employee_list')
 
     return render(request, 'hr_personnel/employee_delete.html', {'employee': employee})
@@ -105,7 +112,7 @@ def employee_detail(request, employee_id):
 
     is_manager = is_supervisor_or_admin(request.user)
     if not is_manager and employee.user_id != request.user.id:
-        messages.error(request, _('You do not have access to this personnel profile.'))
+        messages.error(request, _tr(request, 'You do not have access to this personnel profile.', 'شما دسترسی مشاهده این پروفایل پرسنلی را ندارید.'))
         return redirect('hr_personnel:employee_me')
 
     salary_profiles = employee.salary_profiles.prefetch_related('components').all()
@@ -129,22 +136,23 @@ def employee_detail(request, employee_id):
 @user_passes_test(is_supervisor_or_admin)
 def salary_profile_create(request, employee_id):
     employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    user_profile = getattr(request.user, 'profile', None)
 
     if request.method == 'POST':
-        form = SalaryProfileForm(request.POST)
+        form = SalaryProfileForm(request.POST, user_profile=user_profile)
         if form.is_valid():
             profile = form.save(commit=False)
             profile.employee = employee
             profile.save()
-            messages.success(request, _('Salary profile created successfully.'))
+            messages.success(request, _tr(request, 'Salary profile created successfully.', 'پروفایل حقوق با موفقیت ایجاد شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
-        form = SalaryProfileForm()
+        form = SalaryProfileForm(user_profile=user_profile)
 
     return render(
         request,
         'hr_personnel/salary_profile_form.html',
-        {'form': form, 'employee': employee, 'title': _('Create Salary Profile')},
+        {'form': form, 'employee': employee, 'title': _tr(request, 'Create Salary Profile', 'ایجاد پروفایل حقوق')},
     )
 
 
@@ -160,7 +168,7 @@ def salary_component_create(request, employee_id, profile_id):
             component = form.save(commit=False)
             component.salary_profile = profile
             component.save()
-            messages.success(request, _('Salary component added successfully.'))
+            messages.success(request, _tr(request, 'Salary component added successfully.', 'آیتم حقوقی با موفقیت اضافه شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
         form = SalaryComponentForm()
@@ -168,7 +176,7 @@ def salary_component_create(request, employee_id, profile_id):
     return render(
         request,
         'hr_personnel/salary_component_form.html',
-        {'form': form, 'employee': employee, 'profile': profile, 'title': _('Add Salary Component')},
+        {'form': form, 'employee': employee, 'profile': profile, 'title': _tr(request, 'Add Salary Component', 'افزودن آیتم حقوقی')},
     )
 
 
@@ -185,7 +193,7 @@ def bank_account_create(request, employee_id):
             if account.is_primary:
                 employee.bank_accounts.update(is_primary=False)
             account.save()
-            messages.success(request, _('Bank account created successfully.'))
+            messages.success(request, _tr(request, 'Bank account created successfully.', 'حساب بانکی با موفقیت ایجاد شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
         form = BankAccountForm()
@@ -193,7 +201,7 @@ def bank_account_create(request, employee_id):
     return render(
         request,
         'hr_personnel/bank_account_form.html',
-        {'form': form, 'employee': employee, 'title': _('Add Bank Account')},
+        {'form': form, 'employee': employee, 'title': _tr(request, 'Add Bank Account', 'افزودن حساب بانکی')},
     )
 
 
@@ -236,7 +244,7 @@ def payroll_create(request, employee_id):
             _calculate_payroll_totals(payroll)
             payroll.save()
 
-            messages.success(request, _('Payroll slip created successfully.'))
+            messages.success(request, _tr(request, 'Payroll slip created successfully.', 'فیش حقوقی با موفقیت ایجاد شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
     else:
         form = PayrollSlipForm(employee=employee)
@@ -250,6 +258,6 @@ def payroll_create(request, employee_id):
             'form': form,
             'formset': formset,
             'employee': employee,
-            'title': _('Create Payroll Slip'),
+            'title': _tr(request, 'Create Payroll Slip', 'ایجاد فیش حقوقی'),
         },
     )

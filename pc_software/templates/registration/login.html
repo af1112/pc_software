@@ -163,7 +163,7 @@
 
             <form method="post" action="{% url 'login' %}">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ next }}">
+                <input type="hidden" name="next" value="{{ next_value|default:next|default:'' }}">
                 
                 <div class="mb-3">
                     <label for="{{ form.username.id_for_label }}" class="form-label">{% trans "Username" %}</label>

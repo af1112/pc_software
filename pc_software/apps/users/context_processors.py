@@ -3,6 +3,12 @@ def user_settings(request):
         # Check session first to avoid DB hit every time
         settings_key = f'user_settings_{request.user.id}'
         cached_settings = request.session.get(settings_key)
+
+        try:
+            current_perm_ids = request.user.user_permissions.order_by('id').values_list('id', flat=True)
+            current_perms_stamp = ','.join(str(pid) for pid in current_perm_ids)
+        except Exception:
+            current_perms_stamp = ''
         
         if cached_settings:
             # Safety: drop legacy cache that mistakenly stored model instances
@@ -17,7 +23,10 @@ def user_settings(request):
                     except Exception:
                         org_updated_at = None
 
-                    if cached_settings.get('org_updated_at') == org_updated_at:
+                    if (
+                        cached_settings.get('org_updated_at') == org_updated_at
+                        and cached_settings.get('perms_stamp', '') == current_perms_stamp
+                    ):
                         return cached_settings
                     del request.session[settings_key]
             except Exception:
@@ -29,14 +38,22 @@ def user_settings(request):
                 org = profile.organization
                 role = getattr(profile, 'role', 'user')
                 role_is_manager = role in ['admin', 'supervisor']
+                logo_url = None
+                if org and org.logo:
+                    try:
+                        if org.logo.storage.exists(org.logo.name):
+                            logo_url = org.logo.url
+                    except Exception:
+                        logo_url = None
                 settings_data = {
                     'user_currency_code': profile.currency_code,
                     'user_currency_symbol': profile.currency_symbol,
                     'user_decimal_places': profile.currency_decimal_places,
                     'org_name': org.name if org else 'AKAF',
-                    'org_logo': org.logo.url if org and org.logo else None,
+                    'org_logo': logo_url,
                     'org_id': org.id if org else None,
                     'org_updated_at': org.updated_at.isoformat() if org and getattr(org, 'updated_at', None) else None,
+                    'perms_stamp': current_perms_stamp,
                     # IMPORTANT: Do not store model instances in session cache
                     # Only keep primitive values to avoid JSON serialization errors
                     # Access logic: 
@@ -45,7 +62,7 @@ def user_settings(request):
                     'can_use_expenses': request.user.is_superuser or ((org.can_use_expenses if org else True) and request.user.has_perm('users.can_access_expenses')),
                     'can_use_ticketing': request.user.is_superuser or ((org.can_use_ticketing if org else True) and request.user.has_perm('users.can_access_ticketing')),
                     'can_use_attendance': request.user.is_superuser or ((org.can_use_attendance if org else True) and request.user.has_perm('users.can_access_attendance')),
-                    'can_use_personnel': request.user.is_superuser or ((getattr(org, 'can_use_personnel', True) if org else True) and (role_is_manager or request.user.has_perm('users.can_access_personnel'))),
+                    'can_use_personnel': request.user.is_superuser or role_is_manager or ((getattr(org, 'can_use_personnel', True) if org else True) and request.user.has_perm('users.can_access_personnel')),
                     'can_use_projects': request.user.is_superuser or ((org.can_use_projects if org else True) and request.user.has_perm('users.can_access_projects')),
                     'can_use_dms': request.user.is_superuser or ((org.can_use_dms if org else True) and request.user.has_perm('users.can_access_dms')),
                     'can_use_ai': request.user.is_superuser or ((org.can_use_ai if org else True) and request.user.has_perm('users.can_access_ai')),

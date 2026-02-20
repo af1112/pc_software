@@ -1,16 +1,150 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.conf import settings
 from .models import UserProfile
 from .forms import LanguageSettingsForm, UserCreateForm, UserPermissionsForm
 from django.utils.translation import activate
 from django.utils.translation import gettext as _
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.models import User, Permission
+from django.shortcuts import resolve_url
 from apps.organizations.models import Organization
+from urllib.parse import urlparse
+
+
+DEFAULT_RESET_PASSWORD = 'Aa@123456'
+
+
+class CustomLoginView(auth_views.LoginView):
+    template_name = 'registration/login.html'
+
+    def _sanitize_next_target(self, target):
+        if not target:
+            return ''
+
+        target = str(target).strip()
+        if not target:
+            return ''
+
+        if not url_has_allowed_host_and_scheme(
+            url=target,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return ''
+
+        parsed = urlparse(target)
+        path = (parsed.path or '').lower()
+        blocked_exact = {'/favicon.ico'}
+        blocked_prefixes = ('/static/', '/media/', '/.well-known/')
+        blocked_ext = ('.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.css', '.js', '.map')
+
+        if path in blocked_exact:
+            return ''
+        if any(path.startswith(prefix) for prefix in blocked_prefixes):
+            return ''
+        if path.endswith(blocked_ext):
+            return ''
+
+        return target
+
+    def _resolve_next_target(self):
+        redirect_field = self.redirect_field_name
+        query_next = self.request.GET.get(redirect_field)
+        post_next = self.request.POST.get(redirect_field)
+        session_next = self.request.session.get('post_login_redirect', '')
+        referer = self.request.META.get('HTTP_REFERER', '')
+        referer_quick = '/attendance/quick/' if '/attendance/quick/' in referer else ''
+        candidates = [query_next, post_next, self.get_redirect_url(), session_next, referer_quick]
+        for candidate in candidates:
+            valid_target = self._sanitize_next_target(candidate)
+            if valid_target:
+                return valid_target
+        return ''
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.method == 'GET':
+            next_target = self._resolve_next_target()
+            if next_target:
+                request.session['post_login_redirect'] = next_target
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        next_value = self._resolve_next_target() or ''
+        debug_forced = str(self.request.GET.get('debug', '')).lower() in {'1', 'true', 'yes', 'on'}
+        context['next_value'] = next_value
+        context['session_next'] = self.request.session.get('post_login_redirect', '')
+        context['referer'] = self.request.META.get('HTTP_REFERER', '')
+        context['debug_login'] = settings.DEBUG or debug_forced
+        if settings.DEBUG:
+            print(
+                "DEBUG LOGIN CONTEXT "
+                f"next={next_value!r} "
+                f"session_next={self.request.session.get('post_login_redirect', '')!r} "
+                f"referer={self.request.META.get('HTTP_REFERER', '')!r} "
+                f"path={self.request.get_full_path()!r}"
+            )
+        return context
+
+    def get_success_url(self):
+        force_quick = self.request.session.pop('force_quick_after_login', False)
+        candidate_targets = [
+            self.request.GET.get(self.redirect_field_name, ''),
+            self.request.POST.get(self.redirect_field_name, ''),
+            self.request.session.get('post_login_redirect', ''),
+        ]
+        has_quick_target = any(str(target).startswith('/attendance/quick') for target in candidate_targets if target)
+
+        if force_quick or has_quick_target:
+            if settings.DEBUG:
+                print("DEBUG LOGIN SUCCESS forced_quick_redirect=True")
+            self.request.session['last_login_redirect_debug'] = {
+                'reason': 'force_quick' if force_quick else 'quick_target',
+                'post_next': self.request.POST.get(self.redirect_field_name, ''),
+                'get_next': self.request.GET.get(self.redirect_field_name, ''),
+                'session_next': self.request.session.get('post_login_redirect', ''),
+                'final_redirect': '/attendance/quick/',
+            }
+            self.request.session.pop('post_login_redirect', None)
+            return resolve_url('hr_attendance:quick_clock')
+
+        redirect_to = self._resolve_next_target()
+        if settings.DEBUG:
+            print(
+                "DEBUG LOGIN SUCCESS "
+                f"post_next={self.request.POST.get(self.redirect_field_name, '')!r} "
+                f"session_next={self.request.session.get('post_login_redirect', '')!r} "
+                f"redirect_to={redirect_to!r}"
+            )
+        if redirect_to:
+            self.request.session['last_login_redirect_debug'] = {
+                'reason': 'resolved_redirect',
+                'post_next': self.request.POST.get(self.redirect_field_name, ''),
+                'get_next': self.request.GET.get(self.redirect_field_name, ''),
+                'session_next': self.request.session.get('post_login_redirect', ''),
+                'final_redirect': redirect_to,
+            }
+            self.request.session.pop('post_login_redirect', None)
+            return redirect_to
+        self.request.session['last_login_redirect_debug'] = {
+            'reason': 'fallback_login_redirect_url',
+            'post_next': self.request.POST.get(self.redirect_field_name, ''),
+            'get_next': self.request.GET.get(self.redirect_field_name, ''),
+            'session_next': self.request.session.get('post_login_redirect', ''),
+            'final_redirect': resolve_url(settings.LOGIN_REDIRECT_URL),
+        }
+        return resolve_url(settings.LOGIN_REDIRECT_URL)
+
 
 def is_admin(user):
     return user.is_superuser or user.is_staff
+
+
+def is_superuser_only(user):
+    return user.is_authenticated and user.is_superuser
 
 @login_required
 def profile_view(request):
@@ -19,6 +153,48 @@ def profile_view(request):
     org = getattr(profile, 'organization', None) if profile else None
     role = getattr(profile, 'role', None) if profile else None
     perms = user.user_permissions.all().order_by('name')
+
+    is_fa = str(getattr(request, 'LANGUAGE_CODE', '')).lower().startswith('fa')
+    if is_fa:
+        role_labels = {
+            'admin': 'مدیر',
+            'supervisor': 'سرپرست',
+            'user': 'کاربر',
+        }
+    else:
+        role_labels = {
+            'admin': _('Admin'),
+            'supervisor': _('Supervisor'),
+            'user': _('User'),
+        }
+    profile_role_label = role_labels.get(role, role or '-')
+
+    if is_fa:
+        perm_labels = {
+            'can_access_expenses': 'دسترسی مدیریت هزینه‌ها',
+            'can_access_ticketing': 'دسترسی سیستم تیکتینگ',
+            'can_access_attendance': 'دسترسی حضور و غیاب',
+            'can_access_personnel': 'دسترسی پرسنل و حقوق',
+            'can_access_projects': 'دسترسی کنترل پروژه',
+            'can_access_dms': 'دسترسی مدیریت اسناد',
+            'can_access_ai': 'دسترسی موتور هوش مصنوعی',
+            'can_access_menu': 'دسترسی منوی دیجیتال',
+            'can_access_club': 'دسترسی باشگاه مشتریان',
+        }
+    else:
+        perm_labels = {
+            'can_access_expenses': _('Expense Manager Access'),
+            'can_access_ticketing': _('Ticketing System Access'),
+            'can_access_attendance': _('Attendance Access'),
+            'can_access_personnel': _('Personnel & Payroll Access'),
+            'can_access_projects': _('Project Control Access'),
+            'can_access_dms': _('Document DMS Access'),
+            'can_access_ai': _('AI Engine Access'),
+            'can_access_menu': _('Digital Menu Access'),
+            'can_access_club': _('Customer Club Access'),
+        }
+    profile_permission_labels = [perm_labels.get(p.codename, p.name) for p in perms]
+
     return render(
         request,
         'users/profile.html',
@@ -26,7 +202,9 @@ def profile_view(request):
             'profile_user': user,
             'profile_org': org,
             'profile_role': role,
+            'profile_role_label': profile_role_label,
             'profile_permissions': perms,
+            'profile_permission_labels': profile_permission_labels,
         },
     )
 
@@ -454,4 +632,22 @@ def user_delete(request, pk):
         else:
             user.delete()
             messages.success(request, _('User deleted successfully.'))
+    return redirect('users:user_list')
+
+
+@login_required
+@user_passes_test(is_superuser_only)
+def user_reset_password(request, pk):
+    if request.method != 'POST':
+        return redirect('users:user_list')
+
+    target_user = get_object_or_404(User, pk=pk)
+    target_user.set_password(DEFAULT_RESET_PASSWORD)
+    target_user.save(update_fields=['password'])
+
+    messages.success(
+        request,
+        _('Password for %(username)s was reset to %(password)s. Ask the user to change it after login.')
+        % {'username': target_user.username, 'password': DEFAULT_RESET_PASSWORD},
+    )
     return redirect('users:user_list')

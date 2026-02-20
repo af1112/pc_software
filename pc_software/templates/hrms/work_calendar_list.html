@@ -1,0 +1,45 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Work Calendar" %}{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% trans "Work Calendar" %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">{% trans "Work Calendar" %}</h5>
+        <div class="d-flex gap-2">
+            <form method="get" class="d-flex gap-2">
+                <input type="month" name="month" value="{{ selected_month }}" class="form-control form-control-sm">
+                <button class="btn btn-outline-secondary btn-sm rounded-pill" type="submit">{% trans "Filter" %}</button>
+            </form>
+            <a href="{% url 'hrms:work_calendar_bulk_generate' %}" class="btn btn-outline-primary btn-sm rounded-pill"><i class="fas fa-magic me-1"></i>{% trans "Generate Year" %}</a>
+            <a href="{% url 'hrms:work_calendar_create' %}" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-plus me-1"></i>{% trans "Add Day" %}</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr><th>{% trans "Date" %}</th><th>{% trans "Day Type" %}</th><th>{% trans "Holiday" %}</th><th>{% trans "Work Minutes" %}</th><th>{% trans "Flags" %}</th></tr></thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.date }}</td>
+                        <td>{{ row.get_day_type_display }}</td>
+                        <td>{{ row.holiday_name|default:'-' }}</td>
+                        <td>{{ row.standard_work_minutes }}</td>
+                        <td>
+                            {% if row.is_ramadan %}<span class="badge bg-info text-dark">{% trans "Ramadan" %}</span>{% endif %}
+                            {% if row.is_summer_schedule %}<span class="badge bg-warning text-dark">{% trans "Summer" %}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

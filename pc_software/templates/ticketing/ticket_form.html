@@ -66,6 +66,9 @@
                             <button type="button" id="addAttachmentBtn" class="btn btn-outline-secondary btn-sm">
                                 {% if request.LANGUAGE_CODE == 'fa' %}افزودن فایل جدید{% else %}{% trans "Add Another File" %}{% endif %}
                             </button>
+                            <button type="button" id="pasteScreenshotBtn" class="btn btn-outline-success btn-sm">
+                                {% if request.LANGUAGE_CODE == 'fa' %}چسباندن اسکرین‌شات{% else %}{% trans "Paste Screenshot" %}{% endif %}
+                            </button>
                             <small id="attachmentCountHint" class="text-muted">
                                 {% if request.LANGUAGE_CODE == 'fa' %}حداکثر ۵ فایل{% else %}{% trans "Maximum 5 files" %}{% endif %}
                             </small>
@@ -162,6 +165,69 @@ attachmentInputs.addEventListener('click', (e) => {
     }
     removeBtn.closest('.attachment-input-row').remove();
     updateAttachmentUI();
+});
+
+async function readClipboardImageFile() {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+        return null;
+    }
+    try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+            for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                    const blob = await item.getType(type);
+                    const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                    return file;
+                }
+            }
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function attachFileToNewRow(file) {
+    if (getAttachmentRows().length >= maxAttachmentCount) {
+        alert(isFa ? `حداکثر ${maxAttachmentCount} فایل قابل آپلود است.` : `You can upload up to ${maxAttachmentCount} files.`);
+        return;
+    }
+    addAttachmentField();
+    const input = attachmentInputs.querySelector('.attachment-input-row:last-child input[type="file"]');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.style.maxWidth = '120px';
+    img.className = 'mt-2 me-2';
+    previews.appendChild(img);
+}
+
+document.getElementById('pasteScreenshotBtn').addEventListener('click', async () => {
+    const file = await readClipboardImageFile();
+    if (!file) {
+        alert(isFa ? 'هیچ تصویر در کلیپ‌بورد یافت نشد. ابتدا کلید PrtSc را بزنید و دوباره تلاش کنید.' : 'No image found in clipboard. Press PrtSc first, then try again.');
+        return;
+    }
+    attachFileToNewRow(file);
+});
+
+document.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+        if (it.type && it.type.indexOf('image') !== -1) {
+            const blob = it.getAsFile();
+            if (blob) {
+                const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                attachFileToNewRow(file);
+                e.preventDefault();
+                break;
+            }
+        }
+    }
 });
 
 ticketForm.addEventListener('submit', (e) => {

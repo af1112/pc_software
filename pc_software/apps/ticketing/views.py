@@ -15,8 +15,56 @@ def ticket_list(request):
         tickets = Ticket.objects.all()
     else:
         tickets = Ticket.objects.filter(created_by=request.user)
+
+    q = request.GET.get('q', '').strip()
+    status = request.GET.get('status') or ''
+    priority = request.GET.get('priority') or ''
+    category = request.GET.get('category') or ''
+    created_by = request.GET.get('created_by') or ''
+    sort = request.GET.get('sort') or 'created_at'
+    direction = request.GET.get('direction') or 'desc'
+
+    if q:
+        from django.db.models import Q
+        tickets = tickets.filter(Q(title__icontains=q) | Q(description__icontains=q))
+    if status:
+        tickets = tickets.filter(status=status)
+    if priority:
+        tickets = tickets.filter(priority=priority)
+    if category:
+        tickets = tickets.filter(category=category)
+    if created_by and request.user.is_staff:
+        tickets = tickets.filter(created_by_id=created_by)
+
+    sortable_fields = {
+        'id': 'id',
+        'created_at': 'created_at',
+        'title': 'title',
+        'status': 'status',
+        'created_by': 'created_by__username',
+        'category': 'category',
+        'priority': 'priority',
+    }
+    if sort not in sortable_fields:
+        sort = 'created_at'
+    if direction not in ('asc', 'desc'):
+        direction = 'desc'
+
+    sort_field = sortable_fields[sort]
+    if direction == 'desc':
+        sort_field = f'-{sort_field}'
+    tickets = tickets.order_by(sort_field)
+
     context = {
-        'tickets': tickets
+        'tickets': tickets,
+        'status_choices': Ticket.STATUS_CHOICES,
+        'priority_choices': Ticket.PRIORITY_CHOICES,
+        'category_choices': Ticket.CATEGORY_CHOICES,
+        'users': User.objects.all() if request.user.is_staff else None,
+        'selected': {
+            'q': q, 'status': status, 'priority': priority, 'category': category, 'created_by': created_by,
+            'sort': sort, 'direction': direction,
+        }
     }
     return render(request, 'ticketing/ticket_list.html', context)
 
@@ -25,7 +73,7 @@ def ticket_detail(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     if ticket.created_by != request.user and not request.user.is_staff and ticket.assigned_to != request.user:
         messages.error(request, _("You do not have permission to view this ticket."))
-        return redirect('ticket_list')
+        return redirect('ticketing:ticket_list')
 
     if request.method == 'POST':
         content = request.POST.get('content')
@@ -36,12 +84,11 @@ def ticket_detail(request, pk):
                 content=content
             )
             
-            # Auto-reopen if closed or change status to waiting response
+            # Auto status update based on who replied
             if ticket.status == 'closed':
                 ticket.status = 'open'
-            elif not request.user.is_staff:
-                # If user (not staff) replies, set to open or waiting review
-                ticket.status = 'open'
+            elif request.user != ticket.created_by:
+                ticket.status = 'answered'
             
             ticket.save()
             
@@ -73,7 +120,7 @@ def ticket_detail(request, pk):
                 )
 
             messages.success(request, _("Comment added."))
-            return redirect('ticket_detail', pk=pk)
+            return redirect('ticketing:ticket_detail', pk=pk)
 
     context = {
         'ticket': ticket,
@@ -86,7 +133,7 @@ def ticket_detail(request, pk):
 def ticket_assign(request, pk):
     if not request.user.is_staff:
         messages.error(request, _("Only staff can assign tickets."))
-        return redirect('ticket_detail', pk=pk)
+        return redirect('ticketing:ticket_detail', pk=pk)
     
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.method == 'POST':
@@ -102,7 +149,7 @@ def ticket_assign(request, pk):
             ticket.save()
             messages.success(request, _("Ticket unassigned."))
             
-    return redirect('ticket_detail', pk=pk)
+    return redirect('ticketing:ticket_detail', pk=pk)
 
 @login_required
 def ticket_update_status(request, pk):
@@ -114,7 +161,7 @@ def ticket_update_status(request, pk):
     
     if not (is_creator or is_staff):
         messages.error(request, _("Permission denied."))
-        return redirect('ticket_detail', pk=pk)
+        return redirect('ticketing:ticket_detail', pk=pk)
 
     if request.method == 'POST':
         new_status = request.POST.get('status')
@@ -126,7 +173,7 @@ def ticket_update_status(request, pk):
                 ticket.save()
                 messages.success(request, _("Status updated to %(status)s.") % {'status': ticket.get_status_display()})
                 
-    return redirect('ticket_detail', pk=pk)
+    return redirect('ticketing:ticket_detail', pk=pk)
 
 @login_required
 def ticket_create(request):
@@ -184,7 +231,7 @@ def ticket_create(request):
                 )
 
             messages.success(request, _("Ticket created successfully."))
-            return redirect('ticket_list')
+            return redirect('ticketing:ticket_list')
         else:
             messages.error(request, _("Please fill in all required fields."))
             

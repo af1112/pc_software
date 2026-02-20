@@ -43,6 +43,15 @@
     <!-- Custom Dashboard CSS -->
     <link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
     
+    <style>
+        .sidebar-collapsed .sidebar { padding: 12px 6px; }
+        .sidebar-collapsed .sidebar .nav { padding-inline: 0 !important; }
+        .sidebar-collapsed .sidebar .brand-row { padding-inline: 8px !important; }
+        .sidebar-collapsed .sidebar .nav-link { padding: 8px; width: 56px; margin-inline: auto; justify-content: center; gap: 0; }
+        .sidebar-collapsed .sidebar .nav-link i { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 12px; background: rgba(67,24,255,.12); border: 1px solid rgba(67,24,255,.18); }
+        .sidebar-collapsed .sidebar .mt-auto { display: flex; justify-content: center; padding-inline: 0 !important; }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>

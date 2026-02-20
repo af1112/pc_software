@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n local_dates %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,7 +60,7 @@
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <div class="fw-bold">{{ report.title }}</div>
-                        <small class="text-muted">{{ report.start_date|date:"d M" }} - {{ report.end_date|date:"d M Y" }}</small>
+                        <small class="text-muted">{% localized_date report.start_date "d M" %} - {% localized_date report.end_date "d M Y" %}</small>
                     </div>
                     <span class="badge badge-status status-{{ report.status }}">{{ report.status|title }}</span>
                 </div>

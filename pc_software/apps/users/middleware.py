@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.auth import logout
+from django.contrib.auth.views import redirect_to_login
+from django.conf import settings
 
 class UserLanguageMiddleware:
     def __init__(self, get_response):
@@ -42,10 +44,22 @@ class LoginRequiredMiddleware:
             '/accounts/register/',
             '/',
             '/run-migrations/',
+            '/diag/login-flow/',
         ]
         
         if not request.user.is_authenticated and request.path not in exempt_urls and not request.path.startswith('/static/'):
-            return redirect('/accounts/login/')
+            request.session['post_login_redirect'] = request.get_full_path()
+            if request.path.startswith('/attendance/quick'):
+                request.session['force_quick_after_login'] = True
+            if settings.DEBUG:
+                print(
+                    "DEBUG LOGIN MIDDLEWARE "
+                    f"path={request.path!r} "
+                    f"full_path={request.get_full_path()!r} "
+                    f"stored_post_login_redirect={request.session.get('post_login_redirect', '')!r} "
+                    f"force_quick_after_login={request.session.get('force_quick_after_login', False)!r}"
+                )
+            return redirect_to_login(request.get_full_path(), login_url='/accounts/login/')
             
         response = self.get_response(request)
         return response

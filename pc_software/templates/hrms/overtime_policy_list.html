@@ -1,0 +1,38 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Overtime Policies" %}{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% trans "Overtime Policies" %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">{% trans "Overtime Policies" %}</h5>
+        <a href="{% url 'hrms:overtime_policy_create' %}" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-plus me-1"></i>{% trans "Add Policy" %}</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr><th>{% trans "Name" %}</th><th>{% trans "Country" %}</th><th>{% trans "Effective" %}</th><th>{% trans "Status" %}</th><th>{% trans "Rules" %}</th></tr></thead>
+                <tbody>
+                    {% for p in policies %}
+                    <tr>
+                        <td>{{ p.name }}</td>
+                        <td>{{ p.get_country_display }}</td>
+                        <td>{{ p.effective_from }}{% if p.effective_to %} - {{ p.effective_to }}{% endif %}</td>
+                        <td>{% if p.is_active %}<span class="badge bg-success">{% trans "Active" %}</span>{% else %}<span class="badge bg-secondary">{% trans "Inactive" %}</span>{% endif %}</td>
+                        <td>
+                            <a href="{% url 'hrms:overtime_rule_create' p.id %}" class="btn btn-sm btn-outline-primary rounded-pill">{% trans "Add Rule" %}</a>
+                            <div class="small text-muted mt-1">{{ p.rate_rules.count }} {% trans "rules" %}</div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

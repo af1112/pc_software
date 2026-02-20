@@ -1,5 +1,5 @@
 {% extends 'dashboard_base.html' %}
-{% load i18n %}
+{% load i18n local_dates %}
 
 {% block title %}{% trans "Ticket Details" %}{% endblock %}
 
@@ -111,9 +111,125 @@ if (recordVoiceBtn) {
         }
     });
 }
+const isFa = '{{ request.LANGUAGE_CODE }}' === 'fa';
+const maxReplyAttachments = 5;
+const replyInputsContainer = document.getElementById('reply-attachment-inputs');
+const replyAddAttachmentBtn = document.getElementById('replyAddAttachmentBtn');
+const replyAttachmentHint = document.getElementById('replyAttachmentHint');
+
+async function readClipboardImageFile() {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+        return null;
+    }
+    try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+            for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                    const blob = await item.getType(type);
+                    return new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                }
+            }
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function getReplyRows() {
+    return replyInputsContainer.querySelectorAll('.reply-attachment-row');
+}
+
+function updateReplyUI() {
+    const count = [...replyInputsContainer.querySelectorAll('input[type="file"]')]
+        .filter(inp => inp.files && inp.files.length > 0).length;
+    replyAttachmentHint.innerText = isFa ? `حداکثر ۵ فایل - انتخاب شده: ${count}` : `Maximum 5 files - selected: ${count}`;
+    replyAddAttachmentBtn.disabled = getReplyRows().length >= maxReplyAttachments;
+}
+
+function addReplyAttachmentRow() {
+    if (getReplyRows().length >= maxReplyAttachments) {
+        alert(isFa ? 'حداکثر ۵ فایل قابل افزودن است.' : 'You can add up to 5 files.');
+        return;
+    }
+    const row = document.createElement('div');
+    row.className = 'reply-attachment-row d-flex align-items-center gap-2';
+    row.innerHTML = `
+        <input type="file" name="attachments" class="form-control form-control-sm">
+        <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="${isFa ? 'حذف' : 'Remove'}">×</button>
+    `;
+    replyInputsContainer.appendChild(row);
+    updateReplyUI();
+}
+
+function attachFileToNewReplyRow(file) {
+    if (getReplyRows().length >= maxReplyAttachments) {
+        alert(isFa ? 'حداکثر ۵ فایل قابل افزودن است.' : 'You can add up to 5 files.');
+        return;
+    }
+    addReplyAttachmentRow();
+    const input = replyInputsContainer.querySelector('.reply-attachment-row:last-child input[type="file"]');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.style.maxWidth = '120px';
+    img.className = 'mt-2 me-2';
+    previews.appendChild(img);
+}
+
+const pasteScreenshotReplyBtn = document.getElementById('pasteScreenshotReplyBtn');
+replyAddAttachmentBtn.addEventListener('click', addReplyAttachmentRow);
+replyInputsContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('.reply-remove-attachment');
+    if (!btn) return;
+    if (getReplyRows().length <= 1) return;
+    btn.closest('.reply-attachment-row').remove();
+    updateReplyUI();
+});
+
+if (pasteScreenshotReplyBtn) {
+    pasteScreenshotReplyBtn.addEventListener('click', async () => {
+        const file = await readClipboardImageFile();
+        if (!file) {
+            alert(isFa ? 'هیچ تصویر در کلیپ‌بورد یافت نشد. ابتدا کلید PrtSc را بزنید و دوباره تلاش کنید.' : 'No image found in clipboard. Press PrtSc first, then try again.');
+            return;
+        }
+        attachFileToNewReplyRow(file);
+    });
+}
+
+document.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+        if (it.type && it.type.indexOf('image') !== -1) {
+            const blob = it.getAsFile();
+            if (blob) {
+                const file = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                attachFileToNewReplyRow(file);
+                e.preventDefault();
+                break;
+            }
+        }
+    }
+});
+
+commentForm.addEventListener('submit', (e) => {
+    const selectedCount = [...replyInputsContainer.querySelectorAll('input[type="file"]')]
+        .reduce((acc, inp) => acc + (inp.files ? inp.files.length : 0), 0);
+    if (selectedCount > 5) {
+        e.preventDefault();
+        alert(isFa ? 'حداکثر ۵ فایل می‌توانید ارسال کنید.' : 'You can upload up to 5 files.');
+    }
+});
+
+updateReplyUI();
 </script>
 {% endblock %}
-{% block page_title %}{% trans "Support" %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پشتیبانی{% else %}{% trans "Support" %}{% endif %}{% endblock %}
 {% block content_title %}{% trans "Ticket" %} #{{ ticket.id }}{% endblock %}
 
 {% block content %}
@@ -137,7 +253,10 @@ if (recordVoiceBtn) {
                         <div class="col-md-4">
                             <div class="border rounded p-2 text-center">
                                 <i class="bi bi-file-earmark fs-4"></i>
-                                <div class="small text-truncate"><a href="{{ ticket.attachment.url }}" target="_blank">{% trans "Main Attachment" %}</a></div>
+                                <div class="small text-truncate">
+                                    <a href="{{ ticket.attachment.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
+                                    <a href="{{ ticket.attachment.url }}" download>{% trans "Download" %}</a>
+                                </div>
                             </div>
                         </div>
                         {% endif %}
@@ -153,7 +272,10 @@ if (recordVoiceBtn) {
                                 {% else %}
                                     <div class="text-center">
                                         <i class="bi bi-file-earmark fs-4"></i>
-                                        <div class="small text-truncate"><a href="{{ attachment.file.url }}" target="_blank">{% trans "View Attachment" %}</a></div>
+                                        <div class="small text-truncate">
+                                            <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
+                                            <a href="{{ attachment.file.url }}" download>{% trans "Download" %}</a>
+                                        </div>
                                     </div>
                                 {% endif %}
                             </div>
@@ -165,7 +287,7 @@ if (recordVoiceBtn) {
                 
                 <div class="d-flex gap-3 text-sm text-muted mt-4 pt-3 border-top">
                     <div><i class="fas fa-user me-1"></i> {{ ticket.created_by.username }}</div>
-                    <div><i class="fas fa-calendar me-1"></i> {{ ticket.created_at|date:"M d, Y H:i" }}</div>
+                    <div><i class="fas fa-calendar me-1"></i> {% localized_date ticket.created_at "M d, Y H:i" %}</div>
                 </div>
             </div>
         </div>
@@ -202,7 +324,10 @@ if (recordVoiceBtn) {
                                 {% else %}
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-file-earmark me-2"></i>
-                                        <div class="small text-truncate"><a href="{{ attachment.file.url }}" target="_blank">{% trans "Attachment" %}</a></div>
+                                        <div class="small text-truncate">
+                                            <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
+                                            <a href="{{ attachment.file.url }}" download>{% trans "Download" %}</a>
+                                        </div>
                                     </div>
                                 {% endif %}
                             </div>
@@ -232,7 +357,17 @@ if (recordVoiceBtn) {
                     
                     <div class="mb-3">
                         <label class="form-label small">{% trans "Attachments" %}</label>
-                        <input type="file" name="attachments" class="form-control form-control-sm" multiple>
+                        <div id="reply-attachment-inputs" class="d-flex flex-column gap-2">
+                            <div class="reply-attachment-row d-flex align-items-center gap-2">
+                                <input type="file" name="attachments" class="form-control form-control-sm">
+                                <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="{% trans 'Remove' %}">×</button>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <button type="button" id="replyAddAttachmentBtn" class="btn btn-outline-secondary btn-sm">{% trans "Add Another File" %}</button>
+                            <button type="button" id="pasteScreenshotReplyBtn" class="btn btn-outline-success btn-sm">{% trans "Paste Screenshot" %}</button>
+                            <small id="replyAttachmentHint" class="text-muted">{% trans "Maximum 5 files" %}</small>
+                        </div>
                     </div>
 
                     <!-- Voice & Video Recording Section -->

@@ -4,6 +4,8 @@ from django.core.management import call_command
 import os
 import traceback
 import sys
+from django.urls import resolve
+from django.template.loader import get_template
 
 @login_required
 def main_dashboard(request):
@@ -231,3 +233,33 @@ def restore_data_view(request):
         output.append(f"❌ CRITICAL ERROR: {str(e)}")
         output.append("<pre>" + error_trace + "</pre>")
         return HttpResponse("<br>".join(output), status=500)
+
+
+def login_flow_diag_view(request):
+    lines = []
+    lines.append("=== LOGIN FLOW DIAG ===")
+    lines.append(f"path={request.path}")
+    lines.append(f"full_path={request.get_full_path()}")
+    lines.append(f"query_next={request.GET.get('next', '')}")
+    lines.append(f"session_post_login_redirect={request.session.get('post_login_redirect', '')}")
+    lines.append(f"session_force_quick_after_login={request.session.get('force_quick_after_login', False)}")
+    lines.append(f"session_last_login_redirect_debug={request.session.get('last_login_redirect_debug', {})}")
+
+    try:
+        match = resolve('/accounts/login/')
+        lines.append(f"resolved_login_module={getattr(match.func, '__module__', '')}")
+        lines.append(f"resolved_login_view_class={getattr(getattr(match.func, 'view_class', None), '__name__', '')}")
+    except Exception as exc:
+        lines.append(f"resolve_error={exc}")
+
+    try:
+        tpl = get_template('registration/login.html')
+        origin_name = getattr(getattr(tpl, 'origin', None), 'name', '')
+        lines.append(f"login_template_origin={origin_name}")
+    except Exception as exc:
+        lines.append(f"template_error={exc}")
+
+    lines.append(f"python={sys.version.splitlines()[0]}")
+    lines.append(f"cwd={os.getcwd()}")
+    lines.append(f"pid={os.getpid()}")
+    return HttpResponse("\n".join(lines), content_type='text/plain; charset=utf-8')

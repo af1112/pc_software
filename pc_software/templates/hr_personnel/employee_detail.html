@@ -1,26 +1,24 @@
 {% extends 'dashboard_base.html' %}
-{% load i18n %}
+{% load i18n local_dates %}
 
-{% trans "Are you sure?" as confirm_delete_text %}
-
-{% block title %}{% trans "Employee" %} - {{ employee }}{% endblock %}
-{% block page_title %}{% trans "Personnel" %}{% endblock %}
+{% block title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Employee" %}{% endif %} - {{ employee }}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
 {% block content_title %}{{ employee }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-light rounded-pill px-3">
-        <i class="fas fa-arrow-left me-1"></i> {% trans "Back" %}
+        <i class="fas fa-arrow-left me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}
     </a>
     <div class="d-flex gap-2">
         {% if is_manager %}
         <a href="{% url 'hr_personnel:employee_edit' employee.id %}" class="btn btn-outline-secondary rounded-pill">
-            <i class="fas fa-edit me-1"></i> {% trans "Edit" %}
+            <i class="fas fa-edit me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}ویرایش{% else %}{% trans "Edit" %}{% endif %}
         </a>
-        <form action="{% url 'hr_personnel:employee_delete' employee.id %}" method="post" onsubmit="return confirm('{{ confirm_delete_text|escapejs }}')">
+        <form action="{% url 'hr_personnel:employee_delete' employee.id %}" method="post">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline-danger rounded-pill">
-                <i class="fas fa-trash me-1"></i> {% trans "Delete" %}
+                <i class="fas fa-trash me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans "Delete" %}{% endif %}
             </button>
         </form>
         {% endif %}
@@ -31,35 +29,58 @@
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3">
-                <h6 class="mb-0 fw-bold">{% trans "Profile" %}</h6>
+                <h6 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}پروفایل{% else %}{% trans "Profile" %}{% endif %}</h6>
             </div>
             <div class="card-body">
-                <div class="mb-2"><strong>{% trans "Username" %}:</strong> {{ employee.user.username|default:"-" }}</div>
-                <div class="mb-2"><strong>{% trans "Department" %}:</strong> {{ employee.department|default:"-" }}</div>
-                <div class="mb-2"><strong>{% trans "Position" %}:</strong> {{ employee.position_title|default:"-" }}</div>
-                <div class="mb-2"><strong>{% trans "Hire Date" %}:</strong> {{ employee.hire_date|date:"Y-m-d"|default:"-" }}</div>
-                <div class="mb-2"><strong>{% trans "Phone" %}:</strong> {{ employee.phone|default:"-" }}</div>
-                <div class="mb-2"><strong>{% trans "Email" %}:</strong> {{ employee.email|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}کد پرسنلی{% else %}{% trans "Employee ID" %}{% endif %}:</strong> {{ employee.employee_id|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}نام کاربری{% else %}{% trans "Username" %}{% endif %}:</strong> {{ employee.user.username|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}دپارتمان{% else %}{% trans "Department" %}{% endif %}:</strong> {{ employee.department|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}سمت{% else %}{% trans "Position" %}{% endif %}:</strong> {{ employee.position_title|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}تاریخ استخدام{% else %}{% trans "Hire Date" %}{% endif %}:</strong> {% localized_date employee.hire_date "Y-m-d" %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}تولد{% else %}{% trans "Date of Birth" %}{% endif %}:</strong> {% localized_date employee.date_of_birth "Y-m-d" %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}کد ملی{% else %}{% trans "National ID" %}{% endif %}:</strong> {{ employee.national_id|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}پاسپورت{% else %}{% trans "Passport" %}{% endif %}:</strong> {{ employee.passport_no|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}ملیت{% else %}{% trans "Nationality" %}{% endif %}:</strong> {{ employee.nationality|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}تلفن{% else %}{% trans "Phone" %}{% endif %}:</strong> {{ employee.phone|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}ایمیل{% else %}{% trans "Email" %}{% endif %}:</strong> {{ employee.email|default:"-" }}</div>
+
+                <hr>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}نوع استخدام{% else %}{% trans "Employment Type" %}{% endif %}:</strong> {{ employee.get_employment_type_display|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}پایان آزمایشی{% else %}{% trans "Probation End" %}{% endif %}:</strong> {% localized_date employee.probation_end_date "Y-m-d" %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}شروع قرارداد{% else %}{% trans "Contract Start" %}{% endif %}:</strong> {% localized_date employee.contract_start "Y-m-d" %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}پایان قرارداد{% else %}{% trans "Contract End" %}{% endif %}:</strong> {% localized_date employee.contract_end "Y-m-d" %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}مدیر مستقیم{% else %}{% trans "Reporting Manager" %}{% endif %}:</strong> {{ employee.reporting_manager|default:"-" }}</div>
+
+                <hr>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}بانک{% else %}{% trans "Bank" %}{% endif %}:</strong> {{ employee.bank_name|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}شبا{% else %}{% trans "IBAN" %}{% endif %}:</strong> {{ employee.iban|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}روش پرداخت{% else %}{% trans "Payment Method" %}{% endif %}:</strong> {{ employee.get_payment_method_display|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}حقوق پایه{% else %}{% trans "Basic Salary" %}{% endif %}:</strong> {{ employee.currency|default:"" }} {{ employee.basic_salary|default:"-" }}</div>
+
+                <hr>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}وضعیت عمانی/مهاجر{% else %}{% trans "Omani/Expat" %}{% endif %}:</strong> {{ employee.get_omani_or_expat_display|default:"-" }}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}PASI{% else %}{% trans "PASI Registered" %}{% endif %}:</strong> {% if employee.pasi_registered %}{% if request.LANGUAGE_CODE == 'fa' %}بله{% else %}{% trans "Yes" %}{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'fa' %}خیر{% else %}{% trans "No" %}{% endif %}{% endif %}</div>
+                <div class="mb-2"><strong>{% if request.LANGUAGE_CODE == 'fa' %}WPS{% else %}{% trans "WPS Required" %}{% endif %}:</strong> {% if employee.wps_required %}{% if request.LANGUAGE_CODE == 'fa' %}بله{% else %}{% trans "Yes" %}{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'fa' %}خیر{% else %}{% trans "No" %}{% endif %}{% endif %}</div>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mt-4">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 fw-bold">{% trans "Bank Accounts" %}</h6>
+                <h6 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}حساب‌های بانکی{% else %}{% trans "Bank Accounts" %}{% endif %}</h6>
                 {% if is_manager %}
                 <a href="{% url 'hr_personnel:bank_account_create' employee.id %}" class="btn btn-sm btn-primary rounded-pill">
-                    <i class="fas fa-plus me-1"></i> {% trans "Add" %}
+                    <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن{% else %}{% trans "Add" %}{% endif %}
                 </a>
                 {% endif %}
             </div>
             <div class="card-body">
                 {% for a in bank_accounts %}
                     <div class="border rounded-3 p-2 mb-2">
-                        <div class="fw-bold">{{ a.bank_name }}{% if a.is_primary %} <span class="badge bg-success">{% trans "Primary" %}</span>{% endif %}</div>
+                        <div class="fw-bold">{{ a.bank_name }}{% if a.is_primary %} <span class="badge bg-success">{% if request.LANGUAGE_CODE == 'fa' %}اصلی{% else %}{% trans "Primary" %}{% endif %}</span>{% endif %}</div>
                         <div class="text-muted small">{{ a.iban|default:a.account_number|default:"-" }}</div>
                     </div>
                 {% empty %}
-                    <div class="text-muted small">{% trans "No bank accounts." %}</div>
+                    <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}حساب بانکی ثبت نشده است.{% else %}{% trans "No bank accounts." %}{% endif %}</div>
                 {% endfor %}
             </div>
         </div>
@@ -68,10 +89,10 @@
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 fw-bold">{% trans "Salary Profiles" %}</h6>
+                <h6 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}پروفایل‌های حقوق{% else %}{% trans "Salary Profiles" %}{% endif %}</h6>
                 {% if is_manager %}
                 <a href="{% url 'hr_personnel:salary_profile_create' employee.id %}" class="btn btn-sm btn-primary rounded-pill">
-                    <i class="fas fa-plus me-1"></i> {% trans "Add" %}
+                    <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن{% else %}{% trans "Add" %}{% endif %}
                 </a>
                 {% endif %}
             </div>
@@ -80,12 +101,12 @@
                     <div class="border rounded-3 p-3 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="fw-bold">{% trans "Effective" %}: {{ p.effective_from|date:"Y-m-d" }}</div>
-                                <div class="text-muted small">{% trans "Base" %}: {{ p.currency }} {{ p.base_salary }}</div>
+                                <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}تاریخ اعمال{% else %}{% trans "Effective" %}{% endif %}: {% localized_date p.effective_from "Y-m-d" %}</div>
+                                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}حقوق پایه{% else %}{% trans "Base" %}{% endif %}: {{ p.currency }} {{ p.base_salary }}</div>
                             </div>
                             {% if is_manager %}
                             <a href="{% url 'hr_personnel:salary_component_create' employee.id p.id %}" class="btn btn-sm btn-outline-primary rounded-pill">
-                                <i class="fas fa-plus me-1"></i> {% trans "Add Component" %}
+                                <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن آیتم{% else %}{% trans "Add Component" %}{% endif %}
                             </a>
                             {% endif %}
                         </div>
@@ -96,22 +117,22 @@
                                     <div class="fw-bold">{% if c.is_percentage %}{{ c.percentage }}%{% else %}{{ p.currency }} {{ c.amount }}{% endif %}</div>
                                 </div>
                             {% empty %}
-                                <div class="text-muted small">{% trans "No components." %}</div>
+                                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}آیتمی ثبت نشده است.{% else %}{% trans "No components." %}{% endif %}</div>
                             {% endfor %}
                         </div>
                     </div>
                 {% empty %}
-                    <div class="text-muted small">{% trans "No salary profiles." %}</div>
+                    <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}پروفایل حقوقی ثبت نشده است.{% else %}{% trans "No salary profiles." %}{% endif %}</div>
                 {% endfor %}
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mt-4">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 fw-bold">{% trans "Payroll Slips" %}</h6>
+                <h6 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}فیش‌های حقوقی{% else %}{% trans "Payroll Slips" %}{% endif %}</h6>
                 {% if is_manager %}
                 <a href="{% url 'hr_personnel:payroll_create' employee.id %}" class="btn btn-sm btn-primary rounded-pill">
-                    <i class="fas fa-plus me-1"></i> {% trans "Create" %}
+                    <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}ایجاد{% else %}{% trans "Create" %}{% endif %}
                 </a>
                 {% endif %}
             </div>
@@ -120,11 +141,11 @@
                     <table class="table table-sm align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th>{% trans "Period" %}</th>
-                                <th>{% trans "Base" %}</th>
-                                <th>{% trans "Gross" %}</th>
-                                <th>{% trans "Net" %}</th>
-                                <th>{% trans "Status" %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}دوره{% else %}{% trans "Period" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}پایه{% else %}{% trans "Base" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}ناخالص{% else %}{% trans "Gross" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}خالص{% else %}{% trans "Net" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}وضعیت{% else %}{% trans "Status" %}{% endif %}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -136,15 +157,15 @@
                                 <td class="fw-bold">{{ s.currency }} {{ s.net_amount }}</td>
                                 <td>
                                     {% if s.status == 'paid' %}
-                                        <span class="badge bg-success">{% trans "Paid" %}</span>
+                                        <span class="badge bg-success">{% if request.LANGUAGE_CODE == 'fa' %}پرداخت‌شده{% else %}{% trans "Paid" %}{% endif %}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">{% trans "Draft" %}</span>
+                                        <span class="badge bg-secondary">{% if request.LANGUAGE_CODE == 'fa' %}پیش‌نویس{% else %}{% trans "Draft" %}{% endif %}</span>
                                     {% endif %}
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">{% trans "No payroll slips." %}</td>
+                                <td colspan="5" class="text-center text-muted">{% if request.LANGUAGE_CODE == 'fa' %}فیش حقوقی ثبت نشده است.{% else %}{% trans "No payroll slips." %}{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>

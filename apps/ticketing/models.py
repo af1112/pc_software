@@ -8,6 +8,7 @@ class Ticket(models.Model):
     STATUS_CHOICES = [
         ('open', _('Open')),
         ('waiting_response', _('Waiting for Response')),
+        ('answered', _('Answered')),
         ('under_review', _('Under Review')),
         ('referred', _('Referred to Expert')),
         ('in_progress', _('In Progress')),

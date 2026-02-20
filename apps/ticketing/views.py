@@ -24,7 +24,7 @@ def ticket_detail(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     if ticket.created_by != request.user and not request.user.is_staff and ticket.assigned_to != request.user:
         messages.error(request, _("You do not have permission to view this ticket."))
-        return redirect('ticket_list')
+        return redirect('ticketing:ticket_list')
 
     if request.method == 'POST':
         content = request.POST.get('content')
@@ -35,12 +35,11 @@ def ticket_detail(request, pk):
                 content=content
             )
             
-            # Auto-reopen if closed or change status to waiting response
+            # Auto status update based on who replied
             if ticket.status == 'closed':
                 ticket.status = 'open'
-            elif not request.user.is_staff:
-                # If user (not staff) replies, set to open or waiting review
-                ticket.status = 'open'
+            elif request.user != ticket.created_by:
+                ticket.status = 'answered'
             
             ticket.save()
             
@@ -72,7 +71,7 @@ def ticket_detail(request, pk):
                 )
 
             messages.success(request, _("Comment added."))
-            return redirect('ticket_detail', pk=pk)
+            return redirect('ticketing:ticket_detail', pk=pk)
 
     context = {
         'ticket': ticket,
@@ -85,7 +84,7 @@ def ticket_detail(request, pk):
 def ticket_assign(request, pk):
     if not request.user.is_staff:
         messages.error(request, _("Only staff can assign tickets."))
-        return redirect('ticket_detail', pk=pk)
+        return redirect('ticketing:ticket_detail', pk=pk)
     
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.method == 'POST':
@@ -101,7 +100,7 @@ def ticket_assign(request, pk):
             ticket.save()
             messages.success(request, _("Ticket unassigned."))
             
-    return redirect('ticket_detail', pk=pk)
+    return redirect('ticketing:ticket_detail', pk=pk)
 
 @login_required
 def ticket_update_status(request, pk):
@@ -113,7 +112,7 @@ def ticket_update_status(request, pk):
     
     if not (is_creator or is_staff):
         messages.error(request, _("Permission denied."))
-        return redirect('ticket_detail', pk=pk)
+        return redirect('ticketing:ticket_detail', pk=pk)
 
     if request.method == 'POST':
         new_status = request.POST.get('status')
@@ -125,7 +124,7 @@ def ticket_update_status(request, pk):
                 ticket.save()
                 messages.success(request, _("Status updated to %(status)s.") % {'status': ticket.get_status_display()})
                 
-    return redirect('ticket_detail', pk=pk)
+    return redirect('ticketing:ticket_detail', pk=pk)
 
 @login_required
 def ticket_create(request):
@@ -176,7 +175,7 @@ def ticket_create(request):
                 )
 
             messages.success(request, _("Ticket created successfully."))
-            return redirect('ticket_list')
+            return redirect('ticketing:ticket_list')
         else:
             messages.error(request, _("Please fill in all required fields."))
             

@@ -1,0 +1,282 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n l10n local_dates %}
+
+{% block title %}{% trans "Clock Center" %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}ثبت ساعت و سابقه من{% else %}{% trans "My Clock & History" %}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .clock-card,
+    .panel-card {
+        border: 1px solid #e8edf2;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(18, 38, 63, 0.06);
+    }
+    .clock-card {
+        background: linear-gradient(130deg, #0c1f2b, #143346);
+        color: #fff;
+        padding: 1.6rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .clock-display {
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 0;
+        letter-spacing: -0.03em;
+    }
+    .date-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        margin-bottom: 8px;
+    }
+    .status-badge {
+        position: absolute;
+        top: 16px;
+        inset-inline-end: 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    .btn-action {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 22px;
+        font-weight: 700;
+    }
+    .btn-clock-in { background: #28b37f; color: #fff; }
+    .btn-clock-out { background: #e76b68; color: #fff; }
+    .btn-clock-in:hover,
+    .btn-clock-out:hover { color: #fff; opacity: 0.95; }
+    .panel-card { padding: 1rem; }
+    .panel-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #12324a;
+        margin-bottom: 0.75rem;
+    }
+    .history-item {
+        border: 1px solid #ebf0f4;
+        border-left: 4px solid #2fb8a9;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #fbfdff;
+    }
+    [dir="rtl"] .history-item { border-left: 1px solid #ebf0f4; border-right: 4px solid #2fb8a9; }
+    #camera-container {
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto 16px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #000;
+        display: none;
+    }
+    #camera-preview { width: 100%; transform: scaleX(-1); }
+    #photo-preview { width: 100%; display: none; border-radius: 14px; margin-bottom: 12px; }
+    .location-info { font-size: 0.8rem; opacity: 0.9; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+        <a href="{% url 'hr_attendance:dashboard' %}" class="btn btn-outline-primary btn-sm">{% trans "Attendance Dashboard" %}</a>
+        <a href="{% url 'hr_attendance:quick_clock' %}" class="btn btn-outline-secondary btn-sm">{% trans "Mobile Quick Clock" %}</a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <div class="clock-card text-center h-100">
+                <div class="status-badge">
+                    {% if not attendance.clock_in %}
+                        <i class="bi bi-circle-fill text-warning me-1"></i> {% trans "Not Clocked In" %}
+                    {% elif attendance.clock_in and not attendance.clock_out %}
+                        <i class="bi bi-circle-fill text-success me-1"></i> {% trans "Working" %}
+                    {% else %}
+                        <i class="bi bi-circle-fill text-danger me-1"></i> {% trans "Finished" %}
+                    {% endif %}
+                </div>
+
+                <div class="date-display mt-2" id="current-date" aria-live="polite">
+                    <span id="current-date-weekday">--</span>
+                    <span id="current-date-full">--</span>
+                </div>
+                <h1 class="clock-display" id="current-time">00:00:00</h1>
+
+                <div id="location-status" class="location-info">
+                    <i class="bi bi-geo-alt-fill"></i> <span id="location-text">{% trans "Detecting location..." %}</span>
+                </div>
+
+                <div class="mt-4">
+                    <div id="camera-container">
+                        <video id="camera-preview" autoplay playsinline></video>
+                    </div>
+                    <img id="photo-preview" alt="{% trans "Photo Preview" %}">
+                </div>
+
+                <div class="mt-3 d-flex justify-content-center gap-3 flex-wrap">
+                    {% if not attendance.clock_in %}
+                    <form id="attendance-form" action="{% url 'hr_attendance:clock_in' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="clock_center">
+                        <input type="hidden" name="latitude" id="id_latitude">
+                        <input type="hidden" name="longitude" id="id_longitude">
+                        <input type="hidden" name="source" value="web">
+                        <input type="hidden" name="capture_mode" value="web_punch">
+                        <input type="hidden" name="device_id" value="web-{{ request.user.id }}">
+                        <input type="hidden" name="photo" id="id_photo">
+
+                        {% if require_photo %}
+                        <button type="button" id="start-camera-btn" class="btn btn-action btn-clock-in mb-2">
+                            <i class="fas fa-camera me-2"></i> {% trans "Take Selfie & Clock In" %}
+                        </button>
+                        <button type="submit" id="submit-btn" class="btn btn-action btn-clock-in" style="display:none;">
+                            <i class="fas fa-sign-in-alt me-2"></i> {% trans "Confirm Clock In" %}
+                        </button>
+                        {% else %}
+                        <button type="submit" class="btn btn-action btn-clock-in">
+                            <i class="fas fa-sign-in-alt me-2"></i> {% trans "Clock In Now" %}
+                        </button>
+                        {% endif %}
+                    </form>
+                    {% elif attendance.clock_in and not attendance.clock_out %}
+                    <form id="attendance-form" action="{% url 'hr_attendance:clock_out' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="clock_center">
+                        <input type="hidden" name="latitude" id="id_latitude">
+                        <input type="hidden" name="longitude" id="id_longitude">
+                        <input type="hidden" name="source" value="web">
+                        <input type="hidden" name="capture_mode" value="web_punch">
+                        <input type="hidden" name="device_id" value="web-{{ request.user.id }}">
+                        <input type="hidden" name="photo" id="id_photo">
+
+                        {% if require_photo %}
+                        <button type="button" id="start-camera-btn" class="btn btn-action btn-clock-out mb-2">
+                            <i class="fas fa-camera me-2"></i> {% trans "Take Selfie & Clock Out" %}
+                        </button>
+                        <button type="submit" id="submit-btn" class="btn btn-action btn-clock-out" style="display:none;">
+                            <i class="fas fa-sign-out-alt me-2"></i> {% trans "Confirm Clock Out" %}
+                        </button>
+                        {% else %}
+                        <button type="submit" class="btn btn-action btn-clock-out">
+                            <i class="fas fa-sign-out-alt me-2"></i> {% trans "Clock Out Now" %}
+                        </button>
+                        {% endif %}
+                    </form>
+                    {% else %}
+                    <div class="alert alert-light bg-opacity-10 text-white border-0 py-3 px-4 rounded-pill">
+                        <i class="fas fa-check-circle me-2"></i> {% trans "Today's work completed." %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="panel-card h-100">
+                <h6 class="panel-title">{% if request.LANGUAGE_CODE == 'fa' %}سابقه اخیر شما{% else %}{% trans "Your Recent History" %}{% endif %}</h6>
+                {% for record in recent_attendances %}
+                <div class="history-item">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold small">{% localized_date record.date "Y/m/d" %}</span>
+                        <span class="badge bg-soft-primary text-primary small">{{ record.duration|default:"--"|unlocalize }}</span>
+                    </div>
+                    <div class="d-flex gap-3 small text-muted">
+                        <span><i class="bi bi-box-arrow-in-right"></i> {{ record.clock_in|time:"H:i"|default:"--"|unlocalize }}</span>
+                        <span><i class="bi bi-box-arrow-right"></i> {{ record.clock_out|time:"H:i"|default:"--"|unlocalize }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted small">{% trans "No history." %}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const cameraContainer = document.getElementById('camera-container');
+    const cameraPreview = document.getElementById('camera-preview');
+    const photoPreview = document.getElementById('photo-preview');
+    const startCameraBtn = document.getElementById('start-camera-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const idPhoto = document.getElementById('id_photo');
+    const idLat = document.getElementById('id_latitude');
+    const idLng = document.getElementById('id_longitude');
+    const locationText = document.getElementById('location-text');
+    const currentTimeEl = document.getElementById('current-time');
+    const currentDateWeekdayEl = document.getElementById('current-date-weekday');
+    const currentDateFullEl = document.getElementById('current-date-full');
+
+    function updateClock() {
+        const now = new Date();
+        const isFa = document.documentElement.lang === 'fa' || document.documentElement.dir === 'rtl';
+        currentTimeEl.textContent = now.toLocaleTimeString('en-GB-u-nu-latn', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        if (isFa) {
+            currentDateWeekdayEl.textContent = new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-latn', { weekday: 'long' }).format(now);
+            currentDateFullEl.textContent = new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }).format(now);
+        } else {
+            currentDateWeekdayEl.textContent = new Intl.DateTimeFormat('en-US-u-nu-latn', { weekday: 'long' }).format(now);
+            currentDateFullEl.textContent = new Intl.DateTimeFormat('en-US-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }).format(now);
+        }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    if (navigator.geolocation && idLat && idLng && locationText) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                idLat.value = position.coords.latitude;
+                idLng.value = position.coords.longitude;
+                locationText.textContent = "{% trans 'Location captured' %}";
+                locationText.parentElement.classList.add('text-success');
+            },
+            () => {
+                locationText.textContent = "{% trans 'Location access denied' %}";
+                locationText.parentElement.classList.add('text-warning');
+            }
+        );
+    }
+
+    if (startCameraBtn && cameraPreview && cameraContainer && photoPreview && idPhoto && submitBtn) {
+        startCameraBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                cameraPreview.srcObject = stream;
+                cameraContainer.style.display = 'block';
+                startCameraBtn.innerHTML = '<i class="fas fa-circle text-danger me-2"></i> {% trans "Capture Photo" %}';
+
+                startCameraBtn.onclick = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = cameraPreview.videoWidth;
+                    canvas.height = cameraPreview.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(cameraPreview, 0, 0);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    idPhoto.value = dataUrl;
+                    photoPreview.src = dataUrl;
+                    photoPreview.style.display = 'block';
+                    cameraContainer.style.display = 'none';
+                    stream.getTracks().forEach(track => track.stop());
+                    startCameraBtn.style.display = 'none';
+                    submitBtn.style.display = 'block';
+                };
+            } catch (err) {
+                console.error('Camera access error:', err);
+                alert("{% trans 'Error accessing camera. Please ensure permissions are granted.' %}");
+            }
+        });
+    }
+</script>
+{% endblock %}

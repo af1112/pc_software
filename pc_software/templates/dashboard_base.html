@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AKAF{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo-192.png' %}">
     
     <script>
         // Check for saved theme preference or use system preference
@@ -49,6 +50,65 @@
     <!-- Custom Dashboard CSS -->
     <link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
     
+    <style>
+        html.sidebar-collapsed { --sidebar-collapsed-width: 72px; }
+        .sidebar { overflow-x: hidden; }
+        .sidebar-collapsed .sidebar { padding: 10px 6px; }
+        .sidebar-collapsed .sidebar .nav { padding-inline: 0 !important; }
+        .sidebar-collapsed .sidebar .brand-row { padding-inline: 8px !important; }
+        .sidebar-collapsed .sidebar .nav-link { padding: 8px; width: 56px; margin-inline: auto; justify-content: center; gap: 0; }
+        .sidebar-collapsed .sidebar .nav-link i { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 12px; background: rgba(67,24,255,.12); border: 1px solid rgba(67,24,255,.18); }
+        .sidebar-collapsed .sidebar .mt-auto { display: flex; justify-content: center; padding-inline: 0 !important; }
+
+        .mobile-bottom-nav { display: none; }
+
+        @media (max-width: 991.98px) {
+            .main-content { padding-bottom: 88px; }
+            .mobile-bottom-nav {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1050;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                background: var(--card-bg, #fff);
+                border-top: 1px solid var(--border-color, #e9ecef);
+                box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.08);
+            }
+            .mobile-bottom-nav .mobile-nav-item,
+            .mobile-bottom-nav .mobile-nav-btn {
+                min-height: 64px;
+                border: 0;
+                background: transparent;
+                text-decoration: none;
+                color: var(--text-color, #495057);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .mobile-bottom-nav .mobile-nav-item i,
+            .mobile-bottom-nav .mobile-nav-btn i {
+                font-size: 18px;
+            }
+            .mobile-bottom-nav .mobile-nav-item.active,
+            .mobile-bottom-nav .mobile-nav-btn.active {
+                color: var(--primary-color, #6f42c1);
+            }
+            .mobile-bottom-nav form { margin: 0; }
+            .mobile-top-brand img {
+                width: 28px;
+                height: 28px;
+                object-fit: contain;
+                border-radius: 6px;
+            }
+        }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -62,14 +122,19 @@
 
     <!-- Sidebar -->
     <div class="sidebar d-flex flex-column">
-        <a href="{% url 'main_dashboard' %}" class="brand-logo p-3">
-            {% if org_logo %}
-                <img src="{{ org_logo }}" alt="{{ org_name }}" style="height: 40px; width: auto; object-fit: contain;">
-            {% else %}
-                <i class="fas fa-layer-group text-primary"></i>
-            {% endif %}
-            <span class="ms-2">{{ org_name }}</span>
-        </a>
+        <div class="brand-row d-flex align-items-center justify-content-between p-3 position-relative">
+            <a href="{% url 'main_dashboard' %}" class="brand-logo">
+                {% if org_logo %}
+                    <img src="{{ org_logo }}" alt="{{ org_name }}" style="height: 40px; width: auto; object-fit: contain;">
+                {% else %}
+                    <i class="fas fa-layer-group text-primary"></i>
+                {% endif %}
+                <span class="ms-2">{{ org_name }}</span>
+            </a>
+        </div>
+        <button id="sidebar-collapse-handle" class="collapse-handle d-none d-lg-inline-flex align-items-center justify-content-center" type="button" title="{% trans 'Collapse Sidebar' %}">
+            <i class="fas fa-angles-left fs-6 text-secondary"></i>
+        </button>
         
         <div class="nav flex-column px-3 mt-4">
             <a href="{% url 'main_dashboard' %}" data-title="{% trans 'Dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
@@ -84,7 +149,7 @@
             </a>
             {% endif %}
 
-            <p class="text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "Modules" %}</p>
+            <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "Modules" %}</p>
             
             {% if can_use_expenses and perms.users.can_access_expenses or user.is_superuser %}
             <a href="{% url 'expenses:dashboard' %}" data-title="{% trans 'Expenses' %}" class="nav-link {% if 'expenses' in request.path %}active{% endif %}">
@@ -101,74 +166,143 @@
             {% endif %}
 
             {% if can_use_attendance and perms.users.can_access_attendance or user.is_superuser %}
-            <a href="{% url 'hr_attendance:dashboard' %}" data-title="{% trans 'Attendance' %}" class="nav-link {% if 'attendance' in request.path %}active{% endif %}">
-                <i class="fas fa-clock"></i>
-                <span>{% trans "Attendance" %}</span>
-            </a>
-            {% endif %}
-
-            {% if can_use_personnel or user.is_superuser %}
-            <a href="{% url 'hr_personnel:employee_list' %}" data-title="{% trans 'Personnel' %}" class="nav-link {% if 'personnel' in request.path %}active{% endif %}">
-                <i class="fas fa-id-badge"></i>
-                <span>{% trans "Personnel" %}</span>
-            </a>
+            <div class="nav-group" data-group="attendance">
+                <a href="#" class="nav-link nav-toggle">
+                    <i class="fas fa-clock"></i>
+                    <span>{% trans "Attendance" %}</span>
+                    <i class="fas fa-chevron-down ms-auto small caret"></i>
+                </a>
+                <div class="submenu">
+                    {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+                    <a href="{% url 'hr_attendance:dashboard' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="fas fa-gauge"></i>
+                        <span>{% trans "Dashboard" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:clock_center' %}" class="nav-link {% if request.resolver_match.url_name == 'clock_center' %}active{% endif %}">
+                        <i class="fas fa-stopwatch"></i>
+                        <span>{% trans "My Clock & History" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:attendance_card' %}" class="nav-link {% if request.resolver_match.url_name == 'attendance_card' %}active{% endif %}">
+                        <i class="fas fa-id-card"></i>
+                        <span>{% trans "Attendance Card" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>{% trans "Mobile Quick Clock" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:supervisor_panel' %}" class="nav-link {% if request.resolver_match.url_name == 'supervisor_panel' %}active{% endif %}">
+                        <i class="fas fa-user-clock"></i>
+                        <span>{% trans "Supervisor Panel" %}</span>
+                    </a>
+                    {% if can_use_personnel or user.is_superuser %}
+                    <a href="{% url 'hrms:dashboard' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="fas fa-layer-group"></i>
+                        <span>{% trans "HRMS Dashboard" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_template_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_template_list' %}active{% endif %}">
+                        <i class="fas fa-business-time"></i>
+                        <span>{% trans "Shift Templates" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_version_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_version_list' %}active{% endif %}">
+                        <i class="fas fa-code-branch"></i>
+                        <span>{% trans "Shift Versions" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_assignment_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_assignment_list' %}active{% endif %}">
+                        <i class="fas fa-people-arrows"></i>
+                        <span>{% trans "Shift Assignments" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:work_calendar_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'work_calendar_list' %}active{% endif %}">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>{% trans "Work Calendar" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:overtime_policy_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'overtime_policy_list' %}active{% endif %}">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>{% trans "Overtime Policies" %}</span>
+                    </a>
+                    {% endif %}
+                    {% else %}
+                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>{% trans "Quick Clock" %}</span>
+                    </a>
+                    {% endif %}
+                    {% if can_use_personnel or user.is_superuser %}
+                    <a href="{% url 'hr_personnel:employee_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
+                        <i class="fas fa-id-badge"></i>
+                        <span>{% trans "Personnel List" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:employee_create' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_create' %}active{% endif %}">
+                        <i class="fas fa-user-plus"></i>
+                        <span>{% trans "New Employee" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:employee_me' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_me' %}active{% endif %}">
+                        <i class="fas fa-user"></i>
+                        <span>{% trans "My Personnel Profile" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:employee_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name != 'employee_list' and request.resolver_match.url_name != 'employee_create' and request.resolver_match.url_name != 'employee_me' %}active{% endif %}">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>{% trans "Salary, Bank & Payroll" %}</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
 
             {% if can_use_projects and perms.users.can_access_projects or user.is_superuser %}
-            <a href="#" class="nav-link {% if 'projects' in request.path %}active{% endif %}">
+            <a href="#" data-title="{% trans 'Projects' %}" class="nav-link {% if 'projects' in request.path %}active{% endif %}">
                 <i class="fas fa-project-diagram"></i>
                 <span>{% trans "Projects" %}</span>
             </a>
             {% endif %}
             
             {% if can_use_dms and perms.users.can_access_dms or user.is_superuser %}
-            <a href="#" class="nav-link {% if 'dms' in request.path %}active{% endif %}">
+            <a href="#" data-title="{% trans 'Documents' %}" class="nav-link {% if 'dms' in request.path %}active{% endif %}">
                 <i class="fas fa-folder-open"></i>
                 <span>{% trans "Documents" %}</span>
             </a>
             {% endif %}
             
             {% if can_use_ai and perms.users.can_access_ai or user.is_superuser %}
-            <a href="#" class="nav-link {% if 'ai' in request.path %}active{% endif %}">
+            <a href="#" data-title="{% trans 'AI Engine' %}" class="nav-link {% if 'ai' in request.path %}active{% endif %}">
                 <i class="fas fa-brain"></i>
                 <span>{% trans "AI Engine" %}</span>
             </a>
             {% endif %}
             
             {% if can_use_menu and perms.users.can_access_menu or user.is_superuser %}
-            <a href="#" class="nav-link {% if 'menu' in request.path %}active{% endif %}">
+            <a href="#" data-title="{% trans 'Digital Menu' %}" class="nav-link {% if 'menu' in request.path %}active{% endif %}">
                 <i class="fas fa-utensils"></i>
                 <span>{% trans "Digital Menu" %}</span>
             </a>
             {% endif %}
             
             {% if can_use_club and perms.users.can_access_club or user.is_superuser %}
-            <a href="#" class="nav-link {% if 'club' in request.path %}active{% endif %}">
+            <a href="#" data-title="{% trans 'Customer Club' %}" class="nav-link {% if 'club' in request.path %}active{% endif %}">
                 <i class="fas fa-users"></i>
                 <span>{% trans "Customer Club" %}</span>
             </a>
             {% endif %}
 
-             <p class="text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "System" %}</p>
+             <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "System" %}</p>
             
 
             {% if user.is_superuser %}
-            <a href="{% url 'organizations:list' %}" class="nav-link {% if 'organizations' in request.path %}active{% endif %}">
+            <a href="{% url 'organizations:list' %}" data-title="{% trans 'Organizations' %}" class="nav-link {% if 'organizations' in request.path %}active{% endif %}">
                 <i class="fas fa-building"></i>
                 <span>{% trans "Organizations" %}</span>
             </a>
             {% endif %}
 
-            <a href="{% url 'users:settings' %}" class="nav-link {% if 'settings' in request.path %}active{% endif %}">
+            <a href="{% url 'users:settings' %}" data-title="{% trans 'Settings' %}" class="nav-link {% if 'settings' in request.path %}active{% endif %}">
                 <i class="fas fa-cog"></i>
                 <span>{% trans "Settings" %}</span>
             </a>
         </div>
         
         <div class="mt-auto p-3">
-             <form action="{% url 'logout' %}" method="post">
+            <form action="{% url 'logout' %}" method="post">
                 {% csrf_token %}
-                <button type="submit" class="nav-link w-100 text-danger border-0 bg-transparent">
+                <button type="submit" data-title="{% trans 'Logout' %}" class="nav-link text-danger border-0 bg-transparent">
                     <i class="fas fa-sign-out-alt"></i>
                     <span>{% trans "Logout" %}</span>
                 </button>
@@ -181,12 +315,20 @@
         <!-- Top Navbar -->
         <div class="top-navbar">
             <div>
+                <div class="mobile-top-brand d-flex d-lg-none align-items-center gap-2 mb-2">
+                    {% if org_logo %}
+                    <img src="{{ org_logo }}" alt="{{ org_name }}">
+                    {% else %}
+                    <i class="fas fa-layer-group text-primary"></i>
+                    {% endif %}
+                    <span class="fw-bold small text-muted">{{ org_name }}</span>
+                </div>
                 <p class="page-title">{% trans "Pages" %} / {% block page_title %}{% trans "Dashboard" %}{% endblock %}</p>
                 <h4 class="current-page">{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}</h4>
             </div>
             
             <div class="d-flex align-items-center gap-3">
-                <button id="sidebar-toggle" class="btn btn-icon-only shadow-none border-0 p-2" type="button" title="{% trans 'Toggle Sidebar' %}">
+                <button id="sidebar-toggle" class="btn btn-icon-only shadow-none border-0 p-2 d-none" type="button" title="{% trans 'Toggle Sidebar' %}">
                     <i class="fas fa-bars fs-5 text-secondary"></i>
                 </button>
                 <button id="theme-toggle" class="btn btn-icon-only shadow-none border-0 p-2" type="button" title="{% trans 'Toggle Theme' %}">
@@ -207,17 +349,17 @@
                         <span class="d-none d-md-block fw-bold text-dark">{{ user.first_name|default:user.username }}</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                        <li><a class="dropdown-item" href="{% url 'users:profile' %}">{% trans "Profile" %}</a></li>
-                        {% if user.employee %}
-                        <li><a class="dropdown-item" href="{% url 'hr_personnel:employee_me' %}">{% trans "Personnel Profile" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:profile' %}">{% if request.LANGUAGE_CODE == 'fa' %}پروفایل{% else %}{% trans "Profile" %}{% endif %}</a></li>
+                        {% if can_use_personnel %}
+                        <li><a class="dropdown-item" href="{% url 'hr_personnel:employee_me' %}">{% if request.LANGUAGE_CODE == 'fa' %}پروفایل پرسنلی{% else %}{% trans "Personnel Profile" %}{% endif %}</a></li>
                         {% endif %}
-                        <li><a class="dropdown-item" href="{% url 'users:settings' %}">{% trans "Settings" %}</a></li>
-                        <li><a class="dropdown-item" href="{% url 'users:password_change' %}">{% trans "Change Password" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:settings' %}">{% if request.LANGUAGE_CODE == 'fa' %}تنظیمات{% else %}{% trans "Settings" %}{% endif %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:password_change' %}">{% if request.LANGUAGE_CODE == 'fa' %}تغییر رمز عبور{% else %}{% trans "Change Password" %}{% endif %}</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{% url 'logout' %}" method="post">
                                 {% csrf_token %}
-                                <button type="submit" class="dropdown-item text-danger">{% trans "Logout" %}</button>
+                                <button type="submit" class="dropdown-item text-danger">{% if request.LANGUAGE_CODE == 'fa' %}خروج{% else %}{% trans "Logout" %}{% endif %}</button>
                             </form>
                         </li>
                     </ul>
@@ -239,6 +381,31 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    <nav class="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
+        <a href="{% url 'main_dashboard' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
+            <i class="fas fa-home"></i>
+            <span>{% trans "Home" %}</span>
+        </a>
+        <a href="{% url 'users:settings' %}" class="mobile-nav-item {% if 'settings' in request.path %}active{% endif %}">
+            <i class="fas fa-cog"></i>
+            <span>{% trans "Settings" %}</span>
+        </a>
+        {% if user.is_authenticated %}
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="mobile-nav-btn text-danger">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>{% trans "Logout" %}</span>
+            </button>
+        </form>
+        {% else %}
+        <a href="{% url 'login' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'login' %}active{% endif %}">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>{% trans "Login" %}</span>
+        </a>
+        {% endif %}
+    </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -264,6 +431,7 @@
                 try {
                     const form = e.target;
                     if (!(form instanceof HTMLFormElement)) return;
+                    if (form.hasAttribute('data-no-loading')) return;
                     form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(btn => {
                         if (!btn.disabled) {
                             btn.setAttribute('data-loading-disabled', '1');
@@ -281,6 +449,7 @@
                 if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
                 if (a.getAttribute('target') === '_blank') return;
                 if (a.hasAttribute('download')) return;
+                if (a.hasAttribute('data-no-loading')) return;
 
                 try {
                     const url = new URL(href, window.location.href);
@@ -328,14 +497,70 @@
             updateIcons(newTheme);
         });
 
-        // Sidebar Toggle Logic
-        const sidebarToggle = document.getElementById('sidebar-toggle');
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', () => {
-                const isCollapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+        // Sidebar Toggle Logic (mobile) and Collapse (desktop)
+        const sidebarEl = document.querySelector('.sidebar');
+        const mobileToggle = document.getElementById('sidebar-toggle'); // mobile only
+        const collapseBtn = document.getElementById('sidebar-collapse-handle'); // desktop only
+        const htmlEl = document.documentElement;
+        const updateCollapseBtnIcon = () => {
+            const i = collapseBtn?.querySelector('i');
+            if (!i) return;
+            const isRtl = htmlEl.getAttribute('dir') === 'rtl';
+            const collapsed = htmlEl.classList.contains('sidebar-collapsed');
+            // Show arrow pointing towards sidebar
+            i.className = 'fas fs-6 text-secondary ' + (
+                (collapsed && !isRtl) ? 'fa-angles-right' :
+                (collapsed && isRtl) ? 'fa-angles-left' :
+                (!collapsed && !isRtl) ? 'fa-angles-left' : 'fa-angles-right'
+            );
+        };
+
+        mobileToggle?.setAttribute('aria-expanded', htmlEl.classList.contains('sidebar-collapsed') ? 'false' : 'true');
+        mobileToggle?.addEventListener('click', () => {
+            if (window.innerWidth <= 992) {
+                sidebarEl?.classList.toggle('show');
+            } else {
+                const isCollapsed = htmlEl.classList.toggle('sidebar-collapsed');
                 localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+                mobileToggle?.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+                updateCollapseBtnIcon();
+            }
+        });
+
+        collapseBtn?.addEventListener('click', () => {
+            if (window.innerWidth > 992) {
+                const isCollapsed = htmlEl.classList.toggle('sidebar-collapsed');
+                localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+                updateCollapseBtnIcon();
+            }
+        });
+        updateCollapseBtnIcon();
+
+        // close mobile sidebar on main-content click
+        document.querySelector('.main-content')?.addEventListener('click', () => {
+            if (window.innerWidth <= 992 && sidebarEl?.classList.contains('show')) {
+                sidebarEl.classList.remove('show');
+            }
+        });
+
+        // Submenu toggle with persistence
+        document.querySelectorAll('.nav-group').forEach(group => {
+            const key = 'submenu_' + group.getAttribute('data-group');
+            const toggle = group.querySelector('.nav-toggle');
+            const shouldOpen = localStorage.getItem(key) === '1';
+            // Auto-open if any submenu link is active
+            const hasActiveChild = !!group.querySelector('.submenu .nav-link.active');
+            if (shouldOpen || hasActiveChild) {
+                group.classList.add('open');
+            }
+            toggle?.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Ignore when sidebar is collapsed
+                if (document.documentElement.classList.contains('sidebar-collapsed')) return;
+                group.classList.toggle('open');
+                localStorage.setItem(key, group.classList.contains('open') ? '1' : '0');
             });
-        }
+        });
     });
     </script>
     {% block extra_js %}{% endblock %}

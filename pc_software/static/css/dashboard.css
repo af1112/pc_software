@@ -16,8 +16,8 @@
     --text-muted: #A3AED0;
     --border-color: #E0E5F2;
     
-    --sidebar-width: 250px;
-    --sidebar-collapsed-width: 78px;
+    --sidebar-width: 268px;
+    --sidebar-collapsed-width: 86px;
     --card-shadow: 0px 18px 40px rgba(112, 144, 176, 0.12);
     --card-shadow-hover: 0px 25px 50px rgba(112, 144, 176, 0.2);
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -121,24 +121,24 @@ body {
     background: var(--bg-sidebar);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    padding: 32px 20px;
+    padding: 24px 14px;
     transition: var(--transition);
     z-index: 1000;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    box-shadow: 14px 17px 40px 4px rgba(112, 144, 176, 0.08);
-    border-right: 1px solid var(--border-color);
+    box-shadow: 0 22px 40px rgba(45, 65, 115, 0.16);
+    border-right: 1px solid rgba(67, 24, 255, 0.08);
 }
 
 .sidebar-collapsed .sidebar {
     width: var(--sidebar-collapsed-width);
-    padding: 24px 12px;
+    padding: 18px 14px; /* more breathing room from edges */
 }
 
 .sidebar-collapsed .sidebar .brand-logo span,
 .sidebar-collapsed .sidebar .nav-link span,
-.sidebar-collapsed .sidebar p.text-uppercase,
+.sidebar-collapsed .sidebar .sidebar-section-title,
 .sidebar-collapsed .sidebar .search-input {
     display: none !important;
 }
@@ -149,11 +149,74 @@ body {
 
 .sidebar-collapsed .sidebar .nav-link {
     justify-content: center;
-    padding: 12px 12px;
+    padding: 10px;
 }
 
 .sidebar-collapsed .sidebar .nav-link i {
     margin: 0 !important;
+}
+
+.sidebar-collapsed .sidebar .mt-auto {
+    padding-inline: 0 !important;
+    display: flex;
+    justify-content: center;   /* align logout with others */
+}
+
+.brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 14px;
+    color: var(--text-main);
+    text-decoration: none;
+}
+
+.brand-row .btn.btn-icon-only {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+.brand-row .btn.btn-icon-only:hover {
+    background: var(--bg-card);
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+/* Floating collapse handle on sidebar edge (desktop) */
+.collapse-handle {
+    position: absolute;
+    top: 62px;
+    inset-inline-end: -14px; /* stick out from the edge in both RTL/LTR */
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 6px 16px rgba(45, 65, 115, 0.18);
+    color: var(--text-muted);
+    z-index: 1100;
+    transition: var(--transition);
+}
+.collapse-handle:hover {
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.brand-logo span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+.sidebar-section-title {
+    padding-inline: 10px;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
 }
 
 [dir="rtl"] .sidebar {
@@ -191,25 +254,74 @@ h1, h2, h3, h4, h5, h6 {
 .nav-link {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
+    gap: 12px;
+    padding: 10px 12px;
+    min-height: 44px;
     color: var(--text-muted);
-    font-weight: 600;
-    border-radius: var(--border-radius-md);
-    margin-bottom: 8px;
+    font-weight: 700;
+    border-radius: 14px;
+    margin-bottom: 6px;
     transition: var(--transition);
     text-decoration: none;
-    font-size: 15px;
+    font-size: 14px;
+}
+
+.nav-link i {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(67, 24, 255, 0.08);
+    color: var(--primary-color);
+    flex-shrink: 0;
+    flex: 0 0 36px;
 }
 
 .nav-link:hover {
     color: var(--primary-color);
-    background-color: rgba(67, 24, 255, 0.05);
+    background-color: rgba(67, 24, 255, 0.08);
+    transform: translateY(-1px);
 }
 
 .nav-link.active {
     color: white;
     background: var(--primary-gradient);
     box-shadow: 0px 10px 20px rgba(67, 24, 255, 0.2);
+}
+
+.nav-link.active i {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
+/* Submenu */
+.nav-group .nav-toggle {
+    position: relative;
+}
+.nav-group .caret {
+    transition: transform .2s ease;
+}
+.nav-group.open .nav-toggle .caret {
+    transform: rotate(180deg);
+}
+.submenu {
+    display: none;
+    padding-inline-start: 8px;
+    margin-top: 4px;
+    border-inline-start: 2px solid rgba(67, 24, 255, 0.12);
+}
+.nav-group.open > .submenu {
+    display: block;
+}
+.submenu .nav-link {
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.sidebar-collapsed .submenu {
+    display: none !important;
 }
 
 .top-navbar {
@@ -408,18 +520,23 @@ h1, h2, h3, h4, h5, h6 {
 /* Collapsed Sidebar Tooltip */
 .sidebar-collapsed .sidebar .nav-link {
     position: relative;
+    justify-content: center;
+    gap: 0;
+    padding: 10px;
+    width: 64px;
+    margin-inline: auto;
 }
 
 .sidebar-collapsed .sidebar .nav-link::after {
     content: attr(data-title);
     position: absolute;
     top: 50%;
-    left: calc(100% + 10px);
+    left: calc(100% + 8px);
     transform: translateY(-50%);
     background: var(--text-main);
     color: var(--bg-sidebar);
     padding: 6px 10px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 12px;
     white-space: nowrap;
     opacity: 0;
@@ -434,7 +551,28 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sidebar-collapsed .sidebar .nav-link:hover::after {
-    opacity: 0.9;
+    opacity: 1;
+}
+
+/* Better alignment in collapsed mode */
+.sidebar-collapsed .sidebar .nav-link i {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    margin: 0 !important;
+    flex: 0 0 40px;
+    font-size: 18px;
+    background: rgba(67, 24, 255, 0.12);
+    border: 1px solid rgba(67, 24, 255, 0.18);
+}
+.sidebar-collapsed .sidebar .nav-group .nav-toggle .caret {
+    display: none;
+}
+.sidebar-collapsed .sidebar .sidebar-section-title {
+    display: none !important;
+}
+.sidebar-collapsed .sidebar .submenu {
+    display: none !important;
 }
 
 /* Scrollbar styling */
@@ -460,7 +598,7 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 992px) {
     .sidebar {
         transform: translateX(-100%);
-        width: 260px;
+        width: 276px;
     }
     [dir="rtl"] .sidebar {
         transform: translateX(100%);

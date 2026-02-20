@@ -23,9 +23,7 @@
 
 @font-face {
     font-family: 'IRANYekan';
-    src: url('../fonts/iranyekan/IRANYekanWebMedium.woff2') format('woff2'),
-         url('../fonts/iranyekan/iranyekanwebmedium.woff') format('woff'),
-         url('../fonts/iranyekan/IRANYekanWebMedium.ttf') format('truetype');
+    src: url('../fonts/iranyekan/IRANYekanWebMedium.ttf') format('truetype');
     font-weight: 500;
     font-style: normal;
     font-display: swap;
