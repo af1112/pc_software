@@ -19,6 +19,7 @@ WORKDIR /app
 # نصب نیازمندی‌های پایتون
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir Pillow
 
 # کپی کردن کل پروژه به داخل کانتینر
 COPY . .
