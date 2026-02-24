@@ -137,13 +137,13 @@
                         </td>
                         <td>
                             {% if ticket.status == 'open' %}
-                                <span class="badge bg-success">{{ ticket.get_status_display }}</span>
+                                <span class="badge bg-success">{% if request.LANGUAGE_CODE == 'fa' and ticket.status == 'user_new_message' %}پیام جدید کاربر{% else %}{{ ticket.get_status_display }}{% endif %}</span>
                             {% elif ticket.status == 'in_progress' %}
-                                <span class="badge bg-warning text-dark">{{ ticket.get_status_display }}</span>
+                                <span class="badge bg-warning text-dark">{% if request.LANGUAGE_CODE == 'fa' and ticket.status == 'user_new_message' %}پیام جدید کاربر{% else %}{{ ticket.get_status_display }}{% endif %}</span>
                             {% elif ticket.status == 'resolved' %}
-                                <span class="badge bg-info">{{ ticket.get_status_display }}</span>
+                                <span class="badge bg-info">{% if request.LANGUAGE_CODE == 'fa' and ticket.status == 'user_new_message' %}پیام جدید کاربر{% else %}{{ ticket.get_status_display }}{% endif %}</span>
                             {% else %}
-                                <span class="badge bg-secondary">{{ ticket.get_status_display }}</span>
+                                <span class="badge bg-secondary">{% if request.LANGUAGE_CODE == 'fa' and ticket.status == 'user_new_message' %}پیام جدید کاربر{% else %}{{ ticket.get_status_display }}{% endif %}</span>
                             {% endif %}
                         </td>
                         <td>

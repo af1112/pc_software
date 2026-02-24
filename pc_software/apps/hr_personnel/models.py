@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
 
@@ -109,41 +112,132 @@ class Employee(models.Model):
         return f"{self.first_name} {self.last_name}".strip()
 
 
-class SalaryProfile(models.Model):
+class SalaryStructure(models.Model):
+    class PayType(models.TextChoices):
+        MONTHLY = 'monthly', _('Monthly')
+        DAILY = 'daily', _('Daily')
+        HOURLY = 'hourly', _('Hourly')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_profiles')
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_structures')
 
     effective_from = models.DateField(_('Effective From'))
+    effective_to = models.DateField(_('Effective To'), blank=True, null=True)
+    pay_type = models.CharField(
+        _('Pay Type'),
+        max_length=20,
+        choices=PayType.choices,
+        default=PayType.MONTHLY,
+        db_column='compensation_basis',
+    )
     base_salary = models.DecimalField(_('Base Salary'), max_digits=12, decimal_places=3, default=0)
+    daily_rate = models.DecimalField(_('Daily Rate'), max_digits=12, decimal_places=3, blank=True, null=True)
+    hourly_rate = models.DecimalField(_('Hourly Rate'), max_digits=12, decimal_places=3, blank=True, null=True)
+    standard_working_days = models.DecimalField(_('Standard Working Days / Month'), max_digits=6, decimal_places=2, default=30)
+    standard_working_hours_per_day = models.DecimalField(_('Standard Working Hours / Day'), max_digits=6, decimal_places=2, default=8)
     currency = models.CharField(_('Currency'), max_length=10, default='OMR')
+    food_provided = models.BooleanField(_('Food Provided'), default=False)
+    accommodation_provided = models.BooleanField(_('Accommodation Provided'), default=False)
+    transport_provided = models.BooleanField(_('Transport Provided'), default=False)
+    in_kind_benefits_notes = models.TextField(_('In-kind Benefits Notes'), blank=True, null=True)
     notes = models.TextField(_('Notes'), blank=True, null=True)
+    is_active = models.BooleanField(_('Is Active'), default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _('Salary Profile')
-        verbose_name_plural = _('Salary Profiles')
+        verbose_name = _('Salary Structure')
+        verbose_name_plural = _('Salary Structures')
         ordering = ['-effective_from']
+        db_table = 'hr_personnel_salaryprofile'
+        indexes = [
+            models.Index(fields=['employee', 'is_active']),
+            models.Index(fields=['employee', 'effective_from']),
+        ]
+
+    def clean(self):
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError('effective_to cannot be earlier than effective_from.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        with transaction.atomic():
+            if self.is_active:
+                SalaryStructure.objects.filter(employee=self.employee, is_active=True).exclude(pk=self.pk).update(is_active=False)
+            super().save(*args, **kwargs)
+
+    def resolve_base_pay(self, payable_days=None, payable_hours=None):
+        payable_days = Decimal(str(payable_days if payable_days is not None else self.standard_working_days or 0))
+        payable_hours = Decimal(str(payable_hours if payable_hours is not None else 0))
+        base_salary = Decimal(str(self.base_salary or 0))
+        standard_days = Decimal(str(self.standard_working_days or 0))
+        standard_hours_per_day = Decimal(str(self.standard_working_hours_per_day or 0))
+
+        if self.pay_type == self.PayType.MONTHLY:
+            return base_salary.quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+
+        if self.pay_type == self.PayType.DAILY:
+            if self.daily_rate is not None:
+                rate = Decimal(str(self.daily_rate))
+            elif standard_days > 0:
+                rate = base_salary / standard_days
+            else:
+                rate = Decimal('0.000')
+            return (rate * payable_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+
+        if self.hourly_rate is not None:
+            rate = Decimal(str(self.hourly_rate))
+        else:
+            monthly_hours = standard_days * standard_hours_per_day
+            rate = (base_salary / monthly_hours) if monthly_hours > 0 else Decimal('0.000')
+
+        effective_hours = payable_hours
+        if effective_hours <= 0 and standard_days > 0 and standard_hours_per_day > 0:
+            effective_hours = standard_days * standard_hours_per_day
+        return (rate * effective_hours).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
 
     def __str__(self):
         return f"{self.employee} ({self.effective_from})"
 
 
+# Backward-compatible alias for legacy imports.
+SalaryProfile = SalaryStructure
+
+
 class SalaryComponent(models.Model):
     class ComponentType(models.TextChoices):
-        ALLOWANCE = 'allowance', _('Allowance')
+        EARNING = 'earning', _('Earning')
         DEDUCTION = 'deduction', _('Deduction')
-        BENEFIT = 'benefit', _('Benefit')
+
+    class CalculationMethod(models.TextChoices):
+        FIXED_MONTHLY = 'fixed_monthly', _('Fixed Monthly')
+        PER_DAY = 'per_day', _('Per Day')
+        PER_HOUR = 'per_hour', _('Per Hour')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    salary_profile = models.ForeignKey(SalaryProfile, on_delete=models.CASCADE, related_name='components')
+    salary_structure = models.ForeignKey(
+        SalaryStructure,
+        on_delete=models.CASCADE,
+        related_name='components',
+        db_column='salary_profile_id',
+    )
 
     component_type = models.CharField(_('Type'), max_length=20, choices=ComponentType.choices)
     title = models.CharField(_('Title'), max_length=120)
-
+    # Legacy schema compatibility (existing DB column is still NOT NULL in some environments).
     is_percentage = models.BooleanField(_('Is Percentage'), default=False)
     percentage = models.DecimalField(_('Percentage'), max_digits=6, decimal_places=3, blank=True, null=True)
+    calculation_method = models.CharField(
+        _('Calculation Method'),
+        max_length=20,
+        choices=CalculationMethod.choices,
+        db_column='calculation_frequency',
+    )
     amount = models.DecimalField(_('Amount'), max_digits=12, decimal_places=3, default=0)
+    taxable = models.BooleanField(_('Taxable'), default=True)
+    affects_net_pay = models.BooleanField(_('Affects Net Pay'), default=True)
+    is_active = models.BooleanField(_('Is Active'), default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -151,6 +245,28 @@ class SalaryComponent(models.Model):
         verbose_name = _('Salary Component')
         verbose_name_plural = _('Salary Components')
         ordering = ['component_type', 'title']
+        db_table = 'hr_personnel_salarycomponent'
+        indexes = [
+            models.Index(fields=['salary_structure', 'is_active']),
+            models.Index(fields=['component_type', 'calculation_method']),
+        ]
+
+    def clean(self):
+        if self.amount is None or self.amount <= 0:
+            raise ValidationError('amount must be positive.')
+
+    def calculate_amount(self, payable_days=None, payable_hours=None):
+        payable_days = Decimal(str(payable_days or 0))
+        payable_hours = Decimal(str(payable_hours or 0))
+
+        raw = Decimal(str(self.amount or 0))
+
+        if self.calculation_method == self.CalculationMethod.PER_DAY:
+            raw *= payable_days
+        elif self.calculation_method == self.CalculationMethod.PER_HOUR:
+            raw *= payable_hours
+
+        return raw.quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
 
     def __str__(self):
         return f"{self.title} ({self.component_type})"
@@ -184,14 +300,19 @@ class PayrollSlip(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='payroll_slips')
-    salary_profile = models.ForeignKey(SalaryProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_slips')
+    salary_profile = models.ForeignKey(SalaryStructure, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_slips')
     bank_account = models.ForeignKey(BankAccount, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_slips')
 
     period_year = models.IntegerField(_('Year'))
     period_month = models.IntegerField(_('Month'))
+    payable_days = models.DecimalField(_('Payable Days'), max_digits=6, decimal_places=2, default=30)
+    payable_hours = models.DecimalField(_('Payable Hours'), max_digits=8, decimal_places=2, default=0)
 
     base_salary = models.DecimalField(_('Base Salary'), max_digits=12, decimal_places=3, default=0)
     currency = models.CharField(_('Currency'), max_length=10, default='OMR')
+    total_allowances = models.DecimalField(_('Total Allowances'), max_digits=12, decimal_places=3, default=0)
+    total_deductions = models.DecimalField(_('Total Deductions'), max_digits=12, decimal_places=3, default=0)
+    total_benefits = models.DecimalField(_('Total Benefits'), max_digits=12, decimal_places=3, default=0)
 
     gross_amount = models.DecimalField(_('Gross Amount'), max_digits=12, decimal_places=3, default=0)
     net_amount = models.DecimalField(_('Net Amount'), max_digits=12, decimal_places=3, default=0)
@@ -213,9 +334,8 @@ class PayrollSlip(models.Model):
 
 class PayrollItem(models.Model):
     class ItemType(models.TextChoices):
-        ALLOWANCE = 'allowance', _('Allowance')
+        EARNING = 'earning', _('Earning')
         DEDUCTION = 'deduction', _('Deduction')
-        BENEFIT = 'benefit', _('Benefit')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     payroll_slip = models.ForeignKey(PayrollSlip, on_delete=models.CASCADE, related_name='items')

@@ -1,0 +1,135 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل / حقوق و دستمزد{% else %}{% trans "Personnel / Payroll" %}{% endif %}{% endblock %}
+{% block content_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}راهنمای ورود اطلاعات{% else %}{% trans "Data Entry Workflow" %}{% endif %}
+                </h5>
+                <p class="text-muted mb-0">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        مراحل را به ترتیب انجام دهید تا اطلاعات پرسنلی و حقوق و دستمزد به‌صورت کامل و استاندارد ثبت شود.
+                    {% else %}
+                        Follow the steps in order to complete personnel and payroll data accurately.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if is_manager %}
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex flex-column">
+                <div class="small text-primary fw-bold mb-2">1</div>
+                <h6 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}ایجاد پرونده پرسنلی{% else %}{% trans "Create Personnel Record" %}{% endif %}
+                </h6>
+                <p class="text-muted small mb-3">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        ابتدا پرسنل جدید را با اطلاعات هویتی، شغلی و مالی پایه ثبت کنید.
+                    {% else %}
+                        Start by registering a new employee with identity, job, and basic payroll data.
+                    {% endif %}
+                </p>
+                <a href="{% url 'hr_personnel:employee_create' %}" class="btn btn-primary mt-auto">
+                    {% if request.LANGUAGE_CODE == 'fa' %}ایجاد پرسنل{% else %}{% trans "Create Employee" %}{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex flex-column">
+                <div class="small text-primary fw-bold mb-2">2</div>
+                <h6 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}مرور و ویرایش اطلاعات پرسنل{% else %}{% trans "Review & Edit Employees" %}{% endif %}
+                </h6>
+                <p class="text-muted small mb-3">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        لیست پرسنل را مشاهده کنید و اطلاعات ثبت‌شده را در صورت نیاز ویرایش نمایید.
+                    {% else %}
+                        Open the employee list to review records and update data when needed.
+                    {% endif %}
+                </p>
+                <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-outline-primary mt-auto">
+                    {% if request.LANGUAGE_CODE == 'fa' %}لیست پرسنل{% else %}{% trans "Employee List" %}{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex flex-column">
+                <div class="small text-primary fw-bold mb-2">3</div>
+                <h6 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}فایل‌های حقوق، بانک و فیش حقوقی{% else %}{% trans "Salary, Bank & Payroll Files" %}{% endif %}
+                </h6>
+                <p class="text-muted small mb-3">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        این بخش دارای گزینه‌های چندمرحله‌ای است. برای مشاهده همه گزینه‌ها وارد صفحه بعدی شوید.
+                    {% else %}
+                        This section contains nested actions. Open the next page to access all options.
+                    {% endif %}
+                </p>
+                <a href="{% url 'hr_personnel:compensation_hub' %}" class="btn btn-dark mt-auto">
+                    {% if request.LANGUAGE_CODE == 'fa' %}ورود به صفحه عملیات حقوق و بانک{% else %}{% trans "Open Salary/Bank/Payroll Actions" %}{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex flex-column">
+                <div class="small text-primary fw-bold mb-2">4</div>
+                <h6 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}نمایش پرونده یک پرسنل{% else %}{% trans "Open Personnel Profile" %}{% endif %}
+                </h6>
+                <p class="text-muted small mb-3">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        برای بررسی جزئیات کامل هر پرسنل، وارد صفحه جزئیات همان کارمند شوید.
+                    {% else %}
+                        Access each employee detail page for complete personnel and compensation information.
+                    {% endif %}
+                </p>
+                <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-outline-dark mt-auto">
+                    {% if request.LANGUAGE_CODE == 'fa' %}انتخاب از لیست پرسنل{% else %}{% trans "Choose from Employee List" %}{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h6 class="fw-bold mb-1">
+                        {% if request.LANGUAGE_CODE == 'fa' %}پروفایل پرسنلی من{% else %}{% trans "My Personnel Profile" %}{% endif %}
+                    </h6>
+                    <p class="text-muted small mb-0">
+                        {% if request.LANGUAGE_CODE == 'fa' %}
+                            برای مشاهده اطلاعات پرسنلی و سوابق حقوقی خود، وارد پروفایل شوید.
+                        {% else %}
+                            Open your profile to view your personnel and payroll records.
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'hr_personnel:employee_me' %}" class="btn btn-primary">
+                    {% if request.LANGUAGE_CODE == 'fa' %}مشاهده پروفایل من{% else %}{% trans "Open My Profile" %}{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

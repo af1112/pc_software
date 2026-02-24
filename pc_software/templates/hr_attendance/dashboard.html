@@ -224,7 +224,7 @@
                         <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ثبت ساعت و سابقه من{% else %}{% trans "My Clock & History" %}{% endif %}</div>
                         <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}ثبت ورود/خروج و مشاهده سابقه شخصی{% else %}{% trans "Clock in/out and personal history" %}{% endif %}</div>
                     </a>
-                    <a class="nav-tile" href="{% url 'hr_personnel:employee_list' %}">
+                    <a class="nav-tile" href="{% url 'hr_personnel:personnel_hub' %}">
                         <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}مدیریت پرسنل{% else %}{% trans "Personnel Management" %}{% endif %}</div>
                         <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}لیست و پروفایل پرسنل{% else %}{% trans "Employee list and profiles" %}{% endif %}</div>
                     </a>

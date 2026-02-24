@@ -281,7 +281,7 @@ if (recordVoiceBtn) {
                 <div class="mb-3">
                     <label class="small text-muted d-block mb-1">{% trans "Status" %}</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-success fs-6">{{ ticket.get_status_display }}</span>
+                        <span class="badge bg-success fs-6">{{ status_display|default:ticket.get_status_display }}</span>
                         {% if user.is_staff or ticket.created_by == user %}
                         <div class="dropdown">
                             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">

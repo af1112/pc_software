@@ -35,11 +35,11 @@ def ticket_detail(request, pk):
                 content=content
             )
             
-            # Auto status update based on who replied
             if ticket.status == 'closed':
                 ticket.status = 'open'
-            elif request.user != ticket.created_by:
-                ticket.status = 'answered'
+            else:
+                if ticket.status in ('open', 'waiting_response', 'answered', 'user_new_message'):
+                    ticket.status = 'answered' if request.user != ticket.created_by else 'user_new_message'
             
             ticket.save()
             
@@ -73,10 +73,23 @@ def ticket_detail(request, pk):
             messages.success(request, _("Comment added."))
             return redirect('ticketing:ticket_detail', pk=pk)
 
+    lang = (getattr(request, 'LANGUAGE_CODE', '') or '').lower()
+    is_fa = lang.startswith('fa')
+    localized_status_choices = []
+    for val, label in Ticket.STATUS_CHOICES:
+        if val == 'user_new_message' and is_fa:
+            label = 'پیام جدید کاربر'
+        localized_status_choices.append((val, label))
+
+    status_display = ticket.get_status_display()
+    if ticket.status == 'user_new_message' and is_fa:
+        status_display = 'پیام جدید کاربر'
+
     context = {
         'ticket': ticket,
         'all_users': User.objects.all() if request.user.is_staff else None,
-        'status_choices': Ticket.STATUS_CHOICES
+        'status_choices': localized_status_choices,
+        'status_display': status_display,
     }
     return render(request, 'ticketing/ticket_detail.html', context)
 

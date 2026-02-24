@@ -1,0 +1,90 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}حقوق / بانک / فیش حقوقی{% else %}{% trans "Salary / Bank / Payroll" %}{% endif %}{% endblock %}
+{% block content_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}عملیات چندمرحله‌ای حقوق و دستمزد{% else %}{% trans "Nested Salary & Payroll Actions" %}{% endif %}
+                </h5>
+                <p class="text-muted mb-0">
+                    {% if request.LANGUAGE_CODE == 'fa' %}
+                        برای هر پرسنل، ابتدا پروفایل حقوق را ثبت کنید، سپس مولفه‌های حقوق را اضافه کنید، اطلاعات بانکی را تکمیل نمایید و در نهایت فیش حقوقی ایجاد کنید.
+                    {% else %}
+                        For each employee: create salary profile, add salary components, complete bank details, then generate payroll.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Employee" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}مرحله ۱{% else %}{% trans "Step 1" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}مرحله ۲{% else %}{% trans "Step 2" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}مرحله ۳{% else %}{% trans "Step 3" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}مرحله ۴{% else %}{% trans "Step 4" %}{% endif %}</th>
+                                <th class="pe-4">{% if request.LANGUAGE_CODE == 'fa' %}نمایش پرونده{% else %}{% trans "Profile" %}{% endif %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr>
+                                <td class="ps-4 fw-semibold">{{ employee.first_name }} {{ employee.last_name }}<br><span class="text-muted small">{{ employee.employee_id|default:'-' }}</span></td>
+                                <td>
+                                    <a href="{% url 'hr_personnel:salary_profile_create' employee.id %}" class="btn btn-sm btn-outline-primary">
+                                        {% if request.LANGUAGE_CODE == 'fa' %}پروفایل حقوق{% else %}{% trans "Salary Profile" %}{% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'hr_personnel:employee_detail' employee.id %}" class="btn btn-sm btn-outline-secondary">
+                                        {% if request.LANGUAGE_CODE == 'fa' %}مولفه‌ها (از جزئیات){% else %}{% trans "Components (from detail)" %}{% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'hr_personnel:bank_account_create' employee.id %}" class="btn btn-sm btn-outline-dark">
+                                        {% if request.LANGUAGE_CODE == 'fa' %}حساب بانکی{% else %}{% trans "Bank Account" %}{% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'hr_personnel:payroll_create' employee.id %}" class="btn btn-sm btn-primary">
+                                        {% if request.LANGUAGE_CODE == 'fa' %}ایجاد فیش{% else %}{% trans "Create Payroll" %}{% endif %}
+                                    </a>
+                                </td>
+                                <td class="pe-4">
+                                    <a href="{% url 'hr_personnel:employee_detail' employee.id %}" class="btn btn-sm btn-link text-decoration-none">
+                                        {% if request.LANGUAGE_CODE == 'fa' %}مشاهده جزئیات{% else %}{% trans "View Detail" %}{% endif %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    {% if request.LANGUAGE_CODE == 'fa' %}
+                                        پرسنلی ثبت نشده است. ابتدا پرسنل جدید ایجاد کنید.
+                                    {% else %}
+                                        No employee record found. Create employees first.
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

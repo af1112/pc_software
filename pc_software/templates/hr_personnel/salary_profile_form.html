@@ -12,6 +12,9 @@
             <div class="card-body p-4">
                 <form method="post">
                     {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+                    {% endif %}
                     <div class="row g-3">
                         {% for field in form %}
                         <div class="col-md-6">
@@ -20,6 +23,50 @@
                             {% if field.errors %}
                                 <div class="text-danger x-small mt-1">{{ field.errors|first }}</div>
                             {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="fw-bold mb-3">{% if request.LANGUAGE_CODE == 'fa' %}مولفه‌های حقوق{% else %}{% trans "Salary Components" %}{% endif %}</h6>
+                    {{ formset.management_form }}
+                    {% if formset.non_form_errors %}
+                        <div class="alert alert-danger py-2">{{ formset.non_form_errors }}</div>
+                    {% endif %}
+                    <div class="row g-3">
+                        {% for cform in formset.forms %}
+                        <div class="col-12">
+                            <div class="border rounded-3 p-3">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">{{ cform.component_type.label }}</label>
+                                        {{ cform.component_type }}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">{{ cform.title.label }}</label>
+                                        {{ cform.title }}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">{{ cform.calculation_method.label }}</label>
+                                        {{ cform.calculation_method }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold">{{ cform.amount.label }}</label>
+                                        {{ cform.amount }}
+                                    </div>
+                                    <div class="col-md-1">
+                                        {% if cform.DELETE %}
+                                            <div class="form-check mt-4">
+                                                {{ cform.DELETE }}
+                                                <label class="form-check-label small">{% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans "Del" %}{% endif %}</label>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if cform.non_field_errors %}
+                                    <div class="text-danger small mt-2">{{ cform.non_field_errors }}</div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endfor %}
                     </div>

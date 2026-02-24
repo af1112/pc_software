@@ -1,17 +1,78 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils.translation import get_language
+from django.core.exceptions import ValidationError
 
-from .models import BankAccount, Employee, PayrollItem, PayrollSlip, SalaryComponent, SalaryProfile
+from .models import BankAccount, Employee, PayrollItem, PayrollSlip, SalaryComponent, SalaryStructure
 
 
 User = get_user_model()
 
 
 class EmployeeForm(forms.ModelForm):
+    CURRENCY_CHOICES = [
+        ('OMR', 'OMR - Omani Rial'),
+        ('USD', 'USD - US Dollar'),
+        ('EUR', 'EUR - Euro'),
+        ('AED', 'AED - UAE Dirham'),
+        ('SAR', 'SAR - Saudi Riyal'),
+        ('INR', 'INR - Indian Rupee'),
+        ('IRR', 'IRR - Iranian Rial'),
+    ]
+
     def __init__(self, *args, **kwargs):
         organization = kwargs.pop('organization', None)
         super().__init__(*args, **kwargs)
+
+        required_fields = [
+            'first_name',
+            'last_name',
+            'employee_id',
+            'employment_type',
+            'hire_date',
+            'payment_method',
+            'currency',
+        ]
+        for field_name in required_fields:
+            if field_name in self.fields:
+                self.fields[field_name].required = True
+
+        if 'currency' in self.fields:
+            self.fields['currency'].widget = forms.Select(attrs={'class': 'form-select'})
+
+            currency_choices = list(self.CURRENCY_CHOICES)
+            existing_codes = {code for code, _ in currency_choices}
+
+            company_default_currency = None
+            if organization is not None:
+                hrms_company = getattr(organization, 'hrms_company', None)
+                company_default_currency = getattr(hrms_company, 'default_currency', None)
+                if company_default_currency:
+                    company_default_currency = str(company_default_currency).upper()
+
+            profile_currency = None
+            if hasattr(self, 'instance') and getattr(self.instance, 'pk', None):
+                profile_currency = self.instance.currency
+
+            candidate_defaults = [profile_currency, company_default_currency, 'OMR']
+            default_currency = next((str(c).upper() for c in candidate_defaults if c), 'OMR')
+
+            if default_currency not in existing_codes:
+                currency_choices.append((default_currency, default_currency))
+                existing_codes.add(default_currency)
+
+            self.fields['currency'].choices = currency_choices
+
+            if not self.is_bound and not profile_currency:
+                self.initial['currency'] = default_currency
+
+        def _localize_choice_labels(field_name, labels_map):
+            if field_name not in self.fields:
+                return
+            self.fields[field_name].choices = [
+                (value, labels_map.get(value, label))
+                for value, label in self.fields[field_name].choices
+            ]
 
         if 'user' in self.fields:
             qs = User.objects.all().order_by('username')
@@ -37,6 +98,38 @@ class EmployeeForm(forms.ModelForm):
             self.fields['reporting_manager'].widget.attrs.update({'class': 'form-select'})
 
         if str(get_language() or '').lower().startswith('fa'):
+            _localize_choice_labels(
+                'gender',
+                {
+                    'male': 'مرد',
+                    'female': 'زن',
+                    'other': 'سایر',
+                },
+            )
+            _localize_choice_labels(
+                'marital_status',
+                {
+                    'single': 'مجرد',
+                    'married': 'متاهل',
+                    'divorced': 'مطلقه',
+                    'widowed': 'بیوه',
+                },
+            )
+            _localize_choice_labels(
+                'payment_method',
+                {
+                    'bank_transfer': 'انتقال بانکی',
+                    'cash': 'نقدی',
+                    'wps': 'سامانه WPS',
+                },
+            )
+            _localize_choice_labels(
+                'omani_or_expat',
+                {
+                    'omani': 'عمانی',
+                    'expat': 'مهاجر',
+                },
+            )
             self.fields['user'].label = 'حساب کاربری'
             self.fields['employee_id'].label = 'کد پرسنلی'
             self.fields['company_id'].label = 'کد شرکت'
@@ -70,6 +163,25 @@ class EmployeeForm(forms.ModelForm):
             self.fields['pasi_registered'].label = 'ثبت‌نام در PASI'
             self.fields['wps_required'].label = 'نیازمند WPS'
             self.fields['is_active'].label = 'فعال'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        missing_required = []
+
+        for field_name, field in self.fields.items():
+            if not field.required or field_name in self.errors:
+                continue
+
+            value = cleaned_data.get(field_name)
+            if value in (None, ''):
+                missing_required.append(field_name)
+
+        if missing_required:
+            if str(get_language() or '').lower().startswith('fa'):
+                raise ValidationError('تمامی موارد ستاره‌دار باید تکمیل شوند.')
+            raise ValidationError('All fields marked with * are required.')
+
+        return cleaned_data
 
     class Meta:
         model = Employee
@@ -137,7 +249,7 @@ class EmployeeForm(forms.ModelForm):
             'iban': forms.TextInput(attrs={'class': 'form-control'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
             'basic_salary': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
-            'currency': forms.TextInput(attrs={'class': 'form-control'}),
+            'currency': forms.Select(attrs={'class': 'form-select'}),
             'omani_or_expat': forms.Select(attrs={'class': 'form-select'}),
             'pasi_registered': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'wps_required': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -152,18 +264,26 @@ class SalaryProfileForm(forms.ModelForm):
         self._fixed_currency = None
 
         if user_profile is not None:
-            decimal_places = max(int(getattr(user_profile, 'currency_decimal_places', 3) or 0), 0)
-            step = '1' if decimal_places == 0 else f"{1 / (10 ** decimal_places):.{decimal_places}f}"
-            self.fields['base_salary'].widget.attrs['step'] = step
             self._fixed_currency = getattr(user_profile, 'currency_code', 'OMR')
             self.fields['currency'].initial = self._fixed_currency
             self.fields['currency'].widget.attrs['readonly'] = 'readonly'
 
         if str(get_language() or '').lower().startswith('fa'):
             self.fields['effective_from'].label = 'تاریخ اعمال'
-            self.fields['base_salary'].label = 'حقوق پایه'
+            self.fields['effective_to'].label = 'تاریخ پایان'
+            self.fields['pay_type'].label = 'نوع پرداخت'
             self.fields['currency'].label = 'واحد پول'
             self.fields['notes'].label = 'یادداشت‌ها'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        effective_from = cleaned_data.get('effective_from')
+        effective_to = cleaned_data.get('effective_to')
+
+        if effective_to and effective_from and effective_to < effective_from:
+            raise ValidationError('Effective to cannot be earlier than effective from.')
+
+        return cleaned_data
 
     def clean_currency(self):
         if self._fixed_currency:
@@ -171,11 +291,18 @@ class SalaryProfileForm(forms.ModelForm):
         return self.cleaned_data.get('currency')
 
     class Meta:
-        model = SalaryProfile
-        fields = ['effective_from', 'base_salary', 'currency', 'notes']
+        model = SalaryStructure
+        fields = [
+            'effective_from',
+            'effective_to',
+            'pay_type',
+            'currency',
+            'notes',
+        ]
         widgets = {
             'effective_from': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'base_salary': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
+            'effective_to': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'pay_type': forms.Select(attrs={'class': 'form-select'}),
             'currency': forms.TextInput(attrs={'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
@@ -187,20 +314,44 @@ class SalaryComponentForm(forms.ModelForm):
         if str(get_language() or '').lower().startswith('fa'):
             self.fields['component_type'].label = 'نوع'
             self.fields['title'].label = 'عنوان'
-            self.fields['is_percentage'].label = 'درصدی'
-            self.fields['percentage'].label = 'درصد'
+            self.fields['calculation_method'].label = 'روش محاسبه'
             self.fields['amount'].label = 'مبلغ'
+            self.fields['is_active'].label = 'فعال'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        amount = cleaned_data.get('amount')
+
+        if amount is None or amount <= 0:
+            raise ValidationError('Amount must be positive.')
+
+        return cleaned_data
 
     class Meta:
         model = SalaryComponent
-        fields = ['component_type', 'title', 'is_percentage', 'percentage', 'amount']
+        fields = [
+            'component_type',
+            'title',
+            'calculation_method',
+            'amount',
+            'is_active',
+        ]
         widgets = {
             'component_type': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'is_percentage': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
+            'calculation_method': forms.Select(attrs={'class': 'form-select'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+
+SalaryComponentFormSet = forms.inlineformset_factory(
+    SalaryStructure,
+    SalaryComponent,
+    form=SalaryComponentForm,
+    extra=1,
+    can_delete=True,
+)
 
 
 class BankAccountForm(forms.ModelForm):
@@ -228,10 +379,12 @@ class BankAccountForm(forms.ModelForm):
 class PayrollSlipForm(forms.ModelForm):
     class Meta:
         model = PayrollSlip
-        fields = ['period_year', 'period_month', 'salary_profile', 'bank_account']
+        fields = ['period_year', 'period_month', 'payable_days', 'payable_hours', 'salary_profile', 'bank_account']
         widgets = {
             'period_year': forms.NumberInput(attrs={'class': 'form-control', 'min': 2000, 'max': 2100}),
             'period_month': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 12}),
+            'payable_days': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'payable_hours': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
             'salary_profile': forms.Select(attrs={'class': 'form-select'}),
             'bank_account': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -240,12 +393,14 @@ class PayrollSlipForm(forms.ModelForm):
         employee = kwargs.pop('employee', None)
         super().__init__(*args, **kwargs)
         if employee is not None:
-            self.fields['salary_profile'].queryset = employee.salary_profiles.all()
+            self.fields['salary_profile'].queryset = employee.salary_structures.filter(is_active=True)
             self.fields['bank_account'].queryset = employee.bank_accounts.all()
 
         if str(get_language() or '').lower().startswith('fa'):
             self.fields['period_year'].label = 'سال'
             self.fields['period_month'].label = 'ماه'
+            self.fields['payable_days'].label = 'روزهای قابل پرداخت'
+            self.fields['payable_hours'].label = 'ساعات قابل پرداخت'
             self.fields['salary_profile'].label = 'پروفایل حقوق'
             self.fields['bank_account'].label = 'حساب بانکی'
 

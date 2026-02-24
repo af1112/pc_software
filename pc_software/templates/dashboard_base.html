@@ -226,26 +226,15 @@
                         <span>{% trans "Quick Clock" %}</span>
                     </a>
                     {% endif %}
-                    {% if can_use_personnel or user.is_superuser %}
-                    <a href="{% url 'hr_personnel:employee_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
-                        <i class="fas fa-id-badge"></i>
-                        <span>{% trans "Personnel List" %}</span>
-                    </a>
-                    <a href="{% url 'hr_personnel:employee_create' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_create' %}active{% endif %}">
-                        <i class="fas fa-user-plus"></i>
-                        <span>{% trans "New Employee" %}</span>
-                    </a>
-                    <a href="{% url 'hr_personnel:employee_me' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'employee_me' %}active{% endif %}">
-                        <i class="fas fa-user"></i>
-                        <span>{% trans "My Personnel Profile" %}</span>
-                    </a>
-                    <a href="{% url 'hr_personnel:employee_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name != 'employee_list' and request.resolver_match.url_name != 'employee_create' and request.resolver_match.url_name != 'employee_me' %}active{% endif %}">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        <span>{% trans "Salary, Bank & Payroll" %}</span>
-                    </a>
-                    {% endif %}
                 </div>
             </div>
+            {% endif %}
+
+            {% if can_use_personnel or user.is_superuser %}
+            <a href="{% url 'hr_personnel:personnel_hub' %}" data-title="{% trans 'Personnel & Payroll' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' %}active{% endif %}">
+                <i class="fas fa-id-badge"></i>
+                <span>{% trans "Personnel & Payroll" %}</span>
+            </a>
             {% endif %}
 
             {% if can_use_projects and perms.users.can_access_projects or user.is_superuser %}

@@ -5,7 +5,9 @@ from . import views
 app_name = 'hr_personnel'
 
 urlpatterns = [
-    path('', views.employee_list, name='employee_list'),
+    path('', views.personnel_hub, name='personnel_hub'),
+    path('compensation/', views.compensation_hub, name='compensation_hub'),
+    path('employees/', views.employee_list, name='employee_list'),
     path('me/', views.employee_me, name='employee_me'),
     path('create/', views.employee_create, name='employee_create'),
     path('<uuid:employee_id>/', views.employee_detail, name='employee_detail'),
@@ -18,4 +20,9 @@ urlpatterns = [
     path('<uuid:employee_id>/bank/create/', views.bank_account_create, name='bank_account_create'),
 
     path('<uuid:employee_id>/payroll/create/', views.payroll_create, name='payroll_create'),
+
+    path('api/salary-structure/', views.salary_structure_api_create, name='salary_structure_api_create'),
+    path('api/salary-structure/<uuid:employee_id>/', views.salary_structure_api_get, name='salary_structure_api_get'),
+    path('api/salary-component/', views.salary_component_api_create, name='salary_component_api_create'),
+    path('api/salary-component/<uuid:component_id>/', views.salary_component_api_delete, name='salary_component_api_delete'),
 ]

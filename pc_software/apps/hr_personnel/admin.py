@@ -11,14 +11,14 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(SalaryProfile)
 class SalaryProfileAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'effective_from', 'base_salary', 'currency')
-    list_filter = ('currency',)
+    list_display = ('employee', 'effective_from', 'pay_type', 'currency', 'is_active')
+    list_filter = ('pay_type', 'currency', 'is_active')
 
 
 @admin.register(SalaryComponent)
 class SalaryComponentAdmin(admin.ModelAdmin):
-    list_display = ('salary_profile', 'component_type', 'title', 'is_percentage', 'amount')
-    list_filter = ('component_type', 'is_percentage')
+    list_display = ('salary_structure', 'component_type', 'title', 'calculation_method', 'amount', 'is_active')
+    list_filter = ('component_type', 'calculation_method', 'is_active')
 
 
 @admin.register(BankAccount)

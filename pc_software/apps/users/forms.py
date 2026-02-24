@@ -3,6 +3,7 @@ from .models import UserProfile
 from django.conf import settings
 from django.contrib.auth.models import User, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.utils.translation import get_language, gettext as _
 from apps.organizations.models import Organization
 
 class LanguageSettingsForm(forms.ModelForm):
@@ -94,6 +95,41 @@ class UserPermissionsForm(forms.Form):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        base_labels = {
+            'CAN_ACCESS_EXPENSES': _('Access Expense Manager'),
+            'CAN_ACCESS_TICKETING': _('Access Ticketing System'),
+            'CAN_ACCESS_ATTENDANCE': _('Access Presence & Attendance'),
+            'CAN_ACCESS_PERSONNEL': _('Access Personnel & Payroll'),
+            'CAN_ACCESS_PROJECTS': _('Access Project Control'),
+            'CAN_ACCESS_DMS': _('Access Document DMS'),
+            'CAN_ACCESS_AI': _('Access AI Engine'),
+            'CAN_ACCESS_MENU': _('Access Digital Menu'),
+            'CAN_ACCESS_CLUB': _('Access Customer Club'),
+            'REQUIRE_PHOTO': _('Require Photo for Attendance'),
+        }
+
+        lang = (get_language() or '').lower()
+        if lang.startswith('fa'):
+            base_labels.update(
+                {
+                    'CAN_ACCESS_EXPENSES': 'دسترسی به مدیریت هزینه‌ها',
+                    'CAN_ACCESS_TICKETING': 'دسترسی به سیستم تیکتینگ',
+                    'CAN_ACCESS_ATTENDANCE': 'دسترسی به حضور و غیاب',
+                    'CAN_ACCESS_PERSONNEL': 'دسترسی به پرسنل و حقوق و دستمزد',
+                    'CAN_ACCESS_PROJECTS': 'دسترسی به کنترل پروژه',
+                    'CAN_ACCESS_DMS': 'دسترسی به مدیریت اسناد',
+                    'CAN_ACCESS_AI': 'دسترسی به موتور هوش مصنوعی',
+                    'CAN_ACCESS_MENU': 'دسترسی به منوی دیجیتال',
+                    'CAN_ACCESS_CLUB': 'دسترسی به باشگاه مشتریان',
+                    'REQUIRE_PHOTO': 'الزام عکس برای حضور و غیاب',
+                }
+            )
+
+        for field_name, label in base_labels.items():
+            if field_name in self.fields:
+                self.fields[field_name].label = label
+
         if user:
             # Get all codenames of permissions assigned directly to this user
             user_perms = set(user.user_permissions.values_list('codename', flat=True))
