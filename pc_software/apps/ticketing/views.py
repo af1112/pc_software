@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db.models import Q
 from .models import Ticket, TicketComment, TicketAttachment
 from django.utils.translation import gettext as _
+from django.utils import timezone
 from django.contrib.auth import get_user_model
 import json
 
@@ -126,6 +127,7 @@ def ticket_list(request):
 
     context = {
         'tickets': tickets,
+        'active_timezone': timezone.get_current_timezone_name(),
         'status_choices': localized_status_choices,
         'priority_choices': localized_priority_choices,
         'category_choices': localized_category_choices,
@@ -203,6 +205,7 @@ def ticket_detail(request, pk):
 
     context = {
         'ticket': ticket,
+        'active_timezone': timezone.get_current_timezone_name(),
         'all_users': _organization_users(request) if request.user.is_staff else None,
         'status_choices': localized_status_choices,
         'status_display': status_display,

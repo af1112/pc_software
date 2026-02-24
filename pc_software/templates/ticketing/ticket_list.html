@@ -61,6 +61,13 @@
 
 <div class="card">
     <div class="card-body p-0">
+        <div class="small text-muted px-3 pt-3">
+            {% if request.LANGUAGE_CODE == 'fa' %}
+                زمان‌ها براساس منطقه زمانی سازمان نمایش داده می‌شوند: {{ active_timezone }}
+            {% else %}
+                Times are shown in organization timezone: {{ active_timezone }}
+            {% endif %}
+        </div>
         <div class="table-responsive">
             <table id="ticketTable" class="table table-hover align-middle mb-0 ticket-table">
                 <colgroup>
@@ -78,7 +85,7 @@
                         <th class="resizable">{% trans "Action" %}</th>
                         <th class="ps-4 resizable">
                             <a class="sort-link" href="?q={{ selected.q|urlencode }}&status={{ selected.status|urlencode }}&priority={{ selected.priority|urlencode }}&category={{ selected.category|urlencode }}&created_by={{ selected.created_by|urlencode }}&sort=id&direction={% if selected.sort == 'id' and selected.direction == 'asc' %}desc{% else %}asc{% endif %}">
-                                {% if request.LANGUAGE_CODE == 'fa' %}سریال{% else %}{% trans "ID" %}{% endif %}
+                                {% if request.LANGUAGE_CODE == 'fa' %}سریال صادرکننده{% else %}{% trans "Issuer Serial" %}{% endif %}
                                 <span class="sort-indicator">{% if selected.sort == 'id' %}{% if selected.direction == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
                             </a>
                         </th>
@@ -128,7 +135,7 @@
                                 {% trans "View" %}
                             </a>
                         </td>
-                        <td class="ps-4 fw-bold">{{ ticket.id }}</td>
+                        <td class="ps-4 fw-bold">{{ ticket.serial_display }}</td>
                         <td class="text-muted small">{% localized_date ticket.created_at "Y-m-d H:i" %}</td>
                         <td>
                             <a href="{% url 'ticketing:ticket_detail' ticket.id %}" class="ticket-title-link" title="{{ ticket.title }}">

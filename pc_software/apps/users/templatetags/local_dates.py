@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from django import template
 from django.template.defaultfilters import date as django_date
+from django.utils import timezone
 from django.utils.translation import get_language
 
 register = template.Library()
@@ -70,8 +71,8 @@ def _format_jalali(value, fmt):
                     continue
 
     if isinstance(value, datetime):
-        dt = value
-        d = value.date()
+        dt = timezone.localtime(value) if timezone.is_aware(value) else value
+        d = dt.date()
     elif isinstance(value, date):
         dt = None
         d = value
@@ -117,6 +118,8 @@ def _format_jalali(value, fmt):
 
 @register.simple_tag(takes_context=True)
 def localized_date(context, value, fmt="Y/m/d"):
+    if isinstance(value, datetime) and timezone.is_aware(value):
+        value = timezone.localtime(value)
     request = context.get("request")
     lang = str(getattr(request, "LANGUAGE_CODE", "") or get_language() or "").lower()
     if lang.startswith("fa"):
