@@ -1,15 +1,23 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db import DatabaseError
+from django.db.models import Q, Exists, OuterRef
 from .models import Ticket, TicketComment, TicketAttachment
 from django.utils.translation import gettext as _
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from apps.users.templatetags.local_dates import _format_jalali
 import json
 
 User = get_user_model()
 MAX_TICKET_ATTACHMENTS = 5
+
+
+def _normalize_digits(value):
+    if value is None:
+        return ""
+    return str(value).translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
 
 
 def _localized_ticket_choices(is_fa):
@@ -76,6 +84,67 @@ def _organization_tickets(request):
         | Q(assigned_to__profile__organization=org)
     ).distinct()
 
+
+def _ticket_matches_query(ticket, query, is_fa):
+    q = _normalize_digits(query).lower().replace("/", "-")
+    if not q:
+        return True
+
+    serial_text = _normalize_digits(ticket.serial_display).lower()
+    if q in serial_text:
+        return True
+
+    title_text = str(ticket.title or "").lower()
+    description_text = str(ticket.description or "").lower()
+    if q in title_text or q in description_text:
+        return True
+
+    local_dt = timezone.localtime(ticket.created_at)
+    gregorian_full = local_dt.strftime("%Y-%m-%d %H:%M").lower()
+    gregorian_date = local_dt.strftime("%Y-%m-%d").lower()
+    gregorian_time = local_dt.strftime("%H:%M").lower()
+    if q in gregorian_full or q in gregorian_date or q in gregorian_time:
+        return True
+
+    if is_fa:
+        jalali_full = _normalize_digits(_format_jalali(local_dt, "Y-m-d H:i")).lower()
+        jalali_date = _normalize_digits(_format_jalali(local_dt, "Y-m-d")).lower()
+        if q in jalali_full or q in jalali_date:
+            return True
+
+    return False
+
+
+def _ticket_matches_extra_filters(ticket, serial_query, date_query, time_query, is_fa):
+    serial_q = _normalize_digits(serial_query).lower().strip()
+    date_q = _normalize_digits(date_query).lower().strip().replace("/", "-")
+    time_q = _normalize_digits(time_query).lower().strip()
+
+    if serial_q:
+        serial_text = _normalize_digits(ticket.serial_display).lower()
+        issuer_serial_text = _normalize_digits(ticket.issuer_serial or "").lower()
+        if serial_q not in serial_text and serial_q not in issuer_serial_text:
+            return False
+
+    local_dt = timezone.localtime(ticket.created_at)
+
+    if date_q:
+        gregorian_date = local_dt.strftime("%Y-%m-%d").lower()
+        if date_q not in gregorian_date:
+            if not is_fa:
+                return False
+            jalali_date = _normalize_digits(_format_jalali(local_dt, "Y-m-d")).lower()
+            if date_q not in jalali_date:
+                return False
+
+    if time_q:
+        gregorian_time = local_dt.strftime("%H:%M").lower()
+        if time_q not in gregorian_time:
+            return False
+
+    return True
+
+
 @login_required
 def ticket_list(request):
     if request.user.is_staff:
@@ -83,7 +152,15 @@ def ticket_list(request):
     else:
         tickets = Ticket.objects.filter(created_by=request.user)
 
+    tickets = tickets.annotate(
+        has_ticket_attachment=Exists(TicketAttachment.objects.filter(ticket_id=OuterRef('pk'))),
+        has_comment_attachment=Exists(TicketAttachment.objects.filter(comment__ticket_id=OuterRef('pk'))),
+    )
+
     q = request.GET.get('q', '').strip()
+    serial = request.GET.get('serial', '').strip()
+    date = request.GET.get('date', '').strip()
+    time = request.GET.get('time', '').strip()
     status = request.GET.get('status') or ''
     priority = request.GET.get('priority') or ''
     category = request.GET.get('category') or ''
@@ -91,8 +168,6 @@ def ticket_list(request):
     sort = request.GET.get('sort') or 'created_at'
     direction = request.GET.get('direction') or 'desc'
 
-    if q:
-        tickets = tickets.filter(Q(title__icontains=q) | Q(description__icontains=q))
     if status:
         tickets = tickets.filter(status=status)
     if priority:
@@ -104,6 +179,7 @@ def ticket_list(request):
 
     sortable_fields = {
         'id': 'id',
+        'serial': 'issuer_serial',
         'created_at': 'created_at',
         'title': 'title',
         'status': 'status',
@@ -123,6 +199,14 @@ def ticket_list(request):
 
     lang = (getattr(request, 'LANGUAGE_CODE', '') or '').lower()
     is_fa = lang.startswith('fa')
+
+    if q or serial or date or time:
+        tickets = [
+            t for t in tickets
+            if (not q or _ticket_matches_query(t, q, is_fa))
+            and _ticket_matches_extra_filters(t, serial, date, time, is_fa)
+        ]
+
     localized_status_choices, localized_priority_choices, localized_category_choices = _localized_ticket_choices(is_fa)
 
     context = {
@@ -133,7 +217,14 @@ def ticket_list(request):
         'category_choices': localized_category_choices,
         'users': _organization_users(request) if request.user.is_staff else None,
         'selected': {
-            'q': q, 'status': status, 'priority': priority, 'category': category, 'created_by': created_by,
+            'q': q,
+            'serial': serial,
+            'date': date,
+            'time': time,
+            'status': status,
+            'priority': priority,
+            'category': category,
+            'created_by': created_by,
             'sort': sort, 'direction': direction,
         }
     }
@@ -156,13 +247,19 @@ def ticket_detail(request, pk):
                 content=content
             )
             
+            next_status = ticket.status
             if ticket.status == 'closed':
-                ticket.status = 'open'
-            else:
-                if ticket.status in ('open', 'waiting_response', 'answered', 'user_new_message'):
-                    ticket.status = 'answered' if request.user != ticket.created_by else 'user_new_message'
-            
-            ticket.save()
+                next_status = 'open'
+            elif ticket.status in ('open', 'waiting_response', 'answered', 'user_new_message'):
+                next_status = 'answered' if request.user != ticket.created_by else 'user_new_message'
+
+            if next_status != ticket.status:
+                try:
+                    Ticket.objects.filter(pk=ticket.pk).update(status=next_status)
+                    ticket.status = next_status
+                except DatabaseError:
+                    # Keep comment submission successful even if status metadata update fails.
+                    messages.warning(request, _("Comment saved, but ticket status could not be updated."))
             
             # Handle multiple file attachments
             files = request.FILES.getlist('attachments')

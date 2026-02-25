@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from functools import lru_cache
 
 from django import template
 from django.template.defaultfilters import date as django_date
@@ -53,6 +54,45 @@ def _gregorian_to_jalali(gy, gm, gd):
     return jy, jm, jd
 
 
+@lru_cache(maxsize=8192)
+def _format_jalali_cached(year, month, day, hour, minute, second, has_time, fmt):
+    jy, jm, jd = _gregorian_to_jalali(year, month, day)
+
+    replacements = {
+        "Y": f"{jy:04d}",
+        "y": f"{jy % 100:02d}",
+        "m": f"{jm:02d}",
+        "n": str(jm),
+        "d": f"{jd:02d}",
+        "j": str(jd),
+        "F": PERSIAN_MONTHS[jm - 1],
+        "M": PERSIAN_MONTHS[jm - 1],
+    }
+
+    if has_time:
+        replacements.update(
+            {
+                "H": f"{hour:02d}",
+                "i": f"{minute:02d}",
+                "s": f"{second:02d}",
+            }
+        )
+
+    out = []
+    escape = False
+    for ch in fmt:
+        if escape:
+            out.append(ch)
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        out.append(replacements.get(ch, ch))
+
+    return "".join(out)
+
+
 def _format_jalali(value, fmt):
     if isinstance(value, str):
         raw = value.strip()
@@ -79,41 +119,10 @@ def _format_jalali(value, fmt):
     else:
         return ""
 
-    jy, jm, jd = _gregorian_to_jalali(d.year, d.month, d.day)
-
-    replacements = {
-        "Y": f"{jy:04d}",
-        "y": f"{jy % 100:02d}",
-        "m": f"{jm:02d}",
-        "n": str(jm),
-        "d": f"{jd:02d}",
-        "j": str(jd),
-        "F": PERSIAN_MONTHS[jm - 1],
-        "M": PERSIAN_MONTHS[jm - 1],
-    }
-
-    if dt is not None:
-        replacements.update(
-            {
-                "H": f"{dt.hour:02d}",
-                "i": f"{dt.minute:02d}",
-                "s": f"{dt.second:02d}",
-            }
-        )
-
-    out = []
-    escape = False
-    for ch in fmt:
-        if escape:
-            out.append(ch)
-            escape = False
-            continue
-        if ch == "\\":
-            escape = True
-            continue
-        out.append(replacements.get(ch, ch))
-
-    return "".join(out)
+    hour = dt.hour if dt is not None else 0
+    minute = dt.minute if dt is not None else 0
+    second = dt.second if dt is not None else 0
+    return _format_jalali_cached(d.year, d.month, d.day, hour, minute, second, dt is not None, fmt)
 
 
 @register.simple_tag(takes_context=True)

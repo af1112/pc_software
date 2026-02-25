@@ -62,3 +62,6 @@ msgstr "درخواست قابلیت"
 
 msgid "Other"
 msgstr "سایر"
+
+msgid "Ticket assigned to %(user)s."
+msgstr "تیکت با موفقیت به %(user)s ارجاع داده شد."

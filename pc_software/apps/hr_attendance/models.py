@@ -171,3 +171,44 @@ class AttendanceAIInsight(models.Model):
 
     def __str__(self):
         return f"{self.employee} - {self.insight_type}"
+
+
+class AttendanceChangeLog(models.Model):
+    class FieldName(models.TextChoices):
+        CLOCK_IN = 'clock_in', _('Clock In')
+        CLOCK_OUT = 'clock_out', _('Clock Out')
+
+    class ActionType(models.TextChoices):
+        SET = 'set', _('Set')
+        EDIT = 'edit', _('Edit')
+        DELETE = 'delete', _('Delete')
+
+    attendance = models.ForeignKey(
+        'Attendance',
+        on_delete=models.CASCADE,
+        related_name='change_logs',
+        verbose_name=_('Attendance'),
+    )
+    field_name = models.CharField(_('Field'), max_length=20, choices=FieldName.choices)
+    action_type = models.CharField(_('Action'), max_length=20, choices=ActionType.choices)
+    old_value = models.DateTimeField(_('Old Value'), null=True, blank=True)
+    new_value = models.DateTimeField(_('New Value'), null=True, blank=True)
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_change_logs',
+        verbose_name=_('Performed By'),
+        db_constraint=False,
+    )
+    note = models.CharField(_('Note'), max_length=255, blank=True)
+    performed_at = models.DateTimeField(_('Performed At'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Attendance Change Log')
+        verbose_name_plural = _('Attendance Change Logs')
+        ordering = ['-performed_at']
+
+    def __str__(self):
+        return f"{self.attendance_id}:{self.field_name}:{self.action_type}"

@@ -1,0 +1,120 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n l10n %}
+
+{% block title %}{% trans "Attendance Hub" %}{% endblock %}
+{% block page_title %}{% trans "Attendance" %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}مرکز حضور و غیاب{% else %}{% trans "Attendance Hub" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <h5 class="fw-bold mb-1">{% if request.LANGUAGE_CODE == 'fa' %}ورود ساده و مرحله‌ای{% else %}{% trans "Simple Guided Workflow" %}{% endif %}</h5>
+                    <p class="text-muted mb-0 small">
+                        {% if request.LANGUAGE_CODE == 'fa' %}
+                            همه عملیات حضور و غیاب از همین صفحه شروع می‌شود: ابتدا ثبت ورود/خروج، سپس مشاهده کارت و در نهایت گزارش مدیریتی.
+                        {% else %}
+                            Start everything from this page: punch in/out first, review attendance card, then open managerial reports.
+                        {% endif %}
+                    </p>
+                </div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    {% if request.LANGUAGE_CODE == 'fa' %}وضعیت امروز:{% else %}{% trans "Today Status:" %}{% endif %} {{ current_status }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3">{% if request.LANGUAGE_CODE == 'fa' %}مراحل روزانه (برای همه کاربران){% else %}{% trans "Daily Flow (All Users)" %}{% endif %}</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-primary fw-bold mb-2">1</div>
+                                <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}ثبت سریع ورود/خروج{% else %}{% trans "Quick Clock In/Out" %}{% endif %}</h6>
+                                <p class="text-muted small mb-3">{% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم با لوکیشن و موبایل در ساده‌ترین حالت.{% else %}{% trans "Fast mobile punch with location capture." %}{% endif %}</p>
+                                <a href="{% url 'hr_attendance:quick_clock' %}" class="btn btn-primary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}باز کردن ثبت سریع{% else %}{% trans "Open Quick Clock" %}{% endif %}</a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-primary fw-bold mb-2">2</div>
+                                <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}سابقه ماهانه من{% else %}{% trans "My Monthly Card" %}{% endif %}</h6>
+                                <p class="text-muted small mb-3">{% if request.LANGUAGE_CODE == 'fa' %}بررسی روزهای حضور، غیبت و ساعات کار ماه جاری.{% else %}{% trans "Review present/absent days and worked hours for current month." %}{% endif %}</p>
+                                <a href="{% url 'hr_attendance:my_attendance_card' %}" class="btn btn-outline-primary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}مشاهده کارت من{% else %}{% trans "View My Card" %}{% endif %}</a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-primary fw-bold mb-2">3</div>
+                                {% if is_manager %}
+                                <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}مرکز ساعت و تاریخچه{% else %}{% trans "Clock Center & History" %}{% endif %}</h6>
+                                <p class="text-muted small mb-3">{% if request.LANGUAGE_CODE == 'fa' %}نسخه کامل‌تر برای مدیریت ثبت روزانه و مشاهده ۱۰ رکورد اخیر.{% else %}{% trans "Full page for daily punch control and recent records." %}{% endif %}</p>
+                                <a href="{% url 'hr_attendance:clock_center' %}" class="btn btn-outline-secondary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}ورود به مرکز ساعت{% else %}{% trans "Open Clock Center" %}{% endif %}</a>
+                                {% else %}
+                                <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}جزئیات کارت ماهانه من{% else %}{% trans "My Detailed Monthly Card" %}{% endif %}</h6>
+                                <p class="text-muted small mb-3">{% if request.LANGUAGE_CODE == 'fa' %}ریز ساعات ورود/خروج و مجموع کارکرد ماه خودتان را مشاهده کنید.{% else %}{% trans "Open detailed in/out times and monthly worked-hour breakdown." %}{% endif %}</p>
+                                <a href="{% url 'hr_attendance:my_attendance_card' %}?month={{ summary.month_label }}&details=1" class="btn btn-outline-secondary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}مشاهده جزئیات کارت{% else %}{% trans "Open Detailed Card" %}{% endif %}</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if is_manager %}
+                        <div class="col-md-6">
+                            <div class="border rounded-3 p-3 h-100 bg-light">
+                                <div class="small text-dark fw-bold mb-2">4</div>
+                                <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}نمای مدیریتی پیشرفته{% else %}{% trans "Manager Analytics" %}{% endif %}</h6>
+                                <p class="text-muted small mb-3">{% if request.LANGUAGE_CODE == 'fa' %}آمار تیم، هشدارها و شاخص‌های کامل حضور و غیاب.{% else %}{% trans "Team KPIs, alerts, and detailed attendance insights." %}{% endif %}</p>
+                                <a href="{% url 'hr_attendance:dashboard' %}" class="btn btn-dark btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}باز کردن داشبورد مدیریتی{% else %}{% trans "Open Manager Dashboard" %}{% endif %}</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3">{% if request.LANGUAGE_CODE == 'fa' %}خلاصه ماه جاری{% else %}{% trans "Current Month Summary" %}{% endif %}</h6>
+                    <div class="d-flex justify-content-between py-2 border-bottom small">
+                        <span>{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present Days" %}{% endif %}</span>
+                        <strong>{{ summary.days_present|unlocalize }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom small">
+                        <span>{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent Days" %}{% endif %}</span>
+                        <strong>{{ summary.days_absent|unlocalize }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom small">
+                        <span>{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات{% else %}{% trans "Total Hours" %}{% endif %}</span>
+                        <strong>{{ summary.total_worked_hours|unlocalize }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 small">
+                        <span>{% if request.LANGUAGE_CODE == 'fa' %}ماه{% else %}{% trans "Month" %}{% endif %}</span>
+                        <strong>{{ summary.month_label }}</strong>
+                    </div>
+
+                    {% if is_manager %}
+                    <hr>
+                    <h6 class="fw-bold mb-2">{% if request.LANGUAGE_CODE == 'fa' %}شاخص امروز تیم{% else %}{% trans "Today Team KPIs" %}{% endif %}</h6>
+                    <div class="small text-muted mb-1">{% if request.LANGUAGE_CODE == 'fa' %}کل پرسنل:{% else %}{% trans "Total Employees:" %}{% endif %} <strong class="text-dark">{{ total_employees|unlocalize }}</strong></div>
+                    <div class="small text-muted mb-1">{% if request.LANGUAGE_CODE == 'fa' %}ورود ثبت‌شده:{% else %}{% trans "Checked In:" %}{% endif %} <strong class="text-success">{{ checked_in_count|unlocalize }}</strong></div>
+                    <div class="small text-muted mb-1">{% if request.LANGUAGE_CODE == 'fa' %}خروج ثبت‌شده:{% else %}{% trans "Checked Out:" %}{% endif %} <strong class="text-primary">{{ checked_out_count|unlocalize }}</strong></div>
+                    <div class="small text-muted">{% if request.LANGUAGE_CODE == 'fa' %}غایب:{% else %}{% trans "Absent:" %}{% endif %} <strong class="text-danger">{{ absent_count|unlocalize }}</strong></div>
+
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="{% url 'hr_attendance:supervisor_panel' %}" class="btn btn-outline-dark btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}ثبت توسط سرپرست{% else %}{% trans "Supervisor Panel" %}{% endif %}</a>
+                        <a href="{% url 'hr_attendance:attendance_card' %}" class="btn btn-outline-secondary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}کارت پرسنل{% else %}{% trans "Attendance Card (Team)" %}{% endif %}</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.utils import timezone
+from django.http import HttpResponse
 from django.contrib import messages
-from .models import Attendance, AttendanceAIInsight, Timesheet
+from .models import Attendance, AttendanceAIInsight, Timesheet, AttendanceChangeLog
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.contrib.auth.models import User
 from apps.hr_personnel.models import Employee, LeaveAIInsight, LeaveRequest
@@ -10,6 +11,7 @@ from apps.expenses.utils import render_to_pdf
 import base64
 import calendar
 import datetime
+import json
 
 
 def _worked_hours(clock_in, clock_out):
@@ -231,6 +233,54 @@ def _save_location(attendance, lat, lng, event_type):
         attendance.clock_out_longitude = lng
 
 
+def _log_attendance_change(attendance, actor, field_name, action_type, old_value, new_value, note=''):
+    AttendanceChangeLog.objects.create(
+        attendance=attendance,
+        field_name=field_name,
+        action_type=action_type,
+        old_value=old_value,
+        new_value=new_value,
+        performed_by=actor,
+        note=note,
+    )
+
+
+def _parse_supervisor_action_datetime(selected_date, raw_value):
+    try:
+        parsed_time = datetime.time.fromisoformat(str(raw_value or '').strip())
+    except ValueError:
+        return None
+    naive_dt = datetime.datetime.combine(selected_date, parsed_time)
+    return timezone.make_aware(naive_dt, timezone.get_current_timezone())
+
+
+def _format_hm(value):
+    if not value:
+        return '-'
+    return timezone.localtime(value).strftime('%H:%M')
+
+
+def _redirect_supervisor_by_date(date_value):
+    if date_value:
+        return redirect(f"/attendance/supervisor/?date={date_value}")
+    return redirect('hr_attendance:supervisor_panel')
+
+
+def _is_target_in_scope(request, target):
+    if request.user.is_superuser:
+        return True
+    try:
+        if request.user.profile.organization_id != target.profile.organization_id:
+            return False
+    except Exception:
+        return False
+
+    role = getattr(request.user.profile, 'role', 'user')
+    if role == 'supervisor':
+        return target.profile.supervisor_id == request.user.id and not target.is_superuser and getattr(target.profile, 'role', 'user') != 'admin'
+    return True
+
+
 def _clock_redirect(request):
     if request.POST.get('next') == 'quick_success':
         return redirect('hr_attendance:quick_clock_success')
@@ -240,11 +290,11 @@ def _clock_redirect(request):
         return redirect('hr_attendance:quick_clock')
     if not is_supervisor_or_admin(request.user):
         return redirect('hr_attendance:quick_clock')
-    return redirect('hr_attendance:dashboard')
+    return redirect('hr_attendance:hub')
 
 
 def _clock_center_context(request, selected_date):
-    attendance, _ = Attendance.objects.get_or_create(user=request.user, date=selected_date)
+    attendance, created = Attendance.objects.get_or_create(user=request.user, date=selected_date)
     recent_attendances = Attendance.objects.filter(user=request.user).order_by('-date')[:10]
 
     require_photo = True
@@ -323,6 +373,41 @@ def _parse_month_start(month_value, fallback_date):
         return datetime.date(year, month, 1)
     except Exception:
         return fallback_date.replace(day=1)
+
+
+@login_required
+def attendance_hub(request):
+    selected_date = timezone.localtime(timezone.now()).date()
+    attendance, created = Attendance.objects.get_or_create(user=request.user, date=selected_date)
+    is_manager = is_supervisor_or_admin(request.user)
+
+    if not attendance.clock_in:
+        current_status = _('Not Clocked In')
+    elif attendance.clock_in and not attendance.clock_out:
+        current_status = _('Working')
+    else:
+        current_status = _('Completed')
+
+    context = {
+        'today': selected_date,
+        'attendance': attendance,
+        'summary': _monthly_attendance_summary(request.user),
+        'is_manager': is_manager,
+        'current_status': current_status,
+    }
+
+    if is_manager:
+        overview = _build_attendance_overview(request, selected_date)
+        context.update(
+            {
+                'total_employees': overview['total_employees'],
+                'checked_in_count': overview['checked_in_count'],
+                'checked_out_count': overview['checked_out_count'],
+                'absent_count': overview['absent_count'],
+            }
+        )
+
+    return render(request, 'hr_attendance/attendance_hub.html', context)
 
 @login_required
 def attendance_dashboard(request):
@@ -437,7 +522,7 @@ def attendance_card(request):
 @login_required
 def quick_clock(request):
     selected_date = timezone.localtime(timezone.now()).date()
-    attendance, _ = Attendance.objects.get_or_create(user=request.user, date=selected_date)
+    attendance, created = Attendance.objects.get_or_create(user=request.user, date=selected_date)
     context = {
         'attendance': attendance,
         'today': selected_date,
@@ -450,7 +535,7 @@ def quick_clock(request):
 @login_required
 def quick_clock_success(request):
     selected_date = timezone.localtime(timezone.now()).date()
-    attendance, _ = Attendance.objects.get_or_create(user=request.user, date=selected_date)
+    attendance, created = Attendance.objects.get_or_create(user=request.user, date=selected_date)
     context = {
         'attendance': attendance,
         'today': selected_date,
@@ -637,10 +722,24 @@ def supervisor_panel(request):
     for u in users_qs:
         att = Attendance.objects.filter(user=u, date=selected_date).first()
         employee = getattr(u, 'employee', None)
+        history_payload = []
+        if att:
+            for log in att.change_logs.select_related('performed_by').all()[:20]:
+                history_payload.append({
+                    'field': log.get_field_name_display(),
+                    'action': log.get_action_type_display(),
+                    'old_value': _format_hm(log.old_value),
+                    'new_value': _format_hm(log.new_value),
+                    'by': (log.performed_by.get_full_name() or log.performed_by.username) if log.performed_by else '-',
+                    'performed_at': timezone.localtime(log.performed_at).strftime('%Y-%m-%d %H:%M'),
+                    'note': log.note,
+                })
         records.append({
             'user': u,
             'employee': employee,
-            'attendance': att
+            'attendance': att,
+            'history_count': len(history_payload),
+            'history_json': json.dumps(history_payload, ensure_ascii=False),
         })
 
     pdf_url = request.build_absolute_uri(
@@ -764,6 +863,106 @@ def supervisor_clock_in(request, user_id):
     if request.POST.get('date'):
         return redirect(f"/attendance/supervisor/?date={request.POST.get('date')}")
     return redirect('hr_attendance:supervisor_panel')
+
+
+@login_required
+@user_passes_test(is_supervisor_or_admin)
+def supervisor_attendance_action(request, user_id):
+    if request.method != 'POST':
+        return redirect('hr_attendance:supervisor_panel')
+
+    target = get_object_or_404(User, pk=user_id)
+    if not _is_target_in_scope(request, target):
+        messages.error(request, _("You cannot modify this user."))
+        return _redirect_supervisor_by_date(request.POST.get('date'))
+
+    date_str = request.POST.get('date')
+    try:
+        selected_date = datetime.date.fromisoformat(date_str) if date_str else timezone.localtime(timezone.now()).date()
+    except Exception:
+        selected_date = timezone.localtime(timezone.now()).date()
+
+    action = str(request.POST.get('action') or '').strip().lower()
+    time_value = request.POST.get('time_value')
+    valid_actions = {'set_in', 'set_out', 'edit_in', 'edit_out', 'delete_in', 'delete_out'}
+    if action not in valid_actions:
+        messages.error(request, _("Invalid action."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+
+    attendance = Attendance.objects.filter(user=target, date=selected_date).first()
+    if not attendance and action.startswith('delete'):
+        messages.error(request, _("No attendance record exists for this employee on this date."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+    if not attendance:
+        attendance = Attendance.objects.create(user=target, date=selected_date)
+
+    field_name = 'clock_in' if action.endswith('_in') else 'clock_out'
+    supervisor_field = 'supervisor_clock_in' if field_name == 'clock_in' else 'supervisor_clock_out'
+    actor_field = 'clock_in_by' if field_name == 'clock_in' else 'clock_out_by'
+    old_value = getattr(attendance, field_name)
+
+    if action.startswith('set') or action.startswith('edit'):
+        parsed_dt = _parse_supervisor_action_datetime(selected_date, time_value)
+        if not parsed_dt:
+            messages.error(request, _("Please select a valid time."))
+            return _redirect_supervisor_by_date(selected_date.isoformat())
+        if action.startswith('set') and old_value:
+            messages.warning(request, _("Time already exists. Use edit instead."))
+            return _redirect_supervisor_by_date(selected_date.isoformat())
+        if action.startswith('edit') and not old_value:
+            messages.warning(request, _("No existing time to edit. Use set instead."))
+            return _redirect_supervisor_by_date(selected_date.isoformat())
+
+        setattr(attendance, field_name, parsed_dt)
+        setattr(attendance, supervisor_field, parsed_dt)
+        setattr(attendance, actor_field, request.user)
+        source, capture_mode, device_id = _resolve_capture_fields(request, default_source='manual', default_mode='manual')
+        attendance.source = source
+        attendance.capture_mode = capture_mode
+        attendance.device_id = device_id
+        attendance.status = Attendance.Status.PRESENT
+        attendance.save()
+
+        _log_attendance_change(
+            attendance=attendance,
+            actor=request.user,
+            field_name=field_name,
+            action_type='set' if action.startswith('set') else 'edit',
+            old_value=old_value,
+            new_value=parsed_dt,
+            note='Supervisor panel',
+        )
+        _upsert_timesheet_from_attendance(attendance)
+        messages.success(request, _("Attendance time saved."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+
+    if not old_value:
+        messages.warning(request, _("No saved time to delete."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+
+    setattr(attendance, field_name, None)
+    setattr(attendance, supervisor_field, None)
+    setattr(attendance, actor_field, request.user)
+    if field_name == 'clock_in':
+        attendance.clock_in_latitude = None
+        attendance.clock_in_longitude = None
+    else:
+        attendance.clock_out_latitude = None
+        attendance.clock_out_longitude = None
+    attendance.save()
+
+    _log_attendance_change(
+        attendance=attendance,
+        actor=request.user,
+        field_name=field_name,
+        action_type='delete',
+        old_value=old_value,
+        new_value=None,
+        note='Supervisor panel',
+    )
+    _upsert_timesheet_from_attendance(attendance)
+    messages.success(request, _("Attendance time deleted."))
+    return _redirect_supervisor_by_date(selected_date.isoformat())
 
 
 @login_required

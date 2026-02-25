@@ -233,7 +233,7 @@
 
     <div class="link-row">
       {% if can_open_dashboard %}
-      <a href="{% url 'hr_attendance:dashboard' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت به پنل حضور و غیاب{% else %}{% trans "Open Full Attendance Panel" %}{% endif %}</a>
+      <a href="{% url 'hr_attendance:hub' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت به مرکز حضور و غیاب{% else %}{% trans "Open Attendance Hub" %}{% endif %}</a>
       {% endif %}
     </div>
   </div>
