@@ -65,38 +65,38 @@
             <td>
               <div class="action-wrap d-flex flex-wrap gap-1">
                 {% if not a or not a.clock_in %}
-                <button type="button" class="btn btn-xs btn-outline-success action-time-btn" data-user-id="{{ u.id }}" data-action="set_in" data-title="{% trans 'Set Clock In' %}" data-time="">
+                <button type="button" class="btn btn-xs btn-outline-success action-btn action-time-btn" data-user-id="{{ u.id }}" data-action="set_in" data-title="{% trans 'Set Clock In' %}" data-time="">
                   <i class="fas fa-sign-in-alt"></i>
                 </button>
                 {% else %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-time-btn" data-user-id="{{ u.id }}" data-action="edit_in" data-title="{% trans 'Edit Clock In' %}" data-time="{{ a.clock_in|time:'H:i' }}">
+                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-user-id="{{ u.id }}" data-action="edit_in" data-title="{% trans 'Edit Clock In' %}" data-time="{{ a.clock_in|time:'H:i' }}">
                   <i class="fas fa-pen"></i>
                 </button>
                 <form method="post" action="{% url 'hr_attendance:supervisor_attendance_action' u.id %}" class="d-inline" data-confirm="{% trans 'Delete clock-in time?' %}" onsubmit="return confirm(this.dataset.confirm);">
                   {% csrf_token %}
                   <input type="hidden" name="date" value="{{ date_str }}">
                   <input type="hidden" name="action" value="delete_in">
-                  <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-trash"></i></button>
+                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
                 </form>
                 {% endif %}
 
                 {% if not a or not a.clock_out %}
-                <button type="button" class="btn btn-xs btn-outline-primary action-time-btn" data-user-id="{{ u.id }}" data-action="set_out" data-title="{% trans 'Set Clock Out' %}" data-time="">
+                <button type="button" class="btn btn-xs btn-outline-primary action-btn action-time-btn" data-user-id="{{ u.id }}" data-action="set_out" data-title="{% trans 'Set Clock Out' %}" data-time="">
                   <i class="fas fa-sign-out-alt"></i>
                 </button>
                 {% else %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-time-btn" data-user-id="{{ u.id }}" data-action="edit_out" data-title="{% trans 'Edit Clock Out' %}" data-time="{{ a.clock_out|time:'H:i' }}">
+                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-user-id="{{ u.id }}" data-action="edit_out" data-title="{% trans 'Edit Clock Out' %}" data-time="{{ a.clock_out|time:'H:i' }}">
                   <i class="fas fa-pen"></i>
                 </button>
                 <form method="post" action="{% url 'hr_attendance:supervisor_attendance_action' u.id %}" class="d-inline" data-confirm="{% trans 'Delete clock-out time?' %}" onsubmit="return confirm(this.dataset.confirm);">
                   {% csrf_token %}
                   <input type="hidden" name="date" value="{{ date_str }}">
                   <input type="hidden" name="action" value="delete_out">
-                  <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-trash"></i></button>
+                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
                 </form>
                 {% endif %}
 
-                <button type="button" class="btn btn-xs btn-outline-secondary history-btn" data-history='{{ row.history_json|escapejs }}' data-name="{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:'-' }}{% endif %}" data-count="{{ row.history_count }}">
+                <button type="button" class="btn btn-xs btn-outline-secondary action-btn history-btn" data-history='{{ row.history_json|escapejs }}' data-name="{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:'-' }}{% endif %}" data-count="{{ row.history_count }}">
                   <i class="fas fa-history"></i> <span class="d-none d-md-inline">{{ row.history_count }}</span>
                 </button>
               </div>
@@ -154,10 +154,15 @@
 
 <style>
   .btn-xs {
-    --bs-btn-padding-y: .12rem;
-    --bs-btn-padding-x: .38rem;
-    --bs-btn-font-size: .72rem;
-    line-height: 1.15;
+    --bs-btn-padding-y: .28rem;
+    --bs-btn-padding-x: .55rem;
+    --bs-btn-font-size: .84rem;
+    line-height: 1.2;
+  }
+
+  .action-btn {
+    min-width: 2rem;
+    min-height: 2rem;
   }
 
   .supervisor-table td,
@@ -168,7 +173,7 @@
   }
 
   .action-wrap {
-    min-width: 150px;
+    min-width: 182px;
   }
 
   @media (max-width: 768px) {
@@ -179,62 +184,72 @@
     }
 
     .action-wrap {
-      min-width: 125px;
+      min-width: 168px;
+    }
+
+    .action-btn {
+      min-width: 2.15rem;
+      min-height: 2.15rem;
     }
   }
 </style>
+{% endblock %}
 
+{% block extra_js %}
 <script>
   (() => {
-    const timeModalEl = document.getElementById('timeActionModal');
-    const historyModalEl = document.getElementById('historyModal');
-    if (!timeModalEl || !historyModalEl) return;
+    document.addEventListener('DOMContentLoaded', () => {
+      const timeModalEl = document.getElementById('timeActionModal');
+      const historyModalEl = document.getElementById('historyModal');
+      if (!timeModalEl || !historyModalEl || !window.bootstrap) return;
 
-    const timeModal = new bootstrap.Modal(timeModalEl);
-    const historyModal = new bootstrap.Modal(historyModalEl);
-    const form = document.getElementById('timeActionForm');
-    const actionField = document.getElementById('modalActionField');
-    const timeField = document.getElementById('modalTimeField');
-    const titleEl = document.getElementById('timeActionTitle');
-    const historyTitle = document.getElementById('historyTitle');
-    const historyList = document.getElementById('historyList');
+      const timeModal = new bootstrap.Modal(timeModalEl);
+      const historyModal = new bootstrap.Modal(historyModalEl);
+      const form = document.getElementById('timeActionForm');
+      const actionField = document.getElementById('modalActionField');
+      const timeField = document.getElementById('modalTimeField');
+      const titleEl = document.getElementById('timeActionTitle');
+      const historyTitle = document.getElementById('historyTitle');
+      const historyList = document.getElementById('historyList');
+      const actionTemplate = "{% url 'hr_attendance:supervisor_attendance_action' 0 %}";
 
-    document.querySelectorAll('.action-time-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const userId = btn.dataset.userId;
-        form.action = `/attendance/supervisor/action/${userId}/`;
-        actionField.value = btn.dataset.action || '';
-        timeField.value = btn.dataset.time || '';
-        titleEl.textContent = btn.dataset.title || '{% trans "Set Time" %}';
-        timeModal.show();
+      document.querySelectorAll('.action-time-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const userId = btn.dataset.userId;
+          form.action = actionTemplate.replace('/0/', `/${userId}/`);
+          actionField.value = btn.dataset.action || '';
+          timeField.value = btn.dataset.time || '';
+          titleEl.textContent = btn.dataset.title || '{% trans "Set Time" %}';
+          timeModal.show();
+        });
       });
-    });
 
-    document.querySelectorAll('.history-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const name = btn.dataset.name || '-';
-        historyTitle.textContent = `${name} - {% trans "Attendance Changes" %}`;
-        let entries = [];
-        try {
-          entries = JSON.parse(btn.dataset.history || '[]');
-        } catch (e) {
-          entries = [];
-        }
+      document.querySelectorAll('.history-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.name || '-';
+          historyTitle.textContent = `${name} - {% trans "Attendance Changes" %}`;
+          let entries = [];
+          try {
+            entries = JSON.parse(btn.dataset.history || '[]');
+          } catch (e) {
+            entries = [];
+          }
 
-        if (!entries.length) {
-          historyList.innerHTML = `<div class="text-muted">{% trans "No changes recorded for this date." %}</div>`;
-        } else {
-          historyList.innerHTML = entries.map((entry) => {
-            return `
-              <div class="border rounded p-2 mb-2">
-                <div class="fw-bold">${entry.field} — ${entry.action}</div>
-                <div>${entry.old_value} → ${entry.new_value}</div>
-                <div class="text-muted">${entry.by} • ${entry.performed_at}</div>
-              </div>
-            `;
-          }).join('');
-        }
-        historyModal.show();
+          if (!entries.length) {
+            historyList.innerHTML = `<div class="text-muted">{% trans "No changes recorded for this date." %}</div>`;
+          } else {
+            historyList.innerHTML = entries.map((entry) => {
+              return `
+                <div class="border rounded p-2 mb-2">
+                  <div class="fw-bold">${entry.field} — ${entry.action}</div>
+                  <div>${entry.old_value} → ${entry.new_value}</div>
+                  <div class="text-muted">${entry.by} • ${entry.performed_at}</div>
+                </div>
+              `;
+            }).join('');
+          }
+          historyModal.show();
+        });
       });
     });
   })();

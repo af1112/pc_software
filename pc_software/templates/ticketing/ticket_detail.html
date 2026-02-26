@@ -235,11 +235,7 @@ updateReplyUI();
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0">{{ ticket.title }}</h5>
                 <span class="badge bg-secondary">
-                    {% if request.LANGUAGE_CODE == 'fa' %}
-                        {% if ticket.category == 'bug' %}باگ{% elif ticket.category == 'feature' %}درخواست قابلیت{% elif ticket.category == 'support' %}پشتیبانی{% else %}سایر{% endif %}
-                    {% else %}
-                        {{ ticket.get_category_display }}
-                    {% endif %}
+                    {{ ticket.get_category_display }}
                 </span>
             </div>
             <div class="card-body">
@@ -350,7 +346,7 @@ updateReplyUI();
         <div class="card">
             <div class="card-body">
                 {% if ticket.status != 'closed' %}
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" class="ticket-reply-form">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label class="form-label">{% trans "Add Reply" %}</label>
@@ -396,7 +392,7 @@ updateReplyUI();
                 {% else %}
                 <div class="alert alert-warning mb-0">
                     <p class="mb-2">{% trans "This ticket is closed." %}</p>
-                    <form method="post">
+                    <form method="post" class="ticket-reopen-form">
                         {% csrf_token %}
                         <div class="mb-3">
                             <textarea name="content" class="form-control" rows="2" required placeholder="Type a message to reopen the ticket..."></textarea>
@@ -491,7 +487,7 @@ updateReplyUI();
                                 <i class="fas fa-user-plus"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 200px;">
-                                <form action="{% url 'ticketing:ticket_assign' ticket.id %}" method="post">
+                                <form action="{% url 'ticketing:ticket_assign' ticket.id %}" method="post" class="ticket-assign-form">
                                     {% csrf_token %}
                                     <div class="mb-2">
                                         <select name="user_id" class="form-select form-select-sm">
@@ -514,4 +510,34 @@ updateReplyUI();
         </div>
     </div>
 </div>
+
+<style>
+    .ticket-reply-form .form-label,
+    .ticket-reopen-form .form-label,
+    .ticket-assign-form .form-label {
+        font-weight: 700;
+        color: #495057;
+    }
+
+    .ticket-reply-form .form-control,
+    .ticket-reply-form .form-select,
+    .ticket-reopen-form .form-control,
+    .ticket-reopen-form .form-select,
+    .ticket-assign-form .form-control,
+    .ticket-assign-form .form-select {
+        background: #f3f8ff;
+        border-color: #9ec5fe;
+    }
+
+    .ticket-reply-form .form-control:focus,
+    .ticket-reply-form .form-select:focus,
+    .ticket-reopen-form .form-control:focus,
+    .ticket-reopen-form .form-select:focus,
+    .ticket-assign-form .form-control:focus,
+    .ticket-assign-form .form-select:focus {
+        background: #eef6ff;
+        border-color: #3d8bfd;
+        box-shadow: 0 0 0 0.2rem rgba(61, 139, 253, 0.2);
+    }
+</style>
 {% endblock %}

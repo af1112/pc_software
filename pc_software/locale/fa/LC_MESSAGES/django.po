@@ -63,5 +63,23 @@ msgstr "درخواست قابلیت"
 msgid "Other"
 msgstr "سایر"
 
+msgid "Request from Support Unit"
+msgstr "درخواست از واحد پشتیبانی"
+
+msgid "Problem Report"
+msgstr "اعلام مشکل"
+
+msgid "Finance Unit"
+msgstr "واحد مالی"
+
+msgid "Contact Management"
+msgstr "ارتباط با مدیریت"
+
+msgid "Training Unit"
+msgstr "واحد آموزش"
+
+msgid "Criticism and Suggestions"
+msgstr "انتقادات و پیشنهادات"
+
 msgid "Ticket assigned to %(user)s."
 msgstr "تیکت با موفقیت به %(user)s ارجاع داده شد."

@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import DatabaseError
-from django.db.models import Q, Exists, OuterRef
-from .models import Ticket, TicketComment, TicketAttachment
+from django.db.models import Q, Exists, OuterRef, Max
+from .models import Ticket, TicketComment, TicketAttachment, TicketReadReceipt
 from django.utils.translation import gettext as _
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -38,13 +38,6 @@ def _localized_ticket_choices(is_fa):
         'high': 'زیاد',
         'critical': 'بحرانی',
     }
-    category_fa = {
-        'bug': 'باگ',
-        'feature': 'درخواست قابلیت',
-        'support': 'پشتیبانی',
-        'other': 'سایر',
-    }
-
     localized_status_choices = []
     for val, label in Ticket.STATUS_CHOICES:
         if is_fa:
@@ -59,9 +52,7 @@ def _localized_ticket_choices(is_fa):
 
     localized_category_choices = []
     for val, label in Ticket.CATEGORY_CHOICES:
-        if is_fa:
-            label = category_fa.get(val, label)
-        localized_category_choices.append((val, label))
+        localized_category_choices.append((val, str(label)))
 
     return localized_status_choices, localized_priority_choices, localized_category_choices
 
@@ -207,6 +198,33 @@ def ticket_list(request):
             and _ticket_matches_extra_filters(t, serial, date, time, is_fa)
         ]
 
+    if not isinstance(tickets, list):
+        tickets = list(tickets)
+
+    ticket_ids = [ticket.id for ticket in tickets]
+    read_receipts = {
+        row['ticket_id']: row['last_read_at']
+        for row in TicketReadReceipt.objects.filter(user=request.user, ticket_id__in=ticket_ids)
+        .values('ticket_id', 'last_read_at')
+    }
+
+    latest_other_comment_at = {
+        row['ticket_id']: row['latest_at']
+        for row in TicketComment.objects.filter(ticket_id__in=ticket_ids)
+        .exclude(user=request.user)
+        .values('ticket_id')
+        .annotate(latest_at=Max('created_at'))
+    }
+
+    for ticket in tickets:
+        last_read_at = read_receipts.get(ticket.id)
+        if not last_read_at:
+            ticket.is_unread_for_current_user = True
+            continue
+
+        other_latest_at = latest_other_comment_at.get(ticket.id)
+        ticket.is_unread_for_current_user = bool(other_latest_at and other_latest_at > last_read_at)
+
     localized_status_choices, localized_priority_choices, localized_category_choices = _localized_ticket_choices(is_fa)
 
     context = {
@@ -237,6 +255,13 @@ def ticket_detail(request, pk):
     if ticket.created_by != request.user and not request.user.is_staff and ticket.assigned_to != request.user:
         messages.error(request, _("You do not have permission to view this ticket."))
         return redirect('ticketing:ticket_list')
+
+    read_receipt, created = TicketReadReceipt.objects.get_or_create(
+        ticket=ticket,
+        user=request.user,
+    )
+    if not created:
+        read_receipt.save(update_fields=['last_read_at'])
 
     if request.method == 'POST':
         content = request.POST.get('content')

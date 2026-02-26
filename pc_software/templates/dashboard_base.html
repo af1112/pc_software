@@ -57,20 +57,30 @@
         .sidebar-collapsed .sidebar .mt-auto { display: flex; justify-content: center; padding-inline: 0 !important; }
 
         .mobile-bottom-nav { display: none; }
+        .sidebar-backdrop {
+            display: none;
+        }
 
         @media (max-width: 991.98px) {
-            .main-content { padding-bottom: 88px; }
-            .mobile-bottom-nav {
+            .main-content { padding-bottom: 24px; }
+            #sidebar-toggle {
+                display: inline-flex !important;
+            }
+            .sidebar-backdrop {
                 position: fixed;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 1050;
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                background: var(--card-bg, #fff);
-                border-top: 1px solid var(--border-color, #e9ecef);
-                box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.08);
+                inset: 0;
+                background: rgba(15, 23, 42, 0.45);
+                z-index: 999;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease;
+            }
+            .sidebar-backdrop.show {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .mobile-bottom-nav {
+                display: none !important;
             }
             .mobile-bottom-nav .mobile-nav-item,
             .mobile-bottom-nav .mobile-nav-btn {
@@ -115,6 +125,7 @@
             <div class="loading-text">{% trans "Loading..." %}</div>
         </div>
     </div>
+    <div id="sidebar-backdrop" class="sidebar-backdrop d-lg-none"></div>
 
     <!-- Sidebar -->
     <div class="sidebar d-flex flex-column">
@@ -508,10 +519,17 @@
             );
         };
 
-        mobileToggle?.setAttribute('aria-expanded', htmlEl.classList.contains('sidebar-collapsed') ? 'false' : 'true');
+        const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+        const syncMobileSidebarState = () => {
+            const isOpen = !!sidebarEl?.classList.contains('show');
+            mobileToggle?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            sidebarBackdrop?.classList.toggle('show', isOpen);
+        };
+        mobileToggle?.setAttribute('aria-expanded', 'false');
         mobileToggle?.addEventListener('click', () => {
             if (window.innerWidth <= 992) {
                 sidebarEl?.classList.toggle('show');
+                syncMobileSidebarState();
             } else {
                 const isCollapsed = htmlEl.classList.toggle('sidebar-collapsed');
                 localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
@@ -533,8 +551,33 @@
         document.querySelector('.main-content')?.addEventListener('click', () => {
             if (window.innerWidth <= 992 && sidebarEl?.classList.contains('show')) {
                 sidebarEl.classList.remove('show');
+                syncMobileSidebarState();
             }
         });
+
+        sidebarBackdrop?.addEventListener('click', () => {
+            if (window.innerWidth <= 992 && sidebarEl?.classList.contains('show')) {
+                sidebarEl.classList.remove('show');
+                syncMobileSidebarState();
+            }
+        });
+
+        sidebarEl?.querySelectorAll('a.nav-link, button.nav-link').forEach((item) => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 992 && sidebarEl?.classList.contains('show')) {
+                    sidebarEl.classList.remove('show');
+                    syncMobileSidebarState();
+                }
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 992 && sidebarEl?.classList.contains('show')) {
+                sidebarEl.classList.remove('show');
+            }
+            syncMobileSidebarState();
+        });
+        syncMobileSidebarState();
 
         // Submenu toggle with persistence
         document.querySelectorAll('.nav-group').forEach(group => {

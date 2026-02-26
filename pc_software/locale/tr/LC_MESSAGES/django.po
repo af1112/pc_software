@@ -230,3 +230,21 @@ msgstr "Görüntülü Mesaj"
 
 msgid "Record voice or video"
 msgstr "Ses veya video kaydet"
+
+msgid "Request from Support Unit"
+msgstr "Destek Biriminden Talep"
+
+msgid "Problem Report"
+msgstr "Sorun Bildirimi"
+
+msgid "Finance Unit"
+msgstr "Finans Birimi"
+
+msgid "Contact Management"
+msgstr "Yönetim ile İletişim"
+
+msgid "Training Unit"
+msgstr "Eğitim Birimi"
+
+msgid "Criticism and Suggestions"
+msgstr "Eleştiri ve Öneriler"

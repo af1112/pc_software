@@ -10,7 +10,7 @@
     <div class="col-lg-8">
         <div class="card">
             <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" class="ticket-entry-form">
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -22,10 +22,12 @@
                         <div class="col-md-6">
                             <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}دسته بندی{% else %}{% trans "Category" %}{% endif %}</label>
                             <select name="category" class="form-select">
-                                <option value="support">{% if request.LANGUAGE_CODE == 'fa' %}پشتیبانی{% else %}{% trans "Support" %}{% endif %}</option>
-                                <option value="bug">{% if request.LANGUAGE_CODE == 'fa' %}گزارش خطا{% else %}{% trans "Bug Report" %}{% endif %}</option>
-                                <option value="feature">{% if request.LANGUAGE_CODE == 'fa' %}درخواست قابلیت جدید{% else %}{% trans "Feature Request" %}{% endif %}</option>
-                                <option value="other">{% if request.LANGUAGE_CODE == 'fa' %}سایر{% else %}{% trans "Other" %}{% endif %}</option>
+                                <option value="support_request">{% trans "Request from Support Unit" %}</option>
+                                <option value="problem_report">{% trans "Problem Report" %}</option>
+                                <option value="finance_unit">{% trans "Finance Unit" %}</option>
+                                <option value="management_contact">{% trans "Contact Management" %}</option>
+                                <option value="training_unit">{% trans "Training Unit" %}</option>
+                                <option value="feedback_suggestions">{% trans "Criticism and Suggestions" %}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -104,6 +106,27 @@
         </div>
     </div>
 </div>
+
+<style>
+    .ticket-entry-form .form-label {
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 0.45rem;
+    }
+
+    .ticket-entry-form .form-control,
+    .ticket-entry-form .form-select {
+        background: #f3f8ff;
+        border-color: #9ec5fe;
+    }
+
+    .ticket-entry-form .form-control:focus,
+    .ticket-entry-form .form-select:focus {
+        background: #eef6ff;
+        border-color: #3d8bfd;
+        box-shadow: 0 0 0 0.2rem rgba(61, 139, 253, 0.2);
+    }
+</style>
 
 <script>
 let mediaRecorder;

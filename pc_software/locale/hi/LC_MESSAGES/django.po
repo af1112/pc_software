@@ -407,3 +407,21 @@ msgstr "भाषा सेटिंग्स"
 
 msgid "Save Settings"
 msgstr "सेटिंग्स सहेजें"
+
+msgid "Request from Support Unit"
+msgstr "सपोर्ट यूनिट से अनुरोध"
+
+msgid "Problem Report"
+msgstr "समस्या की रिपोर्ट"
+
+msgid "Finance Unit"
+msgstr "वित्त विभाग"
+
+msgid "Contact Management"
+msgstr "प्रबंधन से संपर्क"
+
+msgid "Training Unit"
+msgstr "प्रशिक्षण विभाग"
+
+msgid "Criticism and Suggestions"
+msgstr "आलोचनाएँ और सुझाव"

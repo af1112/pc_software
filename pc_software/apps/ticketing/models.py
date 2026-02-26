@@ -37,10 +37,12 @@ class Ticket(models.Model):
     ]
 
     CATEGORY_CHOICES = [
-        ('bug', _('Bug')),
-        ('feature', _('Feature Request')),
-        ('support', _('Support')),
-        ('other', _('Other')),
+        ('support_request', _('Request from Support Unit')),
+        ('problem_report', _('Problem Report')),
+        ('finance_unit', _('Finance Unit')),
+        ('management_contact', _('Contact Management')),
+        ('training_unit', _('Training Unit')),
+        ('feedback_suggestions', _('Criticism and Suggestions')),
     ]
 
     title = models.CharField(_("Title"), max_length=200)
@@ -48,7 +50,7 @@ class Ticket(models.Model):
     
     status = models.CharField(_("Status"), max_length=20, choices=STATUS_CHOICES, default='open')
     priority = models.CharField(_("Priority"), max_length=20, choices=PRIORITY_CHOICES, default='medium')
-    category = models.CharField(_("Category"), max_length=20, choices=CATEGORY_CHOICES, default='support')
+    category = models.CharField(_("Category"), max_length=20, choices=CATEGORY_CHOICES, default='support_request')
     
     # Remote Software Fields
     remote_software_name = models.CharField(_("Remote Software Name"), max_length=100, blank=True, null=True)
@@ -106,6 +108,20 @@ class TicketComment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user} on #{self.ticket.id}"
+
+
+class TicketReadReceipt(models.Model):
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='read_receipts')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ticket_read_receipts')
+    first_read_at = models.DateTimeField(auto_now_add=True)
+    last_read_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Ticket Read Receipt")
+        verbose_name_plural = _("Ticket Read Receipts")
+        constraints = [
+            models.UniqueConstraint(fields=['ticket', 'user'], name='uniq_ticket_read_receipt_per_user'),
+        ]
 
 class TicketAttachment(models.Model):
     FILE_TYPES = [
