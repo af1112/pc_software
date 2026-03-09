@@ -1,0 +1,59 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% if request.LANGUAGE_CODE == 'fa' %}شرکت‌های تامین نیرو{% else %}{% trans "Labor Supply Companies" %}{% endif %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}مدیریت شرکت‌های تامین نیرو{% else %}{% trans "Manage Labor Supply Companies" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}افزودن شرکت تامین نیرو{% else %}{% trans "Add Labor Supply Company" %}{% endif %}</h6>
+    </div>
+    <div class="card-body">
+        <form method="post" class="row g-3">{% csrf_token %}
+            <div class="col-12 col-md-5">
+                <label class="form-label small fw-bold">{{ form.name.label }}</label>
+                {{ form.name }}
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold">{{ form.code.label }}</label>
+                {{ form.code }}
+            </div>
+            <div class="col-12 col-md-2 d-flex align-items-center mt-4">
+                <div class="form-check">{{ form.is_active }} <label class="form-check-label ms-1">{{ form.is_active.label }}</label></div>
+            </div>
+            <div class="col-12 col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary btn-sm w-100">{% trans "Save" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Code" %}</th>
+                        <th>{% trans "Status" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td class="fw-semibold">{{ row.name }}</td>
+                        <td>{{ row.code|default:"-" }}</td>
+                        <td>{% if row.is_active %}<span class="badge bg-success">{% trans "Active" %}</span>{% else %}<span class="badge bg-secondary">{% trans "Inactive" %}</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

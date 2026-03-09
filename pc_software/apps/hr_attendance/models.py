@@ -42,13 +42,35 @@ class Attendance(models.Model):
         LATE = 'late', _('Late')
         ABSENT = 'absent', _('Absent')
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attendances', verbose_name=_("User"))
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='attendances',
+        verbose_name=_("User"),
+        null=True,
+        blank=True,
+    )
+    employee = models.ForeignKey(
+        'hr_personnel.Employee',
+        on_delete=models.SET_NULL,
+        related_name='attendances',
+        verbose_name=_("Employee"),
+        null=True,
+        blank=True,
+        db_constraint=False,
+    )
     date = models.DateField(_("Date"), default=timezone.now)
     user_clock_in = models.DateTimeField(_("User Clock In"), null=True, blank=True)
     user_clock_out = models.DateTimeField(_("User Clock Out"), null=True, blank=True)
+    user_lunch_out = models.DateTimeField(_("User Lunch Out"), null=True, blank=True)
+    user_lunch_in = models.DateTimeField(_("User Lunch In"), null=True, blank=True)
     supervisor_clock_in = models.DateTimeField(_("Supervisor Clock In"), null=True, blank=True)
     supervisor_clock_out = models.DateTimeField(_("Supervisor Clock Out"), null=True, blank=True)
+    supervisor_lunch_out = models.DateTimeField(_("Supervisor Lunch Out"), null=True, blank=True)
+    supervisor_lunch_in = models.DateTimeField(_("Supervisor Lunch In"), null=True, blank=True)
     clock_in = models.DateTimeField(_("Clock In"), null=True, blank=True)
+    lunch_out = models.DateTimeField(_("Lunch Out"), null=True, blank=True)
+    lunch_in = models.DateTimeField(_("Lunch In"), null=True, blank=True)
     clock_out = models.DateTimeField(_("Clock Out"), null=True, blank=True)
     source = models.CharField(_("Source"), max_length=20, choices=Source.choices, default=Source.WEB)
     capture_mode = models.CharField(_("Capture Mode"), max_length=30, choices=CaptureMode.choices, default=CaptureMode.WEB_PUNCH)
@@ -73,6 +95,24 @@ class Attendance(models.Model):
         verbose_name=_("Clock-out By"),
         db_constraint=False
     )
+    lunch_out_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_lunchouts_recorded',
+        verbose_name=_("Lunch-out By"),
+        db_constraint=False
+    )
+    lunch_in_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_lunchins_recorded',
+        verbose_name=_("Lunch-in By"),
+        db_constraint=False
+    )
     
     # Location tracking
     latitude = models.DecimalField(_("Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
@@ -83,6 +123,10 @@ class Attendance(models.Model):
     clock_in_longitude = models.DecimalField(_("Clock-in Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
     clock_out_latitude = models.DecimalField(_("Clock-out Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
     clock_out_longitude = models.DecimalField(_("Clock-out Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    lunch_out_latitude = models.DecimalField(_("Lunch-out Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    lunch_out_longitude = models.DecimalField(_("Lunch-out Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    lunch_in_latitude = models.DecimalField(_("Lunch-in Latitude"), max_digits=9, decimal_places=6, null=True, blank=True)
+    lunch_in_longitude = models.DecimalField(_("Lunch-in Longitude"), max_digits=9, decimal_places=6, null=True, blank=True)
     
     # Photo proof (Stored as LongText for large Base64 strings)
     photo_in = models.TextField(_("Photo In"), null=True, blank=True)
@@ -97,16 +141,24 @@ class Attendance(models.Model):
         verbose_name = _("Attendance")
         verbose_name_plural = _("Attendances")
         ordering = ['-date', '-clock_in']
-        unique_together = ['user', 'date']
+        unique_together = [('user', 'date'), ('employee', 'date')]
 
     def __str__(self):
-        return f"{self.user.username} - {self.date}"
+        if self.employee_id:
+            return f"{self.employee} - {self.date}"
+        if self.user_id:
+            return f"{self.user.username} - {self.date}"
+        return f"Attendance - {self.date}"
 
     @property
     def duration(self):
         if self.clock_in and self.clock_out:
-            diff = self.clock_out - self.clock_in
-            hours, remainder = divmod(diff.seconds, 3600)
+            total_seconds = (self.clock_out - self.clock_in).total_seconds()
+            if self.lunch_out and self.lunch_in and self.lunch_in > self.lunch_out:
+                total_seconds -= (self.lunch_in - self.lunch_out).total_seconds()
+            if total_seconds <= 0:
+                return None
+            hours, remainder = divmod(int(total_seconds), 3600)
             minutes, seconds = divmod(remainder, 60)
             return f"{hours:02}:{minutes:02}:{seconds:02}"
         return None
@@ -176,6 +228,8 @@ class AttendanceAIInsight(models.Model):
 class AttendanceChangeLog(models.Model):
     class FieldName(models.TextChoices):
         CLOCK_IN = 'clock_in', _('Clock In')
+        LUNCH_OUT = 'lunch_out', _('Lunch Out')
+        LUNCH_IN = 'lunch_in', _('Lunch In')
         CLOCK_OUT = 'clock_out', _('Clock Out')
 
     class ActionType(models.TextChoices):

@@ -1,0 +1,120 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n local_dates %}
+
+{% block title %}{% trans "Bulk Range Entry" %}{% endblock %}
+{% block page_title %}{% trans "Attendance" %}{% endblock %}
+{% block content_title %}{% trans "Bulk Range Entry" %}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h5 class="fw-bold mb-0">{% trans "Bulk Clock In/Out" %}</h5>
+    </div>
+
+    <div class="alert alert-light border small py-2 px-3 mb-3">
+      {% trans "Use this page when you need to register the same clock-in/clock-out (and optional lunch out/in) times for one employee across a date range." %}
+    </div>
+
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <input type="hidden" name="submit_action" id="submit_action_hidden" value="apply">
+      <input type="hidden" name="confirm_replace" id="confirm_replace_hidden" value="{% if confirm_replace %}1{% else %}0{% endif %}">
+
+      {% if replace_confirmation_needed %}
+      <div class="col-12">
+        <div class="alert alert-warning border py-2 px-3 mb-0">
+          {% blocktrans with count=existing_days_count %}{{ count }} existing attendance day(s) were found in this range. Confirm replacement to delete old rows and apply new values.{% endblocktrans %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="col-12 col-lg-6">
+        <label class="form-label fw-semibold" for="employee_id">{% trans "Employee" %}</label>
+        <select id="employee_id" name="employee_id" class="form-select" required>
+          <option value="">{% trans "Select employee" %}</option>
+          {% for employee in employees %}
+          <option value="{{ employee.id }}" {% if selected_employee_id == employee.id|stringformat:'s' %}selected{% endif %}>
+            {{ employee.first_name }} {{ employee.last_name }}
+            {% if employee.employee_id %}({{ employee.employee_id }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="start_date">{% trans "Start date" %}</label>
+        <input id="start_date" type="date" name="start_date" value="{{ start_date }}" class="form-control" required>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="end_date">{% trans "End date" %}</label>
+        <input id="end_date" type="date" name="end_date" value="{{ end_date }}" class="form-control" required>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="in_time">{% trans "Clock-in time" %}</label>
+        <input id="in_time" type="time" name="in_time" value="{{ in_time }}" class="form-control">
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="lunch_out_time">{% trans "Lunch-out time" %}</label>
+        <input id="lunch_out_time" type="time" name="lunch_out_time" value="{{ lunch_out_time }}" class="form-control">
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="lunch_in_time">{% trans "Lunch-in time" %}</label>
+        <input id="lunch_in_time" type="time" name="lunch_in_time" value="{{ lunch_in_time }}" class="form-control">
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <label class="form-label fw-semibold" for="out_time">{% trans "Clock-out time" %}</label>
+        <input id="out_time" type="time" name="out_time" value="{{ out_time }}" class="form-control">
+      </div>
+
+      <div class="col-12 col-lg-4">
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="use_shift_schedule" name="use_shift_schedule" value="1" {% if use_shift_schedule %}checked{% endif %}>
+          <label class="form-check-label" for="use_shift_schedule">
+            {% trans "Use selected shift schedule times for this date range" %}
+          </label>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-8">
+        <label class="form-label fw-semibold" for="shift_id">{% trans "Shift" %}</label>
+        <select id="shift_id" name="shift_id" class="form-select">
+          <option value="">{% trans "Select shift" %}</option>
+          {% for shift in shifts %}
+          <option value="{{ shift.id }}" {% if shift_id == shift.id|stringformat:'s' %}selected{% endif %}>{{ shift.name }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">{% trans "When enabled, clock-in/clock-out are pulled from active version of this shift per day." %}</div>
+      </div>
+
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="apply_non_working" name="apply_non_working" value="1" {% if apply_non_working %}checked{% endif %}>
+          <label class="form-check-label" for="apply_non_working">
+            {% trans "Apply also on non-working days (weekend/holiday). Those days are treated as overtime candidates." %}
+          </label>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('submit_action_hidden').value='apply';document.getElementById('confirm_replace_hidden').value='0';">
+          <i class="fas fa-save me-1"></i> {% trans "Apply to Date Range" %}
+        </button>
+        {% if replace_confirmation_needed %}
+        <button type="submit" class="btn btn-outline-danger ms-2" onclick="document.getElementById('submit_action_hidden').value='apply';document.getElementById('confirm_replace_hidden').value='1';">
+          <i class="fas fa-exclamation-triangle me-1"></i> {% trans "Confirm Replace Existing Records" %}
+        </button>
+        {% endif %}
+        <button type="submit" class="btn btn-outline-warning ms-2" onclick="document.getElementById('submit_action_hidden').value='rebuild';document.getElementById('confirm_replace_hidden').value='0';">
+          <i class="fas fa-sync-alt me-1"></i> {% trans "Rebuild Timesheets for Range" %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -195,6 +195,69 @@ class EmployeeShiftAssignment(models.Model):
         return f'{self.employee} -> {self.shift}'
 
 
+class WorkUnitShiftAssignment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='work_unit_shift_assignments')
+    work_unit = models.ForeignKey('hr_personnel.WorkUnit', on_delete=models.CASCADE, related_name='hrms_shift_assignments')
+    shift = models.ForeignKey(ShiftTemplate, on_delete=models.CASCADE, related_name='work_unit_assignments')
+    effective_from = models.DateField()
+    effective_to = models.DateField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(effective_to__isnull=True) | models.Q(effective_to__gte=models.F('effective_from')),
+                name='ck_hrms_work_unit_shift_assignment_effective_range',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['tenant', 'work_unit', 'effective_from']),
+        ]
+
+    def __str__(self):
+        return f'{self.work_unit} -> {self.shift}'
+
+
+class WorkClosure(models.Model):
+    class Scope(models.TextChoices):
+        COMPANY = 'company', 'Company-wide'
+        WORK_UNIT = 'work_unit', 'Work Unit'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='work_closures')
+    title = models.CharField(max_length=160)
+    scope = models.CharField(max_length=20, choices=Scope.choices, default=Scope.COMPANY)
+    work_unit = models.ForeignKey('hr_personnel.WorkUnit', on_delete=models.CASCADE, null=True, blank=True, related_name='work_closures')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_paid = models.BooleanField(default=True)
+    reason = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_work_closures')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(end_date__gte=models.F('start_date')), name='ck_hrms_work_closure_date_range'),
+        ]
+        indexes = [
+            models.Index(fields=['tenant', 'scope', 'start_date']),
+            models.Index(fields=['tenant', 'start_date', 'end_date']),
+        ]
+
+    def clean(self):
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError('end_date cannot be earlier than start_date.')
+        if self.scope == self.Scope.WORK_UNIT and self.work_unit_id is None:
+            raise ValidationError('work_unit is required when scope is work_unit.')
+        if self.scope == self.Scope.COMPANY:
+            self.work_unit = None
+
+    def __str__(self):
+        return f'{self.title} ({self.start_date} - {self.end_date})'
+
+
 class AttendanceLog(models.Model):
     class Source(models.TextChoices):
         BIOMETRIC = 'biometric', 'Biometric'
@@ -313,6 +376,8 @@ class LeaveType(models.Model):
     encashable = models.BooleanField(default=False)
     requires_attachment = models.BooleanField(default=False)
     requires_approval = models.BooleanField(default=True)
+    deduct_from_payroll = models.BooleanField(default=False)
+    deduction_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

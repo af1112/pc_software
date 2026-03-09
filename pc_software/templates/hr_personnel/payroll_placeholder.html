@@ -1,0 +1,39 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{{ module_title }}{% endblock %}
+{% block page_title %}{% trans "Payroll" %} / {{ section_label }}{% endblock %}
+{% block content_title %}{{ module_title }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12 col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <h5 class="fw-bold mb-0">{{ module_title }}</h5>
+                    <span class="badge bg-secondary">{% trans "Not Implemented" %}</span>
+                </div>
+                <p class="text-muted mb-3">{{ placeholder_message }}</p>
+                <a href="{% url 'hr_personnel:payroll_hub' %}?tab={{ section_key }}" class="btn btn-outline-primary">{% trans "Back to Payroll Workflow" %}</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="small text-muted">{% trans "Current Payroll Period" %}</div>
+                    {% if current_period %}
+                    <div class="fw-semibold mb-2">{{ current_period.code|default:current_period.id }}</div>
+                    {% else %}
+                    <div class="fw-semibold mb-2">-</div>
+                    {% endif %}
+                </div>
+                <span class="badge {{ current_period_badge_class }} align-self-start">{{ current_period_badge }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

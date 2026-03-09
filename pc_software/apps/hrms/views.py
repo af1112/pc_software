@@ -13,10 +13,13 @@ from apps.hrms.forms import (
     OvertimeRateRuleForm,
     ShiftTemplateForm,
     ShiftVersionForm,
+    WorkClosureForm,
     WorkCalendarBulkGenerateForm,
     WorkCalendarForm,
+    WorkUnitShiftAssignmentForm,
 )
 from apps.hrms.models import (
+    Employee as HrmsEmployee,
     EmployeeShiftAssignment,
     OvertimePolicy,
     OvertimeRateRule,
@@ -24,7 +27,9 @@ from apps.hrms.models import (
     ShiftTemplate,
     ShiftVersion,
     Timesheet,
+    WorkClosure,
     WorkCalendar,
+    WorkUnitShiftAssignment,
 )
 from apps.hrms.tenant import resolve_company_for_request
 
@@ -81,6 +86,58 @@ def _tenant_or_redirect(request):
     return tenant
 
 
+def _safe_count(queryset, fallback=0):
+    try:
+        return queryset.count()
+    except (ProgrammingError, OperationalError):
+        return fallback
+
+
+def _ensure_hrms_employees_from_personnel(tenant):
+    org = getattr(tenant, 'organization', None)
+    if org is None:
+        return
+
+    from apps.hr_personnel.models import Employee as PersonnelEmployee
+
+    personnel_rows = PersonnelEmployee.objects.filter(organization=org, is_active=True).select_related('user')
+    existing_codes = set(HrmsEmployee.objects.filter(tenant=tenant).values_list('employee_code', flat=True))
+    linked_codes = dict(
+        HrmsEmployee.objects.filter(tenant=tenant, personnel_employee__isnull=False).values_list('personnel_employee_id', 'employee_code')
+    )
+
+    for personnel in personnel_rows:
+        current_code = linked_codes.get(personnel.id)
+        if current_code:
+            chosen_code = current_code
+        else:
+            base_code = (
+                str(personnel.employee_id or '').strip()
+                or str(personnel.company_id or '').strip()
+                or f"P-{str(personnel.id).split('-')[0]}"
+            )
+            chosen_code = base_code
+            suffix = 2
+            while chosen_code in existing_codes:
+                chosen_code = f"{base_code}-{suffix}"
+                suffix += 1
+
+        HrmsEmployee.objects.update_or_create(
+            tenant=tenant,
+            personnel_employee=personnel,
+            defaults={
+                'user': personnel.user,
+                'employee_code': chosen_code,
+                'first_name': personnel.first_name,
+                'last_name': personnel.last_name,
+                'nationality': personnel.nationality,
+                'hire_date': personnel.hire_date or datetime.date.today(),
+                'is_active': bool(personnel.is_active),
+            },
+        )
+        existing_codes.add(chosen_code)
+
+
 @login_required
 def hrms_dashboard(request):
     tenant = _tenant_or_redirect(request)
@@ -88,18 +145,35 @@ def hrms_dashboard(request):
         return redirect('main_dashboard')
 
     start_of_month = datetime.date.today().replace(day=1)
+    work_unit_shift_qs = WorkUnitShiftAssignment.objects.filter(tenant=tenant, is_active=True)
+    work_unit_shift_count = _safe_count(work_unit_shift_qs)
+    if work_unit_shift_count == 0:
+        try:
+            _ = work_unit_shift_qs.exists()
+        except (ProgrammingError, OperationalError):
+            messages.warning(
+                request,
+                _tr(
+                    request,
+                    'Some HRMS tables are missing. Run migrations to enable all dashboard widgets.',
+                    'برخی جداول HRMS موجود نیست. برای فعال شدن کامل ویجت‌های داشبورد، مهاجرت‌ها را اجرا کنید.',
+                ),
+            )
+
     context = {
         'tenant': tenant,
-        'shift_templates_count': ShiftTemplate.objects.filter(tenant=tenant).count(),
-        'shift_versions_count': ShiftVersion.objects.filter(tenant=tenant).count(),
-        'work_calendar_count': WorkCalendar.objects.filter(tenant=tenant).count(),
-        'active_overtime_policies_count': OvertimePolicy.objects.filter(tenant=tenant, is_active=True).count(),
-        'timesheets_month_count': Timesheet.objects.filter(tenant=tenant, work_date__gte=start_of_month).count(),
-        'payroll_overtime_month_count': PayrollOvertimeEntry.objects.filter(
+        'shift_templates_count': _safe_count(ShiftTemplate.objects.filter(tenant=tenant)),
+        'shift_versions_count': _safe_count(ShiftVersion.objects.filter(tenant=tenant)),
+        'work_unit_shift_assignments_count': work_unit_shift_count,
+        'work_calendar_count': _safe_count(WorkCalendar.objects.filter(tenant=tenant)),
+        'active_work_closures_count': _safe_count(WorkClosure.objects.filter(tenant=tenant, end_date__gte=start_of_month)),
+        'active_overtime_policies_count': _safe_count(OvertimePolicy.objects.filter(tenant=tenant, is_active=True)),
+        'timesheets_month_count': _safe_count(Timesheet.objects.filter(tenant=tenant, work_date__gte=start_of_month)),
+        'payroll_overtime_month_count': _safe_count(PayrollOvertimeEntry.objects.filter(
             tenant=tenant,
             period_year=start_of_month.year,
             period_month=start_of_month.month,
-        ).count(),
+        )),
     }
     return render(request, 'hrms/dashboard.html', context)
 
@@ -133,7 +207,66 @@ def shift_template_create(request):
     else:
         form = ShiftTemplateForm()
 
-    return render(request, 'hrms/shift_template_form.html', {'tenant': tenant, 'form': form})
+    return render(
+        request,
+        'hrms/shift_template_form.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'is_edit': False,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_template_edit(request, template_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    shift_template = get_object_or_404(ShiftTemplate, tenant=tenant, id=template_id)
+
+    if request.method == 'POST':
+        form = ShiftTemplateForm(request.POST, instance=shift_template)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Shift template updated.', 'الگوی شیفت با موفقیت ویرایش شد.'))
+            return redirect('hrms:shift_template_list')
+    else:
+        form = ShiftTemplateForm(instance=shift_template)
+
+    return render(
+        request,
+        'hrms/shift_template_form.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'is_edit': True,
+            'shift_template': shift_template,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_template_delete(request, template_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    shift_template = get_object_or_404(ShiftTemplate, tenant=tenant, id=template_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:shift_template_list')
+
+    template_name = shift_template.name
+    shift_template.delete()
+    messages.success(
+        request,
+        _tr(request, f'Shift template "{template_name}" deleted.', f'الگوی شیفت "{template_name}" حذف شد.'),
+    )
+    return redirect('hrms:shift_template_list')
 
 
 @login_required
@@ -156,16 +289,67 @@ def shift_version_create(request):
 
     if request.method == 'POST':
         form = ShiftVersionForm(request.POST, tenant=tenant)
+        form.instance.tenant = tenant
         if form.is_valid():
-            obj = form.save(commit=False)
-            obj.tenant = tenant
-            obj.save()
+            form.save()
             messages.success(request, _tr(request, 'Shift version created.', 'نسخه شیفت با موفقیت ایجاد شد.'))
             return redirect('hrms:shift_version_list')
     else:
         form = ShiftVersionForm(tenant=tenant)
 
-    return render(request, 'hrms/shift_version_form.html', {'tenant': tenant, 'form': form})
+    return render(request, 'hrms/shift_version_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_version_edit(request, version_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    version = get_object_or_404(ShiftVersion, tenant=tenant, id=version_id)
+
+    if request.method == 'POST':
+        form = ShiftVersionForm(request.POST, instance=version, tenant=tenant)
+        form.instance.tenant = tenant
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Shift version updated.', 'نسخه شیفت با موفقیت ویرایش شد.'))
+            return redirect('hrms:shift_version_list')
+    else:
+        form = ShiftVersionForm(instance=version, tenant=tenant)
+
+    return render(
+        request,
+        'hrms/shift_version_form.html',
+        {
+            'tenant': tenant,
+            'form': form,
+            'is_edit': True,
+            'version': version,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_version_delete(request, version_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    version = get_object_or_404(ShiftVersion, tenant=tenant, id=version_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:shift_version_list')
+
+    version_label = f'{version.shift.name} ({version.valid_from} - {version.valid_to})'
+    version.delete()
+    messages.success(
+        request,
+        _tr(request, f'Shift version "{version_label}" deleted.', f'نسخه شیفت "{version_label}" حذف شد.'),
+    )
+    return redirect('hrms:shift_version_list')
 
 
 @login_required
@@ -186,6 +370,8 @@ def shift_assignment_create(request):
     if tenant is None:
         return redirect('main_dashboard')
 
+    _ensure_hrms_employees_from_personnel(tenant)
+
     if request.method == 'POST':
         form = EmployeeShiftAssignmentForm(request.POST, tenant=tenant)
         if form.is_valid():
@@ -197,7 +383,193 @@ def shift_assignment_create(request):
     else:
         form = EmployeeShiftAssignmentForm(tenant=tenant)
 
-    return render(request, 'hrms/shift_assignment_form.html', {'tenant': tenant, 'form': form})
+    return render(request, 'hrms/shift_assignment_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_assignment_edit(request, assignment_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    _ensure_hrms_employees_from_personnel(tenant)
+    assignment = get_object_or_404(EmployeeShiftAssignment, tenant=tenant, id=assignment_id)
+
+    if request.method == 'POST':
+        form = EmployeeShiftAssignmentForm(request.POST, instance=assignment, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Shift assignment updated.', 'اختصاص شیفت با موفقیت ویرایش شد.'))
+            return redirect('hrms:shift_assignment_list')
+    else:
+        form = EmployeeShiftAssignmentForm(instance=assignment, tenant=tenant)
+
+    return render(
+        request,
+        'hrms/shift_assignment_form.html',
+        {'tenant': tenant, 'form': form, 'assignment': assignment, 'is_edit': True},
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def shift_assignment_delete(request, assignment_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    assignment = get_object_or_404(EmployeeShiftAssignment, tenant=tenant, id=assignment_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:shift_assignment_list')
+
+    assignment.delete()
+    messages.success(request, _tr(request, 'Shift assignment deleted.', 'اختصاص شیفت حذف شد.'))
+    return redirect('hrms:shift_assignment_list')
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_unit_shift_assignment_list(request):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    rows = WorkUnitShiftAssignment.objects.filter(tenant=tenant).select_related('work_unit', 'shift').order_by('-effective_from')
+    return render(request, 'hrms/work_unit_shift_assignment_list.html', {'tenant': tenant, 'rows': rows})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_unit_shift_assignment_create(request):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    if request.method == 'POST':
+        form = WorkUnitShiftAssignmentForm(request.POST, tenant=tenant)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.tenant = tenant
+            obj.save()
+            messages.success(request, _tr(request, 'Work-unit shift assignment created.', 'شیفت پیش‌فرض واحد کاری ثبت شد.'))
+            return redirect('hrms:work_unit_shift_assignment_list')
+    else:
+        form = WorkUnitShiftAssignmentForm(tenant=tenant)
+
+    return render(request, 'hrms/work_unit_shift_assignment_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_unit_shift_assignment_edit(request, assignment_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    assignment = get_object_or_404(WorkUnitShiftAssignment, tenant=tenant, id=assignment_id)
+    if request.method == 'POST':
+        form = WorkUnitShiftAssignmentForm(request.POST, instance=assignment, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Work-unit shift assignment updated.', 'شیفت پیش‌فرض واحد کاری ویرایش شد.'))
+            return redirect('hrms:work_unit_shift_assignment_list')
+    else:
+        form = WorkUnitShiftAssignmentForm(instance=assignment, tenant=tenant)
+
+    return render(
+        request,
+        'hrms/work_unit_shift_assignment_form.html',
+        {'tenant': tenant, 'form': form, 'assignment': assignment, 'is_edit': True},
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_unit_shift_assignment_delete(request, assignment_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    assignment = get_object_or_404(WorkUnitShiftAssignment, tenant=tenant, id=assignment_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:work_unit_shift_assignment_list')
+
+    assignment.delete()
+    messages.success(request, _tr(request, 'Work-unit shift assignment deleted.', 'شیفت پیش‌فرض واحد کاری حذف شد.'))
+    return redirect('hrms:work_unit_shift_assignment_list')
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_closure_list(request):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    rows = WorkClosure.objects.filter(tenant=tenant).select_related('work_unit').order_by('-start_date', '-created_at')
+    return render(request, 'hrms/work_closure_list.html', {'tenant': tenant, 'rows': rows})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_closure_create(request):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    if request.method == 'POST':
+        form = WorkClosureForm(request.POST, tenant=tenant)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.tenant = tenant
+            obj.created_by = request.user if request.user.is_authenticated else None
+            obj.save()
+            messages.success(request, _tr(request, 'Work closure saved.', 'تعطیلی اجباری ثبت شد.'))
+            return redirect('hrms:work_closure_list')
+    else:
+        form = WorkClosureForm(tenant=tenant)
+
+    return render(request, 'hrms/work_closure_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_closure_edit(request, closure_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    closure = get_object_or_404(WorkClosure, tenant=tenant, id=closure_id)
+    if request.method == 'POST':
+        form = WorkClosureForm(request.POST, instance=closure, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Work closure updated.', 'تعطیلی اجباری ویرایش شد.'))
+            return redirect('hrms:work_closure_list')
+    else:
+        form = WorkClosureForm(instance=closure, tenant=tenant)
+
+    return render(request, 'hrms/work_closure_form.html', {'tenant': tenant, 'form': form, 'closure': closure, 'is_edit': True})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_closure_delete(request, closure_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    closure = get_object_or_404(WorkClosure, tenant=tenant, id=closure_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:work_closure_list')
+
+    closure.delete()
+    messages.success(request, _tr(request, 'Work closure deleted.', 'تعطیلی اجباری حذف شد.'))
+    return redirect('hrms:work_closure_list')
 
 
 @login_required
@@ -254,6 +626,10 @@ def work_calendar_bulk_generate(request):
             year = form.cleaned_data['year']
             default_work_minutes = form.cleaned_data['default_work_minutes']
             weekend_days = {int(day) for day in form.cleaned_data['weekend_days']}
+            custom_weekday_minutes = {
+                int(day) for day in (form.cleaned_data.get('custom_weekday_minutes') or [])
+            }
+            custom_work_minutes = form.cleaned_data.get('custom_work_minutes')
             include_public_holidays = form.cleaned_data['include_public_holidays']
             overwrite_existing = form.cleaned_data['overwrite_existing']
 
@@ -273,6 +649,8 @@ def work_calendar_bulk_generate(request):
                     if is_weekend:
                         day_type = WorkCalendar.DayType.WEEKEND
                         minutes = 0
+                    elif custom_weekday_minutes and current_date.weekday() in custom_weekday_minutes:
+                        minutes = int(custom_work_minutes or default_work_minutes)
                     if holiday_name:
                         day_type = WorkCalendar.DayType.PUBLIC_HOLIDAY
                         minutes = 0
@@ -327,7 +705,7 @@ def overtime_policy_list(request):
     if tenant is None:
         return redirect('main_dashboard')
 
-    policies = OvertimePolicy.objects.filter(tenant=tenant).order_by('-effective_from')
+    policies = OvertimePolicy.objects.filter(tenant=tenant).prefetch_related('rate_rules').order_by('-effective_from')
     return render(request, 'hrms/overtime_policy_list.html', {'tenant': tenant, 'policies': policies})
 
 
@@ -339,7 +717,7 @@ def overtime_policy_create(request):
         return redirect('main_dashboard')
 
     if request.method == 'POST':
-        form = OvertimePolicyForm(request.POST)
+        form = OvertimePolicyForm(request.POST, tenant=tenant)
         if form.is_valid():
             obj = form.save(commit=False)
             obj.tenant = tenant
@@ -347,9 +725,48 @@ def overtime_policy_create(request):
             messages.success(request, _tr(request, 'Overtime policy created.', 'قانون اضافه‌کاری با موفقیت ایجاد شد.'))
             return redirect('hrms:overtime_policy_list')
     else:
-        form = OvertimePolicyForm()
+        form = OvertimePolicyForm(tenant=tenant)
 
-    return render(request, 'hrms/overtime_policy_form.html', {'tenant': tenant, 'form': form})
+    return render(request, 'hrms/overtime_policy_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def overtime_policy_edit(request, policy_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    policy = get_object_or_404(OvertimePolicy, id=policy_id, tenant=tenant)
+
+    if request.method == 'POST':
+        form = OvertimePolicyForm(request.POST, instance=policy, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Overtime policy updated.', 'قانون اضافه‌کاری با موفقیت ویرایش شد.'))
+            return redirect('hrms:overtime_policy_list')
+    else:
+        form = OvertimePolicyForm(instance=policy, tenant=tenant)
+
+    return render(request, 'hrms/overtime_policy_form.html', {'tenant': tenant, 'form': form, 'is_edit': True, 'policy': policy})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def overtime_policy_delete(request, policy_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    policy = get_object_or_404(OvertimePolicy, id=policy_id, tenant=tenant)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:overtime_policy_list')
+
+    policy_name = policy.name
+    policy.delete()
+    messages.success(request, _tr(request, f'Overtime policy "{policy_name}" deleted.', f'قانون اضافه‌کاری "{policy_name}" حذف شد.'))
+    return redirect('hrms:overtime_policy_list')
 
 
 @login_required
@@ -372,4 +789,56 @@ def overtime_rule_create(request, policy_id):
     else:
         form = OvertimeRateRuleForm()
 
-    return render(request, 'hrms/overtime_rule_form.html', {'tenant': tenant, 'policy': policy, 'form': form})
+    return render(request, 'hrms/overtime_rule_form.html', {'tenant': tenant, 'policy': policy, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def overtime_rule_edit(request, policy_id, rule_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    policy = get_object_or_404(OvertimePolicy, id=policy_id, tenant=tenant)
+    rule = get_object_or_404(OvertimeRateRule, id=rule_id, policy=policy)
+
+    if request.method == 'POST':
+        form = OvertimeRateRuleForm(request.POST, instance=rule)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Overtime rate rule updated.', 'قانون نرخ اضافه‌کاری ویرایش شد.'))
+            return redirect('hrms:overtime_policy_list')
+    else:
+        form = OvertimeRateRuleForm(instance=rule)
+
+    return render(
+        request,
+        'hrms/overtime_rule_form.html',
+        {
+            'tenant': tenant,
+            'policy': policy,
+            'form': form,
+            'is_edit': True,
+            'rule': rule,
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def overtime_rule_delete(request, policy_id, rule_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    policy = get_object_or_404(OvertimePolicy, id=policy_id, tenant=tenant)
+    rule = get_object_or_404(OvertimeRateRule, id=rule_id, policy=policy)
+
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:overtime_policy_list')
+
+    rule_label = f'{rule.get_day_type_display()} / {rule.get_overtime_type_display()}'
+    rule.delete()
+    messages.success(request, _tr(request, f'Overtime rule "{rule_label}" deleted.', f'قانون اضافه‌کاری "{rule_label}" حذف شد.'))
+    return redirect('hrms:overtime_policy_list')

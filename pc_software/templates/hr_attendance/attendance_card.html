@@ -11,10 +11,12 @@
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-12 col-md-5">
                     <label class="form-label fw-bold small">{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}</label>
-                    <select name="user_id" class="form-select" required>
-                        {% for u in users %}
-                            <option value="{{ u.id }}" {% if selected_user_id == u.id|stringformat:'s' %}selected{% endif %}>
-                                {{ u.get_full_name|default:u.username }} ({{ u.username }})
+                    <select name="employee_id" class="form-select" required>
+                        {% for e in employees %}
+                            <option value="{{ e.id }}" {% if selected_employee_id == e.id|stringformat:'s' %}selected{% endif %}>
+                                {{ e.first_name }} {{ e.last_name }}
+                                {% if e.employee_id %}({{ e.employee_id }}){% endif %}
+                                {% if not e.user_id %} - {% trans "No Username" %}{% endif %}
                             </option>
                         {% empty %}
                             <option value="">{% trans "No personnel available" %}</option>
@@ -28,7 +30,26 @@
                 <div class="col-12 col-md-auto">
                     <button type="submit" class="btn btn-primary">{% trans "Load" %}</button>
                 </div>
+                {% if selected_employee %}
+                <div class="col-12 col-md-auto">
+                    <a href="{{ pdf_url }}" class="btn btn-outline-danger" target="_blank" rel="noopener">
+                        <i class="fas fa-file-pdf me-1"></i>{% trans "Export PDF" %}
+                    </a>
+                </div>
+                {% endif %}
             </form>
+
+            {% if can_connect_selected and selected_employee %}
+            <form method="post" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="connect_supervisor">
+                <input type="hidden" name="employee_id" value="{{ selected_employee.id }}">
+                <input type="hidden" name="month" value="{{ month_value }}">
+                <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-link me-1"></i> {% trans "Connect selected employee to me" %}
+                </button>
+            </form>
+            {% endif %}
         </div>
     </div>
 
@@ -61,6 +82,8 @@
                         <tr>
                             <th>{% trans "Date" %}</th>
                             <th>{% trans "Clock In" %}</th>
+                            <th>{% trans "Lunch Out" %}</th>
+                            <th>{% trans "Lunch In" %}</th>
                             <th>{% trans "Clock Out" %}</th>
                             <th>{% trans "Duration" %}</th>
                             <th>{% trans "Worked Hours" %}</th>
@@ -75,6 +98,8 @@
                         <tr>
                             <td>{% localized_date row.date "Y/m/d" %}</td>
                             <td>{{ row.attendance.clock_in|time:"H:i"|default:"--"|unlocalize }}</td>
+                            <td>{{ row.attendance.lunch_out|time:"H:i"|default:"--"|unlocalize }}</td>
+                            <td>{{ row.attendance.lunch_in|time:"H:i"|default:"--"|unlocalize }}</td>
                             <td>{{ row.attendance.clock_out|time:"H:i"|default:"--"|unlocalize }}</td>
                             <td>{{ row.attendance.duration|default:"--"|unlocalize }}</td>
                             <td>{{ row.worked_hours|unlocalize }}</td>
@@ -91,7 +116,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">{% trans "No records for selected filter." %}</td>
+                            <td colspan="11" class="text-center py-4 text-muted">{% trans "No records for selected filter." %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

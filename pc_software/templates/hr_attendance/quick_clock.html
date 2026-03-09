@@ -93,6 +93,15 @@
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .btn-in { background: linear-gradient(120deg, #18b36f, #0a8c57); }
     .btn-out { background: linear-gradient(120deg, #ef5350, #cc2f2f); }
+    .btn-neutral {
+      background: #ffffff;
+      color: var(--text);
+      border: 1px solid #dbe3f4;
+    }
+    .action-buttons {
+      display: grid;
+      gap: 10px;
+    }
     .helper {
       margin-top: 14px;
       text-align: center;
@@ -166,9 +175,15 @@
       {% if not attendance.clock_in %}
         <span class="status-dot"></span>
         <span>{% if request.LANGUAGE_CODE == 'fa' %}هنوز ورود ثبت نشده{% else %}{% trans "Not clocked in yet" %}{% endif %}</span>
-      {% elif attendance.clock_in and not attendance.clock_out %}
+      {% elif attendance.clock_in and not attendance.lunch_out %}
         <span class="status-dot working"></span>
-        <span>{% if request.LANGUAGE_CODE == 'fa' %}در حال کار{% else %}{% trans "Working" %}{% endif %}</span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}شیفت صبح فعال است{% else %}{% trans "Morning shift active" %}{% endif %}</span>
+      {% elif attendance.lunch_out and not attendance.lunch_in %}
+        <span class="status-dot"></span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}در زمان استراحت ناهار{% else %}{% trans "On lunch break" %}{% endif %}</span>
+      {% elif attendance.lunch_in and not attendance.clock_out %}
+        <span class="status-dot working"></span>
+        <span>{% if request.LANGUAGE_CODE == 'fa' %}شیفت بعدازظهر فعال است{% else %}{% trans "Afternoon shift active" %}{% endif %}</span>
       {% else %}
         <span class="status-dot done"></span>
         <span>{% if request.LANGUAGE_CODE == 'fa' %}ورود و خروج امروز تکمیل شده{% else %}{% trans "Today is completed" %}{% endif %}</span>
@@ -176,29 +191,71 @@
     </div>
 
     {% if not attendance.clock_in %}
-      <form id="quickAttendanceForm" method="post" action="{% url 'hr_attendance:clock_in' %}">
+      <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_in' %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="quick_success">
-        <input type="hidden" name="latitude" id="id_latitude">
-        <input type="hidden" name="longitude" id="id_longitude">
+        <input type="hidden" name="latitude" class="js-latitude">
+        <input type="hidden" name="longitude" class="js-longitude">
         <input type="hidden" name="source" value="mobile">
         <input type="hidden" name="capture_mode" value="mobile_gps">
-        <input type="hidden" name="device_id" id="id_device_id" value="mobile-{{ request.user.id }}">
-        <button type="button" id="submitAttendanceBtn" class="btn btn-in">
+        <input type="hidden" name="device_id" class="js-device-id" value="mobile-{{ request.user.id }}">
+        <button type="button" class="btn btn-in submitAttendanceBtn">
           {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم ورود{% else %}{% trans "Clock In" %}{% endif %}
         </button>
       </form>
-    {% elif attendance.clock_in and not attendance.clock_out %}
-      <form id="quickAttendanceForm" method="post" action="{% url 'hr_attendance:clock_out' %}">
+    {% elif attendance.clock_in and not attendance.lunch_out %}
+      <div class="action-buttons">
+        <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_out' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="quick">
+          <input type="hidden" name="latitude" class="js-latitude">
+          <input type="hidden" name="longitude" class="js-longitude">
+          <input type="hidden" name="source" value="mobile">
+          <input type="hidden" name="capture_mode" value="mobile_gps">
+          <input type="hidden" name="device_id" class="js-device-id" value="mobile-{{ request.user.id }}">
+          <button type="button" class="btn btn-out submitAttendanceBtn">
+            {% if request.LANGUAGE_CODE == 'fa' %}شروع استراحت ناهار{% else %}{% trans "Start Lunch Break" %}{% endif %}
+          </button>
+        </form>
+
+        <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_out' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="quick">
+          <input type="hidden" name="out_mode" value="end_day">
+          <input type="hidden" name="latitude" class="js-latitude">
+          <input type="hidden" name="longitude" class="js-longitude">
+          <input type="hidden" name="source" value="mobile">
+          <input type="hidden" name="capture_mode" value="mobile_gps">
+          <input type="hidden" name="device_id" class="js-device-id" value="mobile-{{ request.user.id }}">
+          <button type="button" class="btn btn-neutral submitAttendanceBtn">
+            {% if request.LANGUAGE_CODE == 'fa' %}ثبت خروج پایان روز{% else %}{% trans "Clock Out (End Day)" %}{% endif %}
+          </button>
+        </form>
+      </div>
+    {% elif attendance.lunch_out and not attendance.lunch_in %}
+      <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_in' %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="quick">
-        <input type="hidden" name="latitude" id="id_latitude">
-        <input type="hidden" name="longitude" id="id_longitude">
+        <input type="hidden" name="latitude" class="js-latitude">
+        <input type="hidden" name="longitude" class="js-longitude">
         <input type="hidden" name="source" value="mobile">
         <input type="hidden" name="capture_mode" value="mobile_gps">
-        <input type="hidden" name="device_id" id="id_device_id" value="mobile-{{ request.user.id }}">
-        <button type="button" id="submitAttendanceBtn" class="btn btn-out">
-          {% if request.LANGUAGE_CODE == 'fa' %}ثبت تایم خروج{% else %}{% trans "Clock Out" %}{% endif %}
+        <input type="hidden" name="device_id" class="js-device-id" value="mobile-{{ request.user.id }}">
+        <button type="button" class="btn btn-in submitAttendanceBtn">
+          {% if request.LANGUAGE_CODE == 'fa' %}پایان استراحت و ورود بعدازظهر{% else %}{% trans "End Lunch Break" %}{% endif %}
+        </button>
+      </form>
+    {% elif attendance.lunch_in and not attendance.clock_out %}
+      <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_out' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="quick">
+        <input type="hidden" name="latitude" class="js-latitude">
+        <input type="hidden" name="longitude" class="js-longitude">
+        <input type="hidden" name="source" value="mobile">
+        <input type="hidden" name="capture_mode" value="mobile_gps">
+        <input type="hidden" name="device_id" class="js-device-id" value="mobile-{{ request.user.id }}">
+        <button type="button" class="btn btn-out submitAttendanceBtn">
+          {% if request.LANGUAGE_CODE == 'fa' %}ثبت خروج پایان روز{% else %}{% trans "Clock Out (End Day)" %}{% endif %}
         </button>
       </form>
     {% else %}
@@ -241,16 +298,15 @@
   <script>
     const isFa = '{{ request.LANGUAGE_CODE }}' === 'fa';
     const liveClockEl = document.getElementById('liveClock');
-    const form = document.getElementById('quickAttendanceForm');
-    const submitBtn = document.getElementById('submitAttendanceBtn');
-    const latInput = document.getElementById('id_latitude');
-    const lngInput = document.getElementById('id_longitude');
-    const deviceIdInput = document.getElementById('id_device_id');
+    const forms = document.querySelectorAll('.quick-attendance-form');
     const geoStatusText = document.getElementById('geoStatusText');
 
-    if (deviceIdInput) {
-      deviceIdInput.value = `mobile-${navigator.userAgent.slice(0, 80)}`;
-    }
+    forms.forEach((form) => {
+      const deviceIdInput = form.querySelector('.js-device-id');
+      if (deviceIdInput) {
+        deviceIdInput.value = `mobile-${navigator.userAgent.slice(0, 80)}`;
+      }
+    });
 
     function tickClock() {
       const now = new Date();
@@ -262,8 +318,10 @@
     tickClock();
     setInterval(tickClock, 1000);
 
-    function submitWithLocation() {
+    function submitWithLocation(form, submitBtn) {
       if (!form || !submitBtn) return;
+      const latInput = form.querySelector('.js-latitude');
+      const lngInput = form.querySelector('.js-longitude');
       submitBtn.disabled = true;
       geoStatusText.textContent = isFa ? 'در حال دریافت موقعیت مکانی...' : 'Fetching location...';
 
@@ -280,8 +338,8 @@
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          latInput.value = position.coords.latitude;
-          lngInput.value = position.coords.longitude;
+          if (latInput) latInput.value = position.coords.latitude;
+          if (lngInput) lngInput.value = position.coords.longitude;
           geoStatusText.textContent = isFa ? 'موقعیت دریافت شد. در حال ثبت...' : 'Location captured. Submitting...';
           submitDirectly();
         },
@@ -297,9 +355,11 @@
       );
     }
 
-    if (submitBtn) {
-      submitBtn.addEventListener('click', submitWithLocation);
-    }
+    const submitButtons = document.querySelectorAll('.submitAttendanceBtn');
+    submitButtons.forEach((btn) => {
+      const parentForm = btn.closest('form');
+      btn.addEventListener('click', () => submitWithLocation(parentForm, btn));
+    });
   </script>
 </body>
 </html>

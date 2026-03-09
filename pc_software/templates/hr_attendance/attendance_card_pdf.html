@@ -1,0 +1,86 @@
+{% load i18n local_dates %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #111; }
+    h2 { margin: 0 0 6px 0; }
+    .meta { margin-bottom: 10px; color: #444; font-size: 11px; }
+    .summary { margin-bottom: 10px; }
+    .summary span { display: inline-block; margin-right: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d8d8d8; padding: 5px; }
+    th { background: #f4f7fe; text-align: left; }
+    .muted { color: #666; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+  <h2>{% trans "Monthly Attendance Card" %}</h2>
+  <div class="meta">
+    <div><strong>{% trans "Organization" %}:</strong> {{ org.name|default:"-" }}</div>
+    <div><strong>{% trans "Employee" %}:</strong>
+      {% if employee %}
+        {{ employee.first_name }} {{ employee.last_name }}
+        {% if employee.employee_id %} ({{ employee.employee_id }}){% endif %}
+      {% else %}
+        -
+      {% endif %}
+    </div>
+    <div><strong>{% trans "Period" %}:</strong> {% localized_date month_start "Y-m" %}</div>
+  </div>
+
+  <div class="summary">
+    <span><strong>{% trans "Present Days" %}:</strong> {{ summary.days_present }}</span>
+    <span><strong>{% trans "Absent Days" %}:</strong> {{ summary.days_absent }}</span>
+    <span><strong>{% trans "Total Worked Hours" %}:</strong> {{ summary.total_worked_hours }}</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{% trans "Date" %}</th>
+        <th>{% trans "Clock In" %}</th>
+        <th>{% trans "Lunch Out" %}</th>
+        <th>{% trans "Lunch In" %}</th>
+        <th>{% trans "Clock Out" %}</th>
+        <th>{% trans "Worked Hours" %}</th>
+        <th>{% trans "Overtime" %}</th>
+        <th>{% trans "Late (min)" %}</th>
+        <th>{% trans "Early Leave (min)" %}</th>
+        <th>{% trans "Status" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{% localized_date row.date "Y-m-d" %}</td>
+        <td>{{ row.attendance.clock_in|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.lunch_out|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.lunch_in|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.clock_out|time:"H:i"|default:"-" }}</td>
+        <td class="right">{{ row.worked_hours|default:"0" }}</td>
+        <td class="right">{{ row.timesheet.overtime_hours|default:"0" }}</td>
+        <td class="right">{{ row.timesheet.late_minutes|default:"0" }}</td>
+        <td class="right">{{ row.timesheet.early_leave_minutes|default:"0" }}</td>
+        <td>
+          {% if row.attendance and row.attendance.clock_in %}
+            {% trans "Present" %}
+          {% else %}
+            <span class="muted">{% trans "Absent" %}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="11" class="muted">{% trans "No attendance rows available for the selected period." %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

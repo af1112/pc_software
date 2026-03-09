@@ -14,7 +14,7 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover align-middle">
-                <thead class="table-light"><tr><th>{% trans "Employee" %}</th><th>{% trans "Shift" %}</th><th>{% trans "Effective" %}</th><th>{% trans "Status" %}</th></tr></thead>
+                <thead class="table-light"><tr><th>{% trans "Employee" %}</th><th>{% trans "Shift" %}</th><th>{% trans "Effective" %}</th><th>{% trans "Status" %}</th><th class="text-end">{% trans "Actions" %}</th></tr></thead>
                 <tbody>
                     {% for row in assignments %}
                     <tr>
@@ -22,9 +22,16 @@
                         <td>{{ row.shift.name }}</td>
                         <td>{{ row.effective_from }}{% if row.effective_to %} - {{ row.effective_to }}{% endif %}</td>
                         <td>{% if row.is_active %}<span class="badge bg-success">{% trans "Active" %}</span>{% else %}<span class="badge bg-secondary">{% trans "Inactive" %}</span>{% endif %}</td>
+                        <td class="text-end">
+                            <a href="{% url 'hrms:shift_assignment_edit' row.id %}" class="btn btn-sm btn-outline-primary">{% trans "Edit" %}</a>
+                            <form method="post" action="{% url 'hrms:shift_assignment_delete' row.id %}" class="d-inline" onsubmit="return confirm('{% trans 'Delete this shift assignment?' %}');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Delete" %}</button>
+                            </form>
+                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

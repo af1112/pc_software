@@ -40,7 +40,7 @@ async function startRecording(type) {
                 audio.controls = true;
                 audio.src = url;
                 audio.className = 'w-100 mt-2';
-                previews.innerHTML = '<h6>Voice Preview:</h6>';
+                previews.innerHTML = `<h6>${uiText.voicePreview}</h6>`;
                 previews.appendChild(audio);
             } else {
                 videoBlob = blob;
@@ -48,7 +48,7 @@ async function startRecording(type) {
                 video.controls = true;
                 video.src = url;
                 video.style.maxWidth = '200px';
-                previews.innerHTML = '<h6>Video Preview:</h6>';
+                previews.innerHTML = `<h6>${uiText.videoPreview}</h6>`;
                 previews.appendChild(video);
             }
             
@@ -58,9 +58,9 @@ async function startRecording(type) {
         
         mediaRecorder.start();
         recordingStatus.style.display = 'block';
-        statusText.innerText = `Recording ${type}...`;
+        statusText.innerText = `${uiText.recordingPrefix} ${type}...`;
     } catch (err) {
-        alert('Could not access microphone/camera: ' + err);
+        alert(`${uiText.mediaError} ${err}`);
     }
 }
 
@@ -107,10 +107,20 @@ if (recordVoiceBtn) {
     });
 }
 const isFa = '{{ request.LANGUAGE_CODE }}' === 'fa';
+const uiText = {
+    voicePreview: isFa ? 'پیش‌نمایش صدا:' : 'Voice Preview:',
+    videoPreview: isFa ? 'پیش‌نمایش ویدیو:' : 'Video Preview:',
+    recordingPrefix: isFa ? 'در حال ضبط' : 'Recording',
+    mediaError: isFa ? 'دسترسی به میکروفون/دوربین ممکن نیست:' : 'Could not access microphone/camera:',
+    chooseFile: isFa ? 'انتخاب فایل' : 'Choose File',
+    noFile: isFa ? 'فایلی انتخاب نشده' : 'No file selected',
+    remove: isFa ? 'حذف' : 'Remove',
+};
 const maxReplyAttachments = 5;
 const replyInputsContainer = document.getElementById('reply-attachment-inputs');
 const replyAddAttachmentBtn = document.getElementById('replyAddAttachmentBtn');
 const replyAttachmentHint = document.getElementById('replyAttachmentHint');
+let replyAttachmentIndex = replyInputsContainer ? replyInputsContainer.querySelectorAll('.reply-file-input').length : 0;
 
 async function readClipboardImageFile() {
     if (!navigator.clipboard || !navigator.clipboard.read) {
@@ -150,9 +160,12 @@ function addReplyAttachmentRow() {
     }
     const row = document.createElement('div');
     row.className = 'reply-attachment-row d-flex align-items-center gap-2';
+    const inputId = `reply-file-input-${replyAttachmentIndex++}`;
     row.innerHTML = `
-        <input type="file" name="attachments" class="form-control form-control-sm">
-        <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="${isFa ? 'حذف' : 'Remove'}">×</button>
+        <input type="file" name="attachments" id="${inputId}" class="reply-file-input d-none">
+        <button type="button" class="btn btn-outline-secondary btn-sm reply-file-trigger" data-target="${inputId}">${uiText.chooseFile}</button>
+        <span class="small text-muted reply-file-name text-truncate flex-grow-1">${uiText.noFile}</span>
+        <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="${uiText.remove}">×</button>
     `;
     replyInputsContainer.appendChild(row);
     updateReplyUI();
@@ -164,10 +177,14 @@ function attachFileToNewReplyRow(file) {
         return;
     }
     addReplyAttachmentRow();
-    const input = replyInputsContainer.querySelector('.reply-attachment-row:last-child input[type="file"]');
+    const input = replyInputsContainer.querySelector('.reply-attachment-row:last-child .reply-file-input');
     const dt = new DataTransfer();
     dt.items.add(file);
     input.files = dt.files;
+    const nameEl = input.closest('.reply-attachment-row').querySelector('.reply-file-name');
+    if (nameEl) {
+        nameEl.textContent = file.name;
+    }
     const img = new Image();
     img.src = URL.createObjectURL(file);
     img.style.maxWidth = '120px';
@@ -176,14 +193,38 @@ function attachFileToNewReplyRow(file) {
 }
 
 const pasteScreenshotReplyBtn = document.getElementById('pasteScreenshotReplyBtn');
+if (replyAddAttachmentBtn && replyInputsContainer) {
 replyAddAttachmentBtn.addEventListener('click', addReplyAttachmentRow);
 replyInputsContainer.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.reply-file-trigger');
+    if (trigger) {
+        const targetInput = document.getElementById(trigger.dataset.target || '');
+        if (targetInput) {
+            targetInput.click();
+        }
+        return;
+    }
+
     const btn = e.target.closest('.reply-remove-attachment');
     if (!btn) return;
     if (getReplyRows().length <= 1) return;
     btn.closest('.reply-attachment-row').remove();
     updateReplyUI();
 });
+
+replyInputsContainer.addEventListener('change', (e) => {
+    const input = e.target.closest('.reply-file-input');
+    if (!input) {
+        return;
+    }
+    const fileNameEl = input.closest('.reply-attachment-row').querySelector('.reply-file-name');
+    if (!fileNameEl) {
+        return;
+    }
+    fileNameEl.textContent = input.files && input.files.length > 0 ? input.files[0].name : uiText.noFile;
+    updateReplyUI();
+});
+}
 
 if (pasteScreenshotReplyBtn) {
     pasteScreenshotReplyBtn.addEventListener('click', async () => {
@@ -212,16 +253,18 @@ document.addEventListener('paste', (e) => {
     }
 });
 
-commentForm.addEventListener('submit', (e) => {
-    const selectedCount = [...replyInputsContainer.querySelectorAll('input[type="file"]')]
-        .reduce((acc, inp) => acc + (inp.files ? inp.files.length : 0), 0);
-    if (selectedCount > 5) {
-        e.preventDefault();
-        alert(isFa ? 'حداکثر ۵ فایل می‌توانید ارسال کنید.' : 'You can upload up to 5 files.');
-    }
-});
+if (commentForm && replyInputsContainer) {
+    commentForm.addEventListener('submit', (e) => {
+        const selectedCount = [...replyInputsContainer.querySelectorAll('input[type="file"]')]
+            .reduce((acc, inp) => acc + (inp.files ? inp.files.length : 0), 0);
+        if (selectedCount > 5) {
+            e.preventDefault();
+            alert(isFa ? 'حداکثر ۵ فایل می‌توانید ارسال کنید.' : 'You can upload up to 5 files.');
+        }
+    });
 
-updateReplyUI();
+    updateReplyUI();
+}
 </script>
 {% endblock %}
 {% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پشتیبانی{% else %}{% trans "Support" %}{% endif %}{% endblock %}
@@ -230,13 +273,24 @@ updateReplyUI();
 {% block content %}
 <div class="row">
     <!-- Ticket Info -->
-    <div class="col-lg-8">
+    <div class="col-12">
         <div class="card mb-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0">{{ ticket.title }}</h5>
-                <span class="badge bg-secondary">
-                    {{ ticket.get_category_display }}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary">
+                        {{ ticket.get_category_display }}
+                    </span>
+                    {% if can_close_ticket %}
+                    <form action="{% url 'ticketing:ticket_update_status' ticket.id %}" method="post" class="m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="closed">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            {% if request.LANGUAGE_CODE == 'fa' %}مشکلم حل شد{% else %}{% trans "Issue Solved" %}{% endif %}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
                 <p class="text-muted mb-4">{{ ticket.description|linebreaks }}</p>
@@ -251,8 +305,8 @@ updateReplyUI();
                             <div class="border rounded p-2 text-center">
                                 <i class="bi bi-file-earmark fs-4"></i>
                                 <div class="small text-truncate">
-                                    <a href="{{ ticket.attachment.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
-                                    <a href="{{ ticket.attachment.url }}" download>{% trans "Download" %}</a>
+                                    <a href="{{ ticket.attachment.url }}" target="_blank" class="me-2">{% if request.LANGUAGE_CODE == 'fa' %}مشاهده{% else %}{% trans "View" %}{% endif %}</a>
+                                    <a href="{{ ticket.attachment.url }}" download>{% if request.LANGUAGE_CODE == 'fa' %}دانلود{% else %}{% trans "Download" %}{% endif %}</a>
                                 </div>
                             </div>
                         </div>
@@ -270,8 +324,8 @@ updateReplyUI();
                                     <div class="text-center">
                                         <i class="bi bi-file-earmark fs-4"></i>
                                         <div class="small text-truncate">
-                                            <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
-                                            <a href="{{ attachment.file.url }}" download>{% trans "Download" %}</a>
+                                            <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% if request.LANGUAGE_CODE == 'fa' %}مشاهده{% else %}{% trans "View" %}{% endif %}</a>
+                                            <a href="{{ attachment.file.url }}" download>{% if request.LANGUAGE_CODE == 'fa' %}دانلود{% else %}{% trans "Download" %}{% endif %}</a>
                                         </div>
                                     </div>
                                 {% endif %}
@@ -290,50 +344,145 @@ updateReplyUI();
             </div>
         </div>
 
-        <!-- Comments -->
-        <h6 class="mb-3">{% trans "Discussion" %}</h6>
-        
-        {% for comment in ticket.comments.all %}
-        <div class="card mb-3 {% if comment.user.is_staff %}border-primary{% endif %}">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between mb-2">
-                    <div class="fw-bold {% if comment.user.is_staff %}text-primary{% endif %}">
-                        {{ comment.user.username }}
-                        {% if comment.user.is_staff %}
-                        <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.7em">SUPPORT</span>
-                        {% endif %}
-                    </div>
-                    <small class="text-muted">{{ comment.created_at|timesince }} ago</small>
+        <div class="card mb-3 properties-compact-card">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="card-title text-muted mb-0 small">{% trans "Properties" %}</h6>
+                    {% if ticket.remote_software_name or ticket.remote_software_id %}
+                    <span class="badge text-bg-light border">{% trans "Remote Access" %}</span>
+                    {% endif %}
                 </div>
-                <p class="mb-0">{{ comment.content|linebreaks }}</p>
-                
-                {% if comment.attachments.exists %}
-                <div class="mt-3 pt-3 border-top">
-                    <div class="row g-2">
-                        {% for attachment in comment.attachments.all %}
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                {% if attachment.file_type == 'voice' %}
-                                    <div class="small mb-1"><i class="bi bi-mic-fill me-1"></i>{% trans "Voice Message" %}</div>
-                                    <audio src="{{ attachment.file.url }}" controls class="w-100"></audio>
-                                {% elif attachment.file_type == 'video' %}
-                                    <div class="small mb-1"><i class="bi bi-camera-video-fill me-1"></i>{% trans "Video Message" %}</div>
-                                    <video src="{{ attachment.file.url }}" controls class="w-100" style="max-height: 150px;"></video>
+
+                <div class="row g-2 align-items-end compact-properties-grid">
+                    <div class="col-md-4">
+                        <label class="small text-muted d-block mb-1">{% trans "Status" %}</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success">{{ status_display|default:ticket.get_status_display }}</span>
+                            {% if user.is_staff or ticket.created_by == user %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle py-0 px-2" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for status_val, status_label in status_choices %}
+                                        {% if user.is_staff or status_val == 'closed' %}
+                                        <li>
+                                            <form action="{% url 'ticketing:ticket_update_status' ticket.id %}" method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="status" value="{{ status_val }}">
+                                                <button type="submit" class="dropdown-item {% if ticket.status == status_val %}active{% endif %}">
+                                                    {{ status_label }}
+                                                </button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="small text-muted d-block mb-1">{% trans "Priority" %}</label>
+                        <div class="fw-semibold">
+                            {% if request.LANGUAGE_CODE == 'fa' %}
+                                {% if ticket.priority == 'critical' %}بحرانی{% elif ticket.priority == 'high' %}زیاد{% elif ticket.priority == 'medium' %}متوسط{% else %}کم{% endif %}
+                            {% else %}
+                                {{ ticket.get_priority_display }}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="small text-muted d-block mb-1">{% trans "Assigned To" %}</label>
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div class="text-truncate">
+                                {% if ticket.assigned_to %}
+                                    <span>{{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username }}</span>
                                 {% else %}
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-file-earmark me-2"></i>
-                                        <div class="small text-truncate">
-                                            <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% trans "View" %}</a>
-                                            <a href="{{ attachment.file.url }}" download>{% trans "Download" %}</a>
-                                        </div>
-                                    </div>
+                                    <span class="text-muted fst-italic">{% trans "Unassigned" %}</span>
                                 {% endif %}
                             </div>
+
+                            {% if user.is_staff %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-primary dropdown-toggle py-0 px-2" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-user-plus"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 220px;">
+                                    <form action="{% url 'ticketing:ticket_assign' ticket.id %}" method="post" class="ticket-assign-form">
+                                        {% csrf_token %}
+                                        <div class="mb-2">
+                                            <select name="user_id" class="form-select form-select-sm">
+                                                <option value="">-- {% trans "Unassign" %} --</option>
+                                                {% for staff in all_users %}
+                                                    <option value="{{ staff.id }}" {% if ticket.assigned_to == staff %}selected{% endif %}>
+                                                        {{ staff.get_full_name|default:staff.username }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm w-100">{% trans "Assign" %}</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
-                {% endif %}
+            </div>
+        </div>
+
+        <!-- Comments -->
+        <h6 class="mb-3">{% trans "Discussion" %}</h6>
+
+        <div class="discussion-thread">
+        {% for comment in comments %}
+        <div class="message-row {% if comment.user == user %}my-message{% else %}other-message{% endif %}">
+            <div class="message-bubble">
+                <div class="card message-card {% if comment.user == user %}my-message{% else %}other-message{% endif %}">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-bold message-author">
+                                {{ comment.user.username }}
+                                {% if comment.user.is_staff %}
+                                <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.7em">{% if request.LANGUAGE_CODE == 'fa' %}پشتیبانی{% else %}SUPPORT{% endif %}</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ comment.created_at|timesince }} {% if request.LANGUAGE_CODE == 'fa' %}پیش{% else %}ago{% endif %}</small>
+                        </div>
+                        <div class="message-content">{{ comment.content|linebreaks }}</div>
+
+                        {% if comment.attachments.exists %}
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="row g-2">
+                                {% for attachment in comment.attachments.all %}
+                                <div class="col-md-6">
+                                    <div class="border rounded p-2 bg-white">
+                                        {% if attachment.file_type == 'voice' %}
+                                            <div class="small mb-1"><i class="bi bi-mic-fill me-1"></i>{% trans "Voice Message" %}</div>
+                                            <audio src="{{ attachment.file.url }}" controls class="w-100"></audio>
+                                        {% elif attachment.file_type == 'video' %}
+                                            <div class="small mb-1"><i class="bi bi-camera-video-fill me-1"></i>{% trans "Video Message" %}</div>
+                                            <video src="{{ attachment.file.url }}" controls class="w-100" style="max-height: 150px;"></video>
+                                        {% else %}
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-file-earmark me-2"></i>
+                                                <div class="small text-truncate">
+                                                    <a href="{{ attachment.file.url }}" target="_blank" class="me-2">{% if request.LANGUAGE_CODE == 'fa' %}مشاهده{% else %}{% trans "View" %}{% endif %}</a>
+                                                    <a href="{{ attachment.file.url }}" download>{% if request.LANGUAGE_CODE == 'fa' %}دانلود{% else %}{% trans "Download" %}{% endif %}</a>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
         {% empty %}
@@ -341,6 +490,7 @@ updateReplyUI();
             <small>{% trans "No comments yet." %}</small>
         </div>
         {% endfor %}
+        </div>
 
         <!-- Add Comment -->
         <div class="card">
@@ -349,22 +499,36 @@ updateReplyUI();
                 <form method="post" enctype="multipart/form-data" class="ticket-reply-form">
                     {% csrf_token %}
                     <div class="mb-3">
-                        <label class="form-label">{% trans "Add Reply" %}</label>
-                        <textarea name="content" class="form-control" rows="3" required placeholder="Type your reply here..."></textarea>
+                        <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}ارسال پاسخ{% else %}{% trans "Add Reply" %}{% endif %}</label>
+                        <textarea name="content" class="form-control" rows="3" required placeholder="{% if request.LANGUAGE_CODE == 'fa' %}پاسخ خود را اینجا بنویسید...{% else %}Type your reply here...{% endif %}"></textarea>
                     </div>
+
+                    {% if user != ticket.created_by %}
+                    <div class="mb-3">
+                        <label class="form-label small">{% if request.LANGUAGE_CODE == 'fa' %}تغییر وضعیت همزمان با پاسخ{% else %}Update status with reply{% endif %}</label>
+                        <select name="reply_status" class="form-select form-select-sm">
+                            <option value="">{% if request.LANGUAGE_CODE == 'fa' %}بدون تغییر وضعیت (پیش‌فرض: پاسخ داده شده){% else %}No status change (default: Answered){% endif %}</option>
+                            {% for status_value, status_label in reply_status_choices %}
+                            <option value="{{ status_value }}">{{ status_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
                     
                     <div class="mb-3">
                         <label class="form-label small">{% trans "Attachments" %}</label>
                         <div id="reply-attachment-inputs" class="d-flex flex-column gap-2">
                             <div class="reply-attachment-row d-flex align-items-center gap-2">
-                                <input type="file" name="attachments" class="form-control form-control-sm">
-                                <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="{% trans 'Remove' %}">×</button>
+                                <input type="file" name="attachments" id="reply-file-input-0" class="reply-file-input d-none">
+                                <button type="button" class="btn btn-outline-secondary btn-sm reply-file-trigger" data-target="reply-file-input-0">{% if request.LANGUAGE_CODE == 'fa' %}انتخاب فایل{% else %}Choose File{% endif %}</button>
+                                <span class="small text-muted reply-file-name text-truncate flex-grow-1">{% if request.LANGUAGE_CODE == 'fa' %}فایلی انتخاب نشده{% else %}No file selected{% endif %}</span>
+                                <button type="button" class="btn btn-outline-danger btn-sm reply-remove-attachment" title="{% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans 'Remove' %}{% endif %}">×</button>
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-2 mt-2">
-                            <button type="button" id="replyAddAttachmentBtn" class="btn btn-outline-secondary btn-sm">{% trans "Add Another File" %}</button>
-                            <button type="button" id="pasteScreenshotReplyBtn" class="btn btn-outline-success btn-sm">{% trans "Paste Screenshot" %}</button>
-                            <small id="replyAttachmentHint" class="text-muted">{% trans "Maximum 5 files" %}</small>
+                            <button type="button" id="replyAddAttachmentBtn" class="btn btn-outline-secondary btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}افزودن فایل دیگر{% else %}{% trans "Add Another File" %}{% endif %}</button>
+                            <button type="button" id="pasteScreenshotReplyBtn" class="btn btn-outline-success btn-sm">{% if request.LANGUAGE_CODE == 'fa' %}چسباندن اسکرین‌شات{% else %}{% trans "Paste Screenshot" %}{% endif %}</button>
+                            <small id="replyAttachmentHint" class="text-muted">{% if request.LANGUAGE_CODE == 'fa' %}حداکثر ۵ فایل{% else %}{% trans "Maximum 5 files" %}{% endif %}</small>
                         </div>
                     </div>
 
@@ -377,17 +541,17 @@ updateReplyUI();
                             <button type="button" id="recordVideoBtn" class="btn btn-outline-primary btn-sm">
                                 <i class="bi bi-camera-video"></i>
                             </button>
-                            <span class="small text-muted align-self-center">{% trans "Record voice or video" %}</span>
+                            <span class="small text-muted align-self-center">{% if request.LANGUAGE_CODE == 'fa' %}ضبط صدا یا ویدیو{% else %}{% trans "Record voice or video" %}{% endif %}</span>
                         </div>
                         <div id="recordingStatus" class="small text-muted mb-2" style="display:none;">
                             <span class="spinner-grow spinner-grow-sm text-danger" role="status"></span>
-                            <span id="statusText">Recording...</span>
-                            <button type="button" id="stopRecordingBtn" class="btn btn-link btn-sm text-danger p-0 ms-2">Stop</button>
+                            <span id="statusText">{% if request.LANGUAGE_CODE == 'fa' %}در حال ضبط...{% else %}Recording...{% endif %}</span>
+                            <button type="button" id="stopRecordingBtn" class="btn btn-link btn-sm text-danger p-0 ms-2">{% if request.LANGUAGE_CODE == 'fa' %}توقف{% else %}Stop{% endif %}</button>
                         </div>
                         <div id="previews" class="d-flex flex-wrap gap-2"></div>
                     </div>
 
-                    <button type="submit" id="submitBtn" class="btn btn-primary">{% trans "Post Reply" %}</button>
+                    <button type="submit" id="submitBtn" class="btn btn-primary">{% if request.LANGUAGE_CODE == 'fa' %}ثبت پاسخ{% else %}{% trans "Post Reply" %}{% endif %}</button>
                 </form>
                 {% else %}
                 <div class="alert alert-warning mb-0">
@@ -395,9 +559,9 @@ updateReplyUI();
                     <form method="post" class="ticket-reopen-form">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <textarea name="content" class="form-control" rows="2" required placeholder="Type a message to reopen the ticket..."></textarea>
+                            <textarea name="content" class="form-control" rows="2" required placeholder="{% if request.LANGUAGE_CODE == 'fa' %}برای بازگشایی تیکت، پیام خود را بنویسید...{% else %}Type a message to reopen the ticket...{% endif %}"></textarea>
                         </div>
-                        <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Reopen & Send Message" %}</button>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">{% if request.LANGUAGE_CODE == 'fa' %}بازگشایی و ارسال پیام{% else %}{% trans "Reopen & Send Message" %}{% endif %}</button>
                     </form>
                 </div>
                 {% endif %}
@@ -405,118 +569,88 @@ updateReplyUI();
         </div>
     </div>
 
-    <!-- Sidebar Info -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="card-title text-muted mb-3">{% trans "Properties" %}</h6>
-                
-                <div class="mb-3">
-                    <label class="small text-muted d-block mb-1">{% trans "Status" %}</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-success fs-6">{{ status_display|default:ticket.get_status_display }}</span>
-                        {% if user.is_staff or ticket.created_by == user %}
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                {% for status_val, status_label in status_choices %}
-                                    {% if user.is_staff or status_val == 'closed' %}
-                                    <li>
-                                        <form action="{% url 'ticketing:ticket_update_status' ticket.id %}" method="post">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="status" value="{{ status_val }}">
-                                            <button type="submit" class="dropdown-item {% if ticket.status == status_val %}active{% endif %}">
-                                                {{ status_label }}
-                                            </button>
-                                        </form>
-                                    </li>
-                                    {% endif %}
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="small text-muted d-block">{% trans "Priority" %}</label>
-                    <span class="fw-bold">
-                        {% if request.LANGUAGE_CODE == 'fa' %}
-                            {% if ticket.priority == 'critical' %}بحرانی{% elif ticket.priority == 'high' %}زیاد{% elif ticket.priority == 'medium' %}متوسط{% else %}کم{% endif %}
-                        {% else %}
-                            {{ ticket.get_priority_display }}
-                        {% endif %}
-                    </span>
-                </div>
-
-                {% if ticket.remote_software_name or ticket.remote_software_id %}
-                <hr>
-                <h6 class="card-title text-muted mb-3">{% trans "Remote Access" %}</h6>
-                <div class="mb-3">
-                    <label class="small text-muted d-block">{% trans "Software" %}</label>
-                    <span class="fw-bold text-primary">{{ ticket.remote_software_name|default:"-" }}</span>
-                </div>
-                <div class="mb-3">
-                    <label class="small text-muted d-block">{% trans "ID" %}</label>
-                    <code class="fs-6 fw-bold text-dark bg-light p-1 rounded">{{ ticket.remote_software_id|default:"-" }}</code>
-                </div>
-                {% endif %}
-                
-                <hr>
-                <div class="mb-3">
-                    <label class="small text-muted d-block mb-1">{% trans "Assigned To" %}</label>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            {% if ticket.assigned_to %}
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-sm bg-light text-primary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width:30px;height:30px">
-                                        {{ ticket.assigned_to.first_name.0|default:ticket.assigned_to.username.0 }}
-                                    </div>
-                                    <span>{{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username }}</span>
-                                </div>
-                            {% else %}
-                                <span class="text-muted fst-italic">{% trans "Unassigned" %}</span>
-                            {% endif %}
-                        </div>
-                        
-                        {% if user.is_staff %}
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-user-plus"></i>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 200px;">
-                                <form action="{% url 'ticketing:ticket_assign' ticket.id %}" method="post" class="ticket-assign-form">
-                                    {% csrf_token %}
-                                    <div class="mb-2">
-                                        <select name="user_id" class="form-select form-select-sm">
-                                            <option value="">-- {% trans "Unassign" %} --</option>
-                                            {% for staff in all_users %}
-                                                <option value="{{ staff.id }}" {% if ticket.assigned_to == staff %}selected{% endif %}>
-                                                    {{ staff.get_full_name|default:staff.username }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary btn-sm w-100">{% trans "Assign" %}</button>
-                                </form>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <style>
+    .discussion-thread {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .message-row {
+        display: flex;
+        width: 100%;
+    }
+
+    .message-row.my-message .message-bubble {
+        margin-left: auto;
+    }
+
+    .message-row.other-message .message-bubble {
+        margin-right: auto;
+    }
+
+    .message-bubble {
+        width: fit-content;
+        max-width: 88%;
+        min-width: 260px;
+    }
+
+    .message-card {
+        margin-bottom: 0;
+        border-radius: 14px;
+    }
+
+    .message-card.my-message {
+        background: #ffffff;
+        border: 1px solid #cfd8e6;
+    }
+
+    .message-card.other-message {
+        background: #dcecff;
+        border: 2px solid #6ea8fe;
+        box-shadow: 0 0 0 1px rgba(110, 168, 254, 0.15), 0 8px 18px rgba(34, 84, 145, 0.08);
+    }
+
+    .message-card.other-message .message-author {
+        color: #0c4a9b;
+    }
+
+    .message-content p:last-child {
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 768px) {
+        .message-bubble {
+            max-width: 100%;
+            min-width: 0;
+        }
+    }
+
     .ticket-reply-form .form-label,
     .ticket-reopen-form .form-label,
     .ticket-assign-form .form-label {
         font-weight: 700;
         color: #495057;
+    }
+
+    .properties-compact-card .card-body {
+        background: #f9fbff;
+        border-radius: 0.5rem;
+    }
+
+    .properties-compact-card .form-select,
+    .properties-compact-card .btn {
+        font-size: 0.8rem;
+    }
+
+    .compact-properties-grid label,
+    .compact-properties-grid .badge,
+    .compact-properties-grid .fw-semibold,
+    .compact-properties-grid span,
+    .compact-properties-grid .fst-italic {
+        line-height: 1.1;
     }
 
     .ticket-reply-form .form-control,

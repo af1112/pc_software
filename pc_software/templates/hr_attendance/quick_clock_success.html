@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>{% trans "Clock-in Success" %}</title>
+  <title>{% trans "Attendance Update" %}</title>
   <link rel="stylesheet" href="{% static 'css/typography.css' %}">
   <style>
     :root {
@@ -75,13 +75,19 @@
 <body>
   <div class="card">
     <div class="ok">✓</div>
-    <h1>{% if request.LANGUAGE_CODE == 'fa' %}ساعت ورود با موفقیت ثبت شد{% else %}{% trans "Clock-in recorded successfully" %}{% endif %}</h1>
+    <h1>{% if request.LANGUAGE_CODE == 'fa' %}رویداد حضور با موفقیت ثبت شد{% else %}{% trans "Attendance event recorded successfully" %}{% endif %}</h1>
     <div class="meta">{% localized_date today "Y/m/d" %}</div>
     <div class="hint">
-      {% if request.LANGUAGE_CODE == 'fa' %}
-        هر زمان آماده بودید، برای ثبت ساعت خروج روی دکمه زیر بزنید.
+      {% if next_event == 'clock_in' %}
+        {% if request.LANGUAGE_CODE == 'fa' %}مرحله بعد: ثبت ورود صبح.{% else %}{% trans "Next step: Morning clock-in." %}{% endif %}
+      {% elif next_event == 'lunch_out' %}
+        {% if request.LANGUAGE_CODE == 'fa' %}مرحله بعد: شروع استراحت ناهار.{% else %}{% trans "Next step: Start lunch break." %}{% endif %}
+      {% elif next_event == 'lunch_in' %}
+        {% if request.LANGUAGE_CODE == 'fa' %}مرحله بعد: پایان استراحت ناهار.{% else %}{% trans "Next step: End lunch break." %}{% endif %}
+      {% elif next_event == 'clock_out' %}
+        {% if request.LANGUAGE_CODE == 'fa' %}مرحله بعد: ثبت خروج پایان روز.{% else %}{% trans "Next step: End-of-day clock-out." %}{% endif %}
       {% else %}
-        Whenever you are ready, use the button below to register your clock-out.
+        {% if request.LANGUAGE_CODE == 'fa' %}امروز تمام مراحل حضور تکمیل شده است.{% else %}{% trans "All attendance steps are completed for today." %}{% endif %}
       {% endif %}
     </div>
 
@@ -102,8 +108,8 @@
 
     <div class="actions">
       <a href="{% url 'hr_attendance:quick_clock' %}" class="btn">
-        {% if can_clock_out %}
-          {% if request.LANGUAGE_CODE == 'fa' %}ثبت ساعت خروج{% else %}{% trans "Open Quick Clock for Clock-out" %}{% endif %}
+        {% if can_continue %}
+          {% if request.LANGUAGE_CODE == 'fa' %}ادامه ثبت حضور{% else %}{% trans "Continue in Quick Clock" %}{% endif %}
         {% else %}
           {% if request.LANGUAGE_CODE == 'fa' %}بازگشت به ثبت سریع حضور{% else %}{% trans "Back to Quick Clock" %}{% endif %}
         {% endif %}

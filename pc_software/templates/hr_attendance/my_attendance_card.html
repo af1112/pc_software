@@ -91,7 +91,6 @@
     <div class="actions">
       <a class="btn btn-light" href="?month={{ month_value }}">{% if request.LANGUAGE_CODE == 'fa' %}فقط خلاصه{% else %}{% trans "Summary only" %}{% endif %}</a>
       <a class="btn btn-primary" href="?month={{ month_value }}&details=1">{% if request.LANGUAGE_CODE == 'fa' %}نمایش ریز ورود/خروج{% else %}{% trans "Show in/out details" %}{% endif %}</a>
-      <a class="btn btn-light" href="{% url 'hr_attendance:quick_clock' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}</a>
     </div>
 
     {% if show_details %}
@@ -100,6 +99,8 @@
         <tr>
           <th>{% trans "Date" %}</th>
           <th>{% trans "Clock In" %}</th>
+          <th>{% trans "Lunch Out" %}</th>
+          <th>{% trans "Lunch In" %}</th>
           <th>{% trans "Clock Out" %}</th>
           <th>{% trans "Worked Hours" %}</th>
         </tr>
@@ -109,12 +110,14 @@
         <tr>
           <td>{% localized_date row.date "Y/m/d" %}</td>
           <td>{% if row.attendance and row.attendance.clock_in %}{{ row.attendance.clock_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+          <td>{% if row.attendance and row.attendance.lunch_out %}{{ row.attendance.lunch_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+          <td>{% if row.attendance and row.attendance.lunch_in %}{{ row.attendance.lunch_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
           <td>{% if row.attendance and row.attendance.clock_out %}{{ row.attendance.clock_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
           <td>{{ row.worked_hours|unlocalize }}</td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="4" style="text-align:center;color:#6b7280;">{% trans "No records for selected month." %}</td>
+          <td colspan="6" style="text-align:center;color:#6b7280;">{% trans "No records for selected month." %}</td>
         </tr>
         {% endfor %}
       </tbody>

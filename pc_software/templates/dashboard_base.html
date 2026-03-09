@@ -61,6 +61,35 @@
             display: none;
         }
 
+        .global-search-wrap { position: relative; }
+        .global-search-results {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            max-height: 320px;
+            overflow: auto;
+            z-index: 1050;
+            display: none;
+            padding: 8px;
+        }
+        .global-search-results.show { display: block; }
+        .global-search-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: inherit;
+        }
+        .global-search-item:hover { background: #f4f6ff; }
+        mark.page-search-hit { background: #fff2a8; padding: 0 2px; border-radius: 2px; }
+
         @media (max-width: 991.98px) {
             .main-content { padding-bottom: 24px; }
             #sidebar-toggle {
@@ -157,7 +186,8 @@
             {% endif %}
 
             <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "Modules" %}</p>
-            
+            {% if request.resolver_match.namespace != 'hr_personnel' and request.resolver_match.namespace != 'hr_attendance' and request.resolver_match.namespace != 'hrms' %}
+
             {% if can_use_expenses and perms.users.can_access_expenses or user.is_superuser %}
             <a href="{% url 'expenses:dashboard' %}" data-title="{% trans 'Expenses' %}" class="nav-link {% if 'expenses' in request.path %}active{% endif %}">
                 <i class="fas fa-wallet"></i>
@@ -226,10 +256,6 @@
                         <i class="fas fa-calendar-check"></i>
                         <span>{% trans "Work Calendar" %}</span>
                     </a>
-                    <a href="{% url 'hrms:overtime_policy_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'overtime_policy_list' %}active{% endif %}">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        <span>{% trans "Overtime Policies" %}</span>
-                    </a>
                     {% endif %}
                     {% else %}
                     <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
@@ -245,12 +271,130 @@
             </div>
             {% endif %}
 
-            {% if can_use_personnel or user.is_superuser %}
-            <a href="{% url 'hr_personnel:personnel_hub' %}" data-title="{% trans 'Personnel & Payroll' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' %}active{% endif %}">
-                <i class="fas fa-id-badge"></i>
-                <span>{% trans "Personnel & Payroll" %}</span>
-            </a>
             {% endif %}
+
+            {% if request.resolver_match.namespace == 'hr_personnel' or request.resolver_match.namespace == 'hr_attendance' or request.resolver_match.namespace == 'hrms' %}
+            {% if can_use_attendance and perms.users.can_access_attendance or user.is_superuser %}
+            <div class="nav-group" data-group="attendance-compact">
+                <a href="#" class="nav-link nav-toggle {% if request.resolver_match.namespace == 'hr_attendance' %}active{% endif %}">
+                    <i class="fas fa-clock"></i>
+                    <span>{% trans "Attendance" %}</span>
+                    <i class="fas fa-chevron-down ms-auto small caret"></i>
+                </a>
+                <div class="submenu">
+                    <a href="{% url 'hr_attendance:hub' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'hub' %}active{% endif %}">
+                        <i class="fas fa-sitemap"></i>
+                        <span>{% trans "Attendance Hub" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>{% trans "Quick Clock" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:my_attendance_card' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'my_attendance_card' %}active{% endif %}">
+                        <i class="fas fa-id-card"></i>
+                        <span>{% trans "My Monthly Card" %}</span>
+                    </a>
+                    {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+                    <a href="{% url 'hr_attendance:dashboard' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="fas fa-gauge"></i>
+                        <span>{% trans "Manager Dashboard" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:clock_center' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'clock_center' %}active{% endif %}">
+                        <i class="fas fa-stopwatch"></i>
+                        <span>{% trans "Clock Center" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:attendance_card' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'attendance_card' %}active{% endif %}">
+                        <i class="fas fa-address-card"></i>
+                        <span>{% trans "Attendance Card (Team)" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:supervisor_panel' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'supervisor_panel' %}active{% endif %}">
+                        <i class="fas fa-user-clock"></i>
+                        <span>{% trans "Supervisor Panel" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:supervisor_bulk_range_entry' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'supervisor_bulk_range_entry' %}active{% endif %}">
+                        <i class="fas fa-calendar-plus"></i>
+                        <span>{% trans "Bulk Range Entry" %}</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+            <div class="nav-group" data-group="hrms-compact">
+                <a href="#" class="nav-link nav-toggle {% if request.resolver_match.namespace == 'hrms' %}active{% endif %}">
+                    <i class="fas fa-calendar-days"></i>
+                    <span>{% trans "HR Rules & Calendar" %}</span>
+                    <i class="fas fa-chevron-down ms-auto small caret"></i>
+                </a>
+                <div class="submenu">
+                    <a href="{% url 'hrms:dashboard' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="fas fa-layer-group"></i>
+                        <span>{% trans "HRMS Dashboard" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:work_calendar_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'work_calendar_list' %}active{% endif %}">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>{% trans "Work Calendar (Holidays)" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:work_calendar_bulk_generate' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'work_calendar_bulk_generate' %}active{% endif %}">
+                        <i class="fas fa-calendar-plus"></i>
+                        <span>{% trans "Generate Calendar" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_template_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_template_list' %}active{% endif %}">
+                        <i class="fas fa-business-time"></i>
+                        <span>{% trans "Shift Templates" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_version_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_version_list' %}active{% endif %}">
+                        <i class="fas fa-code-branch"></i>
+                        <span>{% trans "Shift Versions" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:shift_assignment_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'shift_assignment_list' %}active{% endif %}">
+                        <i class="fas fa-people-arrows"></i>
+                        <span>{% trans "Shift Assignments" %}</span>
+                    </a>
+                    <a href="{% url 'hrms:overtime_policy_list' %}" class="nav-link {% if request.resolver_match.namespace == 'hrms' and request.resolver_match.url_name == 'overtime_policy_list' %}active{% endif %}">
+                        <i class="fas fa-hourglass-half"></i>
+                        <span>{% trans "Overtime Policies" %}</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if can_use_personnel or user.is_superuser %}
+            <a href="{% url 'hr_personnel:personnel_hub' %}" data-title="{% trans 'Employees' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'personnel_hub' %}active{% endif %}">
+                <i class="fas fa-id-badge"></i>
+                <span>{% trans "Employees" %}</span>
+            </a>
+
+            <div class="nav-group" data-group="payroll">
+                <a href="#" class="nav-link nav-toggle {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_periods' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'reports_hub' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_module_placeholder' %}active{% endif %}">
+                    <i class="fas fa-money-check-dollar"></i>
+                    <span>{% trans "Payroll" %}</span>
+                    <i class="fas fa-chevron-down ms-auto small caret"></i>
+                </a>
+                <div class="submenu">
+                    <a href="{% url 'hr_personnel:payroll_hub' %}?tab=setup" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' and request.GET.tab == 'setup' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' and not request.GET.tab or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_module_placeholder' and request.resolver_match.kwargs.section == 'setup' %}active{% endif %}">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>{% trans "Setup" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:payroll_hub' %}?tab=compensation" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' and request.GET.tab == 'compensation' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_module_placeholder' and request.resolver_match.kwargs.section == 'compensation' %}active{% endif %}">
+                        <i class="fas fa-sack-dollar"></i>
+                        <span>{% trans "Employees Compensation" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:payroll_hub' %}?tab=processing" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_periods' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' and request.GET.tab == 'processing' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_module_placeholder' and request.resolver_match.kwargs.section == 'processing' %}active{% endif %}">
+                        <i class="fas fa-gears"></i>
+                        <span>{% trans "Processing" %}</span>
+                    </a>
+                    <a href="{% url 'hr_personnel:payroll_hub' %}?tab=reports" class="nav-link {% if request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'reports_hub' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_hub' and request.GET.tab == 'reports' or request.resolver_match.namespace == 'hr_personnel' and request.resolver_match.url_name == 'payroll_module_placeholder' and request.resolver_match.kwargs.section == 'reports' %}active{% endif %}">
+                        <i class="fas fa-chart-column"></i>
+                        <span>{% trans "Reports" %}</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if request.resolver_match.namespace != 'hr_personnel' and request.resolver_match.namespace != 'hr_attendance' and request.resolver_match.namespace != 'hrms' %}
 
             {% if can_use_projects and perms.users.can_access_projects or user.is_superuser %}
             <a href="#" data-title="{% trans 'Projects' %}" class="nav-link {% if 'projects' in request.path %}active{% endif %}">
@@ -285,6 +429,7 @@
                 <i class="fas fa-users"></i>
                 <span>{% trans "Customer Club" %}</span>
             </a>
+            {% endif %}
             {% endif %}
 
              <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "System" %}</p>
@@ -328,7 +473,7 @@
                     <span class="fw-bold small text-muted">{{ org_name }}</span>
                 </div>
                 <p class="page-title">{% trans "Pages" %} / {% block page_title %}{% trans "Dashboard" %}{% endblock %}</p>
-                <h4 class="current-page">{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}</h4>
+                <h4 class="current-page mb-0">{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}</h4>
             </div>
             
             <div class="d-flex align-items-center gap-3">
@@ -340,9 +485,10 @@
                     <i class="fas fa-sun fs-5 text-warning light-icon d-none"></i>
                 </button>
 
-                <div class="search-bar d-none d-md-flex">
+                <div class="search-bar d-none d-md-flex global-search-wrap">
                     <i class="fas fa-search text-secondary"></i>
-                    <input type="text" class="search-input" placeholder="{% trans 'Search...' %}">
+                    <input type="text" id="global-search-input" class="search-input" placeholder="{% trans 'Search...' %}">
+                    <div id="global-search-results" class="global-search-results"></div>
                 </div>
                 
                 <div class="profile-dropdown dropdown">
@@ -369,6 +515,18 @@
                     </ul>
                 </div>
             </div>
+        </div>
+
+        <div class="mb-3 d-flex {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}justify-content-end{% else %}justify-content-start{% endif %}">
+            <button
+                type="button"
+                id="page-back-btn"
+                class="btn btn-sm btn-light rounded-pill"
+                data-no-loading
+                {% if page_back_url %}data-back-url="{{ page_back_url }}"{% endif %}
+            >
+                <i class="fas fa-arrow-left me-1"></i>{% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}
+            </button>
         </div>
 
         <!-- Messages -->
@@ -596,6 +754,119 @@
                 group.classList.toggle('open');
                 localStorage.setItem(key, group.classList.contains('open') ? '1' : '0');
             });
+        });
+
+        // Global page back button
+        const pageBackBtn = document.getElementById('page-back-btn');
+        pageBackBtn?.addEventListener('click', () => {
+            const explicitBackUrl = pageBackBtn.getAttribute('data-back-url');
+            if (explicitBackUrl) {
+                window.location.href = explicitBackUrl;
+                return;
+            }
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            window.location.href = "{% url 'main_dashboard' %}";
+        });
+
+        // Global search: find menu items and highlight text in current page
+        const searchInput = document.getElementById('global-search-input');
+        const searchResults = document.getElementById('global-search-results');
+        const navLinks = Array.from(document.querySelectorAll('.sidebar .nav a.nav-link[href]')).filter((a) => {
+            const href = a.getAttribute('href') || '';
+            return href && !href.startsWith('#') && !href.startsWith('javascript:');
+        });
+
+        const clearPageHighlights = () => {
+            document.querySelectorAll('mark.page-search-hit').forEach((markEl) => {
+                const textNode = document.createTextNode(markEl.textContent || '');
+                markEl.parentNode?.replaceChild(textNode, markEl);
+            });
+        };
+
+        const highlightPageText = (query) => {
+            clearPageHighlights();
+            if (!query || query.length < 2) return;
+
+            const walker = document.createTreeWalker(
+                document.querySelector('.main-content'),
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode(node) {
+                        if (!node || !node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                        const parent = node.parentElement;
+                        if (!parent) return NodeFilter.FILTER_REJECT;
+                        if (['SCRIPT', 'STYLE', 'MARK', 'NOSCRIPT'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    },
+                }
+            );
+
+            const q = query.toLowerCase();
+            let count = 0;
+            while (walker.nextNode() && count < 15) {
+                const node = walker.currentNode;
+                const text = node.nodeValue;
+                const idx = text.toLowerCase().indexOf(q);
+                if (idx === -1) continue;
+                const range = document.createRange();
+                range.setStart(node, idx);
+                range.setEnd(node, idx + query.length);
+                const mark = document.createElement('mark');
+                mark.className = 'page-search-hit';
+                range.surroundContents(mark);
+                count += 1;
+            }
+        };
+
+        const renderSearchResults = (query) => {
+            if (!searchResults) return;
+            searchResults.innerHTML = '';
+            if (!query || query.length < 2) {
+                searchResults.classList.remove('show');
+                return;
+            }
+
+            const q = query.toLowerCase();
+            const matches = navLinks.filter((a) => (a.textContent || '').toLowerCase().includes(q)).slice(0, 12);
+
+            if (!matches.length) {
+                const empty = document.createElement('div');
+                empty.className = 'small text-muted px-2 py-1';
+                empty.textContent = "{% if request.LANGUAGE_CODE == 'fa' %}نتیجه‌ای در منو پیدا نشد{% else %}No matching menu items{% endif %}";
+                searchResults.appendChild(empty);
+            } else {
+                matches.forEach((a) => {
+                    const item = document.createElement('a');
+                    item.href = a.href;
+                    item.className = 'global-search-item';
+                    item.innerHTML = `<i class="fas fa-link text-secondary"></i><span>${(a.textContent || '').trim()}</span>`;
+                    searchResults.appendChild(item);
+                });
+            }
+            searchResults.classList.add('show');
+        };
+
+        searchInput?.addEventListener('input', (e) => {
+            const query = (e.target.value || '').trim();
+            renderSearchResults(query);
+            highlightPageText(query);
+        });
+
+        searchInput?.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            const firstResult = searchResults?.querySelector('a.global-search-item');
+            if (!firstResult) return;
+            e.preventDefault();
+            window.location.href = firstResult.href;
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchResults || !searchInput) return;
+            if (searchResults.contains(e.target) || searchInput.contains(e.target)) return;
+            searchResults.classList.remove('show');
         });
     });
     </script>

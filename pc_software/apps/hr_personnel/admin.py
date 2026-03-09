@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BankAccount, Employee, PayrollItem, PayrollSlip, SalaryComponent, SalaryProfile
+from .models import BankAccount, Employee, PayrollItem, PayrollPeriod, PayrollRun, PayrollSlip, SalaryComponent, SalaryProfile
 
 
 @admin.register(Employee)
@@ -34,6 +34,18 @@ class PayrollItemInline(admin.TabularInline):
 
 @admin.register(PayrollSlip)
 class PayrollSlipAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'period_year', 'period_month', 'net_amount', 'currency', 'status')
+    list_display = ('employee', 'period', 'period_year', 'period_month', 'net_amount', 'currency', 'status')
     list_filter = ('status', 'currency', 'period_year', 'period_month')
     inlines = [PayrollItemInline]
+
+
+@admin.register(PayrollPeriod)
+class PayrollPeriodAdmin(admin.ModelAdmin):
+    list_display = ('name', 'organization', 'start_date', 'end_date', 'status')
+    list_filter = ('status',)
+
+
+@admin.register(PayrollRun)
+class PayrollRunAdmin(admin.ModelAdmin):
+    list_display = ('period', 'status', 'created_by', 'run_date', 'execution_ms')
+    list_filter = ('status',)

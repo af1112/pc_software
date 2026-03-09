@@ -3,6 +3,56 @@
 
 {% block title %}{% trans "Ticket Details" %}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .discussion-thread {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .message-row {
+        display: block;
+        width: 100%;
+    }
+
+    .message-row.owner .message-bubble {
+        margin-left: auto;
+    }
+
+    .message-row.other .message-bubble {
+        margin-right: auto;
+    }
+
+    .message-bubble {
+        width: min(100%, 760px);
+    }
+
+    .message-card {
+        margin-bottom: 0;
+        border-radius: 14px;
+    }
+
+    .message-card.owner {
+        background: transparent;
+        border: 1px solid #dbe2ef;
+    }
+
+    .message-card.other {
+        background: #edf4ff;
+        border: 1px solid #b8d2ff;
+    }
+
+    .message-card.other .message-author {
+        color: #1a56b3;
+    }
+
+    .message-content p:last-child {
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 let mediaRecorder;
@@ -113,6 +163,7 @@ if (recordVoiceBtn) {
 }
 </script>
 {% endblock %}
+
 {% block page_title %}{% trans "Support" %}{% endblock %}
 {% block content_title %}{% trans "Ticket" %} #{{ ticket.id }}{% endblock %}
 
@@ -172,45 +223,50 @@ if (recordVoiceBtn) {
 
         <!-- Comments -->
         <h6 class="mb-3">{% trans "Discussion" %}</h6>
-        
+
+        <div class="discussion-thread">
         {% for comment in ticket.comments.all %}
-        <div class="card mb-3 {% if comment.user.is_staff %}border-primary{% endif %}">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between mb-2">
-                    <div class="fw-bold {% if comment.user.is_staff %}text-primary{% endif %}">
-                        {{ comment.user.username }}
-                        {% if comment.user.is_staff %}
-                        <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.7em">SUPPORT</span>
-                        {% endif %}
-                    </div>
-                    <small class="text-muted">{{ comment.created_at|timesince }} ago</small>
-                </div>
-                <p class="mb-0">{{ comment.content|linebreaks }}</p>
-                
-                {% if comment.attachments.exists %}
-                <div class="mt-3 pt-3 border-top">
-                    <div class="row g-2">
-                        {% for attachment in comment.attachments.all %}
-                        <div class="col-md-6">
-                            <div class="border rounded p-2">
-                                {% if attachment.file_type == 'voice' %}
-                                    <div class="small mb-1"><i class="bi bi-mic-fill me-1"></i>{% trans "Voice Message" %}</div>
-                                    <audio src="{{ attachment.file.url }}" controls class="w-100"></audio>
-                                {% elif attachment.file_type == 'video' %}
-                                    <div class="small mb-1"><i class="bi bi-camera-video-fill me-1"></i>{% trans "Video Message" %}</div>
-                                    <video src="{{ attachment.file.url }}" controls class="w-100" style="max-height: 150px;"></video>
-                                {% else %}
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-file-earmark me-2"></i>
-                                        <div class="small text-truncate"><a href="{{ attachment.file.url }}" target="_blank">{% trans "Attachment" %}</a></div>
-                                    </div>
+        <div class="message-row {% if comment.user == ticket.created_by %}owner{% else %}other{% endif %}">
+            <div class="message-bubble">
+                <div class="card message-card {% if comment.user == ticket.created_by %}owner{% else %}other{% endif %}">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-bold message-author">
+                                {{ comment.user.username }}
+                                {% if comment.user.is_staff %}
+                                <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.7em">SUPPORT</span>
                                 {% endif %}
                             </div>
+                            <small class="text-muted">{{ comment.created_at|timesince }} ago</small>
                         </div>
-                        {% endfor %}
+                        <div class="message-content">{{ comment.content|linebreaks }}</div>
+
+                        {% if comment.attachments.exists %}
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="row g-2">
+                                {% for attachment in comment.attachments.all %}
+                                <div class="col-md-6">
+                                    <div class="border rounded p-2 bg-white">
+                                        {% if attachment.file_type == 'voice' %}
+                                            <div class="small mb-1"><i class="bi bi-mic-fill me-1"></i>{% trans "Voice Message" %}</div>
+                                            <audio src="{{ attachment.file.url }}" controls class="w-100"></audio>
+                                        {% elif attachment.file_type == 'video' %}
+                                            <div class="small mb-1"><i class="bi bi-camera-video-fill me-1"></i>{% trans "Video Message" %}</div>
+                                            <video src="{{ attachment.file.url }}" controls class="w-100" style="max-height: 150px;"></video>
+                                        {% else %}
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-file-earmark me-2"></i>
+                                                <div class="small text-truncate"><a href="{{ attachment.file.url }}" target="_blank">{% trans "Attachment" %}</a></div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                {% endif %}
             </div>
         </div>
         {% empty %}
@@ -218,6 +274,7 @@ if (recordVoiceBtn) {
             <small>{% trans "No comments yet." %}</small>
         </div>
         {% endfor %}
+        </div>
 
         <!-- Add Comment -->
         <div class="card">

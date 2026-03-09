@@ -81,8 +81,8 @@
                         This section contains nested actions. Open the next page to access all options.
                     {% endif %}
                 </p>
-                <a href="{% url 'hr_personnel:compensation_hub' %}" class="btn btn-dark mt-auto">
-                    {% if request.LANGUAGE_CODE == 'fa' %}ورود به صفحه عملیات حقوق و بانک{% else %}{% trans "Open Salary/Bank/Payroll Actions" %}{% endif %}
+                <a href="{% url 'hr_personnel:payroll_hub' %}?tab=compensation" class="btn btn-dark mt-auto">
+                    {% if request.LANGUAGE_CODE == 'fa' %}ورود به ماژول حقوق و دستمزد{% else %}{% trans "Open Payroll Module" %}{% endif %}
                 </a>
             </div>
         </div>

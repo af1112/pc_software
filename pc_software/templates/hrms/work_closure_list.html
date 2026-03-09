@@ -1,0 +1,52 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Work Closures" %}{% endblock %}
+{% block page_title %}HRMS{% endblock %}
+{% block content_title %}{% trans "Work Closures" %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">{% trans "Work Closures" %}</h5>
+        <a href="{% url 'hrms:work_closure_create' %}" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-plus me-1"></i>{% trans "Add Closure" %}</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "Title" %}</th>
+                        <th>{% trans "Scope" %}</th>
+                        <th>{% trans "Work Unit" %}</th>
+                        <th>{% trans "From" %}</th>
+                        <th>{% trans "To" %}</th>
+                        <th>{% trans "Paid" %}</th>
+                        <th class="text-end">{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.title }}</td>
+                        <td>{{ row.get_scope_display }}</td>
+                        <td>{{ row.work_unit.name|default:'-' }}</td>
+                        <td>{{ row.start_date }}</td>
+                        <td>{{ row.end_date }}</td>
+                        <td>{% if row.is_paid %}<span class="badge bg-success">{% trans "Yes" %}</span>{% else %}<span class="badge bg-danger">{% trans "No" %}</span>{% endif %}</td>
+                        <td class="text-end">
+                            <a href="{% url 'hrms:work_closure_edit' row.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">{% trans "Edit" %}</a>
+                            <form method="post" action="{% url 'hrms:work_closure_delete' row.id %}" class="d-inline">{% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('{% trans "Delete this closure?" %}');">{% trans "Delete" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

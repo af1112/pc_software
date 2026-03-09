@@ -24,9 +24,12 @@ from apps.hrms.models import (
     PayrollOvertimeEntry,
     PayrollResult,
     SalaryStructure,
+    ShiftTemplate,
     ShiftVersion,
     Timesheet,
     WorkCalendar,
+    WorkClosure,
+    WorkUnitShiftAssignment,
     resolve_shift_window,
 )
 
@@ -38,6 +41,25 @@ class TimesheetResult:
 
 
 class TimesheetEngine:
+    @classmethod
+    def _employee_work_unit_id(cls, employee: Employee):
+        personnel = getattr(employee, 'personnel_employee', None)
+        return getattr(personnel, 'work_unit_id', None)
+
+    @classmethod
+    def _resolve_closure(cls, tenant: Company, employee: Employee, work_date: datetime.date):
+        work_unit_id = cls._employee_work_unit_id(employee)
+        closures = WorkClosure.objects.filter(
+            tenant=tenant,
+            start_date__lte=work_date,
+            end_date__gte=work_date,
+        )
+        if work_unit_id is not None:
+            closures = closures.filter(models.Q(scope=WorkClosure.Scope.COMPANY) | models.Q(scope=WorkClosure.Scope.WORK_UNIT, work_unit_id=work_unit_id))
+        else:
+            closures = closures.filter(scope=WorkClosure.Scope.COMPANY)
+        return closures.order_by('-scope', '-created_at').first()
+
     @classmethod
     @transaction.atomic
     def build_for_date(cls, tenant: Company, employee: Employee, work_date: datetime.date) -> TimesheetResult:
@@ -72,6 +94,32 @@ class TimesheetEngine:
                 .order_by('-valid_from')
                 .first()
             )
+        else:
+            work_unit_id = cls._employee_work_unit_id(employee)
+            if work_unit_id is not None:
+                work_unit_assignment = (
+                    WorkUnitShiftAssignment.objects.filter(
+                        tenant=tenant,
+                        work_unit_id=work_unit_id,
+                        is_active=True,
+                        effective_from__lte=work_date,
+                    )
+                    .filter(models.Q(effective_to__isnull=True) | models.Q(effective_to__gte=work_date))
+                    .select_related('shift')
+                    .order_by('-effective_from')
+                    .first()
+                )
+                if work_unit_assignment is not None:
+                    shift_version = (
+                        ShiftVersion.objects.filter(
+                            tenant=tenant,
+                            shift=work_unit_assignment.shift,
+                            valid_from__lte=work_date,
+                            valid_to__gte=work_date,
+                        )
+                        .order_by('-valid_from')
+                        .first()
+                    )
 
         if shift_version is not None:
             tz = ZoneInfo(tenant.timezone or 'UTC')
@@ -119,6 +167,13 @@ class TimesheetEngine:
             else:
                 normal_ot = max(worked_minutes - required_minutes, 0)
 
+        closure = cls._resolve_closure(tenant=tenant, employee=employee, work_date=work_date)
+        if closure and closure.is_paid:
+            required_minutes = 0
+            if actual_in is None:
+                late_minutes = 0
+                early_leave_minutes = 0
+
         timesheet, created = Timesheet.objects.update_or_create(
             tenant=tenant,
             employee=employee,
@@ -135,11 +190,12 @@ class TimesheetEngine:
                 'holiday_overtime_minutes': holiday_ot,
                 'late_minutes': late_minutes,
                 'early_leave_minutes': early_leave_minutes,
-                'is_absent': actual_in is None,
+                'is_absent': actual_in is None and not (closure and closure.is_paid),
                 'anomaly_flag': actual_in is not None and actual_out is None,
                 'ai_features': {
                     'logs_count': day_logs.count(),
                     'source_mix': list(day_logs.values_list('source', flat=True)),
+                    'closure_applied': bool(closure and closure.is_paid),
                 },
             },
         )
@@ -437,19 +493,37 @@ class PayrollEngineService:
 
     @classmethod
     def _leave_deduction(cls, tenant: Company, employee: Employee, period: PayrollPeriod, base_salary: Decimal) -> Decimal:
-        unpaid_days = (
-            LeaveRequest.objects.filter(
+        leave_requests = LeaveRequest.objects.filter(
+            tenant=tenant,
+            employee=employee,
+            status=LeaveRequest.Status.APPROVED,
+            start_date__lte=period.end_date,
+            end_date__gte=period.start_date,
+        ).select_related('leave_type')
+
+        deductible_days = Decimal('0.00')
+        for leave_request in leave_requests:
+            overlap_start = max(leave_request.start_date, period.start_date)
+            overlap_end = min(leave_request.end_date, period.end_date)
+            if overlap_end < overlap_start:
+                continue
+
+            overlap_days = LeaveManagementService.calculate_leave_days(
                 tenant=tenant,
-                employee=employee,
-                status=LeaveRequest.Status.APPROVED,
-                leave_type__leave_category=LeaveType.LeaveCategory.UNPAID,
-                start_date__lte=period.end_date,
-                end_date__gte=period.start_date,
-            ).aggregate(total=Sum('total_days'))['total']
-            or Decimal('0.00')
-        )
+                start_date=overlap_start,
+                end_date=overlap_end,
+            )
+            leave_type = leave_request.leave_type
+            deduction_rate = leave_type.deduction_rate_percent if leave_type.deduct_from_payroll else Decimal('0.00')
+            if leave_type.leave_category == LeaveType.LeaveCategory.UNPAID:
+                deduction_rate = Decimal('100.00')
+            if deduction_rate <= 0:
+                continue
+
+            deductible_days += (overlap_days * deduction_rate / Decimal('100.00'))
+
         daily_rate = (base_salary / cls.DEFAULT_MONTHLY_WORK_DAYS) if cls.DEFAULT_MONTHLY_WORK_DAYS > 0 else Decimal('0.00')
-        return (daily_rate * unpaid_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+        return (daily_rate * deductible_days).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
 
     @classmethod
     @transaction.atomic

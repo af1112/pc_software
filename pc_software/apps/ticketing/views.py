@@ -12,6 +12,7 @@ import json
 
 User = get_user_model()
 MAX_TICKET_ATTACHMENTS = 5
+REPLY_STATUS_OPTIONS = ('under_review', 'in_progress', 'needs_info')
 
 
 def _normalize_digits(value):
@@ -256,6 +257,15 @@ def ticket_detail(request, pk):
         messages.error(request, _("You do not have permission to view this ticket."))
         return redirect('ticketing:ticket_list')
 
+    lang = (getattr(request, 'LANGUAGE_CODE', '') or '').lower()
+    is_fa = lang.startswith('fa')
+    localized_status_choices, _localized_priority_choices, _localized_category_choices = _localized_ticket_choices(is_fa)
+    status_display_map = dict(localized_status_choices)
+    reply_status_choices = [
+        (status_value, status_display_map.get(status_value, status_value))
+        for status_value in REPLY_STATUS_OPTIONS
+    ]
+
     read_receipt, created = TicketReadReceipt.objects.get_or_create(
         ticket=ticket,
         user=request.user,
@@ -266,17 +276,19 @@ def ticket_detail(request, pk):
     if request.method == 'POST':
         content = request.POST.get('content')
         if content:
+            selected_reply_status = (request.POST.get('reply_status') or '').strip()
             comment = TicketComment.objects.create(
                 ticket=ticket,
                 user=request.user,
                 content=content
             )
-            
-            next_status = ticket.status
-            if ticket.status == 'closed':
-                next_status = 'open'
-            elif ticket.status in ('open', 'waiting_response', 'answered', 'user_new_message'):
-                next_status = 'answered' if request.user != ticket.created_by else 'user_new_message'
+
+            if request.user == ticket.created_by:
+                next_status = 'user_new_message'
+            elif selected_reply_status in REPLY_STATUS_OPTIONS:
+                next_status = selected_reply_status
+            else:
+                next_status = 'answered'
 
             if next_status != ticket.status:
                 try:
@@ -316,20 +328,20 @@ def ticket_detail(request, pk):
             messages.success(request, _("Comment added."))
             return redirect('ticketing:ticket_detail', pk=pk)
 
-    lang = (getattr(request, 'LANGUAGE_CODE', '') or '').lower()
-    is_fa = lang.startswith('fa')
-    localized_status_choices, _, _ = _localized_ticket_choices(is_fa)
-
     status_display = ticket.get_status_display()
     if is_fa:
-        status_display_map = dict(localized_status_choices)
         status_display = status_display_map.get(ticket.status, status_display)
+
+    comments = ticket.comments.select_related('user').prefetch_related('attachments').order_by('-created_at')
 
     context = {
         'ticket': ticket,
+        'comments': comments,
         'active_timezone': timezone.get_current_timezone_name(),
         'all_users': _organization_users(request) if request.user.is_staff else None,
         'status_choices': localized_status_choices,
+        'reply_status_choices': reply_status_choices,
+        'can_close_ticket': ticket.created_by == request.user and ticket.status != 'closed',
         'status_display': status_display,
     }
     return render(request, 'ticketing/ticket_detail.html', context)

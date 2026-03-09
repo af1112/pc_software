@@ -10,6 +10,66 @@ import uuid
 User = get_user_model()
 
 
+class LaborSupplyCompany(models.Model):
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='labor_supply_companies',
+        verbose_name=_('Organization'),
+    )
+    name = models.CharField(_('Company Name'), max_length=150)
+    code = models.CharField(_('Company Code'), max_length=50, blank=True, null=True)
+    is_active = models.BooleanField(_('Is Active'), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Labor Supply Company')
+        verbose_name_plural = _('Labor Supply Companies')
+        ordering = ['name']
+        unique_together = [('organization', 'name')]
+
+    def __str__(self):
+        return self.name
+
+
+class WorkUnit(models.Model):
+    class UnitType(models.TextChoices):
+        PROJECT = 'project', _('Project')
+        OFFICE = 'office', _('Office')
+        SITE = 'site', _('Site')
+        DEPARTMENT = 'department', _('Department')
+
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='work_units',
+        verbose_name=_('Organization'),
+    )
+    name = models.CharField(_('Unit Name'), max_length=150)
+    code = models.CharField(_('Unit Code'), max_length=50, blank=True, null=True)
+    unit_type = models.CharField(_('Unit Type'), max_length=20, choices=UnitType.choices, default=UnitType.PROJECT)
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    supervisor = models.ForeignKey(
+        'Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_work_units',
+        verbose_name=_('Unit Supervisor'),
+    )
+    is_active = models.BooleanField(_('Is Active'), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Work Unit')
+        verbose_name_plural = _('Work Units')
+        ordering = ['name']
+        unique_together = [('organization', 'name')]
+
+    def __str__(self):
+        return self.name
+
+
 class Employee(models.Model):
     class Gender(models.TextChoices):
         MALE = 'male', _('Male')
@@ -53,6 +113,24 @@ class Employee(models.Model):
         blank=True,
         related_name='employees',
         verbose_name=_('Organization'),
+    )
+    supply_company = models.ForeignKey(
+        'LaborSupplyCompany',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employees',
+        verbose_name=_('Labor Supply Company'),
+        db_constraint=False,
+    )
+    work_unit = models.ForeignKey(
+        'WorkUnit',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employees',
+        verbose_name=_('Work Unit'),
+        db_constraint=False,
     )
     employee_id = models.CharField(_('Employee ID'), max_length=50, blank=True, null=True)
     company_id = models.CharField(_('Company ID'), max_length=50, blank=True, null=True)
@@ -119,7 +197,12 @@ class SalaryStructure(models.Model):
         HOURLY = 'hourly', _('Hourly')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_structures')
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='salary_structures',
+        db_column='employee_ref_id',
+    )
 
     effective_from = models.DateField(_('Effective From'))
     effective_to = models.DateField(_('Effective To'), blank=True, null=True)
@@ -293,13 +376,94 @@ class BankAccount(models.Model):
         return f"{self.bank_name} - {self.iban or self.account_number or ''}".strip()
 
 
+class PayrollPeriod(models.Model):
+    class Status(models.TextChoices):
+        OPEN = 'open', _('Open')
+        PROCESSING = 'processing', _('Processing')
+        REVIEW = 'review', _('Review')
+        FINALIZED = 'finalized', _('Finalized')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='payroll_periods',
+        verbose_name=_('Organization'),
+        null=True,
+        blank=True,
+    )
+    name = models.CharField(_('Period Name'), max_length=120)
+    start_date = models.DateField(_('Start Date'))
+    end_date = models.DateField(_('End Date'))
+    status = models.CharField(_('Status'), max_length=20, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Payroll Period')
+        verbose_name_plural = _('Payroll Periods')
+        ordering = ['-start_date', '-created_at']
+
+    @property
+    def code(self):
+        return self.name
+
+    def clean(self):
+        if self.end_date < self.start_date:
+            raise ValidationError(_('End date cannot be earlier than start date.'))
+        open_qs = PayrollPeriod.objects.filter(status=self.Status.OPEN)
+        if self.organization_id:
+            open_qs = open_qs.filter(organization_id=self.organization_id)
+        if self.pk:
+            open_qs = open_qs.exclude(pk=self.pk)
+        if open_qs.exists() and self.status == self.Status.OPEN:
+            raise ValidationError(_('Only one OPEN payroll period is allowed.'))
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class PayrollRun(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', _('Draft')
+        COMPLETED = 'completed', _('Completed')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    period = models.ForeignKey(PayrollPeriod, on_delete=models.CASCADE, related_name='runs')
+    run_date = models.DateTimeField(_('Run Date'), auto_now_add=True)
+    status = models.CharField(_('Status'), max_length=20, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_payroll_runs',
+        db_constraint=False,
+        verbose_name=_('Created By'),
+    )
+    execution_ms = models.PositiveIntegerField(_('Execution Time (ms)'), default=0)
+
+    class Meta:
+        verbose_name = _('Payroll Run')
+        verbose_name_plural = _('Payroll Runs')
+        ordering = ['-run_date']
+
+    def __str__(self):
+        return f"{self.period} - {self.run_date:%Y-%m-%d %H:%M}"
+
+
 class PayrollSlip(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', _('Draft')
+        APPROVED = 'approved', _('Approved')
         PAID = 'paid', _('Paid')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='payroll_slips')
+    period = models.ForeignKey(PayrollPeriod, on_delete=models.SET_NULL, null=True, blank=True, related_name='slips')
     salary_profile = models.ForeignKey(SalaryStructure, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_slips')
     bank_account = models.ForeignKey(BankAccount, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_slips')
 
@@ -313,12 +477,16 @@ class PayrollSlip(models.Model):
     total_allowances = models.DecimalField(_('Total Allowances'), max_digits=12, decimal_places=3, default=0)
     total_deductions = models.DecimalField(_('Total Deductions'), max_digits=12, decimal_places=3, default=0)
     total_benefits = models.DecimalField(_('Total Benefits'), max_digits=12, decimal_places=3, default=0)
+    overtime_amount = models.DecimalField(_('Overtime Amount'), max_digits=12, decimal_places=3, default=0)
 
     gross_amount = models.DecimalField(_('Gross Amount'), max_digits=12, decimal_places=3, default=0)
     net_amount = models.DecimalField(_('Net Amount'), max_digits=12, decimal_places=3, default=0)
+    gross_salary = models.DecimalField(_('Gross Salary'), max_digits=12, decimal_places=3, default=0)
+    net_salary = models.DecimalField(_('Net Salary'), max_digits=12, decimal_places=3, default=0)
 
     status = models.CharField(_('Status'), max_length=10, choices=Status.choices, default=Status.DRAFT)
     paid_at = models.DateTimeField(_('Paid At'), blank=True, null=True)
+    generated_at = models.DateTimeField(_('Generated At'), auto_now_add=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -327,6 +495,18 @@ class PayrollSlip(models.Model):
         verbose_name_plural = _('Payroll Slips')
         ordering = ['-period_year', '-period_month', '-created_at']
         unique_together = ['employee', 'period_year', 'period_month']
+
+    def clean(self):
+        if self.period and self.period.status == PayrollPeriod.Status.FINALIZED and self.pk:
+            raise ValidationError(_('Finalized payroll slips are locked and cannot be edited.'))
+
+    def save(self, *args, **kwargs):
+        self.gross_amount = Decimal(str(self.gross_amount or self.gross_salary or 0))
+        self.net_amount = Decimal(str(self.net_amount or self.net_salary or 0))
+        self.gross_salary = Decimal(str(self.gross_salary or self.gross_amount or 0))
+        self.net_salary = Decimal(str(self.net_salary or self.net_amount or 0))
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.employee} - {self.period_year}/{self.period_month:02}"
@@ -341,13 +521,22 @@ class PayrollItem(models.Model):
     payroll_slip = models.ForeignKey(PayrollSlip, on_delete=models.CASCADE, related_name='items')
 
     item_type = models.CharField(_('Type'), max_length=20, choices=ItemType.choices)
+    component_type = models.CharField(_('Component Type'), max_length=20, blank=True, default='')
     title = models.CharField(_('Title'), max_length=120)
+    component_name = models.CharField(_('Component Name'), max_length=120, blank=True, default='')
     amount = models.DecimalField(_('Amount'), max_digits=12, decimal_places=3, default=0)
 
     class Meta:
         verbose_name = _('Payroll Item')
         verbose_name_plural = _('Payroll Items')
         ordering = ['item_type', 'title']
+
+    def save(self, *args, **kwargs):
+        if not self.component_name:
+            self.component_name = self.title
+        if not self.component_type:
+            self.component_type = 'earning' if self.item_type == self.ItemType.EARNING else 'deduction'
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

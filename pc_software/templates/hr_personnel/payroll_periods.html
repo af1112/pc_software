@@ -1,0 +1,115 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{% trans "Payroll" %} / {% trans "Processing" %}{% endblock %}
+{% block content_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3">{% trans "Create Payroll Period" %}</h6>
+                <form method="post" class="row g-3">
+                    {% csrf_token %}
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">{% trans "Name" %}</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">{% trans "Start Date" %}</label>
+                        {{ form.start_date }}
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">{% trans "End Date" %}</label>
+                        {{ form.end_date }}
+                    </div>
+                    <div class="col-12 col-md-2 d-grid">
+                        <label class="form-label d-none d-md-block">&nbsp;</label>
+                        <button class="btn btn-primary" type="submit">{% trans "Create" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <h6 class="fw-bold mb-1">{% trans "Payroll Period Control" %}</h6>
+                    <p class="text-muted small mb-0">{% trans "Review active or locked payroll periods." %}</p>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted">{% trans "Current Period Status" %}</div>
+                    <span class="badge {{ current_period_badge_class }}">{{ current_period_badge }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">{% trans "Code" %}</th>
+                                <th>{% trans "Start Date" %}</th>
+                                <th>{% trans "End Date" %}</th>
+                                <th>{% trans "Status" %}</th>
+                                <th class="pe-4">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr>
+                                <td class="ps-4 fw-semibold">{{ row.code|default:row.id }}</td>
+                                <td>{{ row.start_date }}</td>
+                                <td>{{ row.end_date }}</td>
+                                <td>
+                                    {% if row.status == 'finalized' %}
+                                    <span class="badge bg-danger">{% trans "Locked" %}</span>
+                                    {% elif row.status == 'review' %}
+                                    <span class="badge bg-warning text-dark">{% trans "In Review" %}</span>
+                                    {% elif row.status == 'processing' %}
+                                    <span class="badge bg-info text-dark">{% trans "Processing" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-success">{% trans "Active" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="pe-4">
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        {% if row.status == 'open' %}
+                                        <form method="post" action="{% url 'hr_personnel:payroll_run_period' row.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-primary">{% trans "Run Payroll" %}</button>
+                                        </form>
+                                        {% endif %}
+                                        {% if row.status == 'review' %}
+                                        <form method="post" action="{% url 'hr_personnel:payroll_finalize_period' row.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger">{% trans "Finalize" %}</button>
+                                        </form>
+                                        {% endif %}
+                                        <a href="{% url 'hr_personnel:payroll_hub' %}?tab=processing" class="btn btn-sm btn-outline-primary">{% trans "Back" %}</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    {% trans "No payroll period records found." %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

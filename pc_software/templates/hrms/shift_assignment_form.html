@@ -1,17 +1,16 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Assign Employee Shift" %}{% endblock %}
+{% block title %}{% if is_edit %}{% trans "Edit Employee Shift Assignment" %}{% else %}{% trans "Assign Employee Shift" %}{% endif %}{% endblock %}
 {% block page_title %}HRMS{% endblock %}
-{% block content_title %}{% trans "Assign Employee Shift" %}{% endblock %}
+{% block content_title %}{% if is_edit %}{% trans "Edit Shift Assignment" %}{% else %}{% trans "Assign Employee Shift" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between">
-                <h6 class="mb-0 fw-bold">{% trans "Shift Assignment" %}</h6>
-                <a href="{% url 'hrms:shift_assignment_list' %}" class="btn btn-light btn-sm rounded-pill">{% trans "Back" %}</a>
+                <h6 class="mb-0 fw-bold">{% if is_edit %}{% trans "Edit Shift Assignment" %}{% else %}{% trans "Shift Assignment" %}{% endif %}</h6>
             </div>
             <div class="card-body">
                 <form method="post">{% csrf_token %}

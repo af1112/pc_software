@@ -11,7 +11,6 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between">
                 <h6 class="mb-0 fw-bold">{% trans "Bulk Calendar Generator" %}</h6>
-                <a href="{% url 'hrms:work_calendar_list' %}" class="btn btn-light btn-sm rounded-pill">{% trans "Back" %}</a>
             </div>
             <div class="card-body">
                 <div class="alert alert-info small">
@@ -44,6 +43,31 @@
                         {% if form.weekend_days.help_text %}<div class="form-text">{{ form.weekend_days.help_text }}</div>{% endif %}
                         {% if form.weekend_days.errors %}<div class="text-danger small mt-1">{{ form.weekend_days.errors|first }}</div>{% endif %}
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small d-block">{{ form.custom_weekday_minutes.label }}</label>
+                        <div class="row g-2">
+                            {% for choice in form.custom_weekday_minutes %}
+                            <div class="col-6 col-md-4">
+                                <div class="form-check">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if form.custom_weekday_minutes.help_text %}<div class="form-text">{{ form.custom_weekday_minutes.help_text }}</div>{% endif %}
+                        {% if form.custom_weekday_minutes.errors %}<div class="text-danger small mt-1">{{ form.custom_weekday_minutes.errors|first }}</div>{% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">{{ form.custom_work_minutes.label }}</label>
+                        {{ form.custom_work_minutes }}
+                        {% if form.custom_work_minutes.errors %}<div class="text-danger small mt-1">{{ form.custom_work_minutes.errors|first }}</div>{% endif %}
+                    </div>
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger small py-2">
+                        {{ form.non_field_errors|join:', ' }}
+                    </div>
+                    {% endif %}
                     <div class="form-check mb-2">
                         {{ form.include_public_holidays }}
                         <label class="form-check-label" for="{{ form.include_public_holidays.id_for_label }}">{{ form.include_public_holidays.label }}</label>

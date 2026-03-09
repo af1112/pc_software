@@ -1,20 +1,22 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Create Shift Version" %}{% endblock %}
+{% block title %}{% if is_edit %}{% trans "Edit Shift Version" %}{% else %}{% trans "Create Shift Version" %}{% endif %}{% endblock %}
 {% block page_title %}HRMS{% endblock %}
-{% block content_title %}{% trans "Create Shift Version" %}{% endblock %}
+{% block content_title %}{% if is_edit %}{% trans "Edit Shift Version" %}{% else %}{% trans "Create Shift Version" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-9">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between">
-                <h6 class="mb-0 fw-bold">{% trans "Shift Version" %}</h6>
-                <a href="{% url 'hrms:shift_version_list' %}" class="btn btn-light btn-sm rounded-pill">{% trans "Back" %}</a>
+                <h6 class="mb-0 fw-bold">{% if is_edit %}{% trans "Edit Shift Version" %}{% else %}{% trans "Shift Version" %}{% endif %}</h6>
             </div>
             <div class="card-body">
                 <form method="post">{% csrf_token %}
+                    <div class="alert alert-light border small py-2 px-3">
+                        {% trans "Required work minutes are the expected daily minutes for this shift version. Overtime after minutes defines when overtime starts counting after shift start (0 means use required minutes baseline)." %}
+                    </div>
                     <div class="row g-3">
                     {% for field in form %}
                         <div class="col-md-6">

@@ -7,9 +7,6 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-light rounded-pill px-3">
-        <i class="fas fa-arrow-left me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}
-    </a>
     <div class="d-flex gap-2">
         {% if is_manager %}
         <a href="{% url 'hr_personnel:employee_edit' employee.id %}" class="btn btn-outline-secondary rounded-pill">
@@ -103,7 +100,7 @@
                             <div>
                                 <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}تاریخ اعمال{% else %}{% trans "Effective" %}{% endif %}: {% localized_date p.effective_from "Y-m-d" %}</div>
                                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}مبنای پرداخت{% else %}{% trans "Compensation Basis" %}{% endif %}: {{ p.get_pay_type_display }}</div>
-                                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}حقوق پایه{% else %}{% trans "Base" %}{% endif %}: {{ p.currency }} {{ p.base_salary }}</div>
+                                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}حقوق پایه{% else %}{% trans "Base" %}{% endif %}: {% if p.base_salary %}{{ p.currency }} {{ p.base_salary }}{% else %}-{% endif %}</div>
                                 {% if p.daily_rate %}
                                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}نرخ روزانه{% else %}{% trans "Daily Rate" %}{% endif %}: {{ p.currency }} {{ p.daily_rate }}</div>
                                 {% endif %}
@@ -119,9 +116,18 @@
                                 {% endif %}
                             </div>
                             {% if is_manager %}
-                            <a href="{% url 'hr_personnel:salary_component_create' employee.id p.id %}" class="btn btn-sm btn-outline-primary rounded-pill">
-                                <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن آیتم{% else %}{% trans "Add Component" %}{% endif %}
-                            </a>
+                            <div class="d-flex flex-column gap-2">
+                                <a href="{% url 'hr_personnel:salary_component_create' employee.id p.id %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    <i class="fas fa-plus me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}افزودن آیتم{% else %}{% trans "Add Component" %}{% endif %}
+                                </a>
+                                <a href="{% url 'hr_personnel:salary_profile_edit' employee.id p.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                                    <i class="fas fa-edit me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}ویرایش پروفایل{% else %}{% trans "Edit Profile" %}{% endif %}
+                                </a>
+                                <form method="post" action="{% url 'hr_personnel:salary_profile_delete' employee.id p.id %}" class="d-grid">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}حذف پروفایل{% else %}{% trans "Delete Profile" %}{% endif %}</button>
+                                </form>
+                            </div>
                             {% endif %}
                         </div>
                         <div class="mt-3">
@@ -163,6 +169,7 @@
                                 <th>{% if request.LANGUAGE_CODE == 'fa' %}ناخالص{% else %}{% trans "Gross" %}{% endif %}</th>
                                 <th>{% if request.LANGUAGE_CODE == 'fa' %}خالص{% else %}{% trans "Net" %}{% endif %}</th>
                                 <th>{% if request.LANGUAGE_CODE == 'fa' %}وضعیت{% else %}{% trans "Status" %}{% endif %}</th>
+                                <th>{% if request.LANGUAGE_CODE == 'fa' %}فیش{% else %}{% trans "Payslip" %}{% endif %}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -175,14 +182,19 @@
                                 <td>
                                     {% if s.status == 'paid' %}
                                         <span class="badge bg-success">{% if request.LANGUAGE_CODE == 'fa' %}پرداخت‌شده{% else %}{% trans "Paid" %}{% endif %}</span>
+                                    {% elif s.status == 'approved' %}
+                                        <span class="badge bg-primary">{% if request.LANGUAGE_CODE == 'fa' %}تاییدشده{% else %}{% trans "Approved" %}{% endif %}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">{% if request.LANGUAGE_CODE == 'fa' %}پیش‌نویس{% else %}{% trans "Draft" %}{% endif %}</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    <a href="{% url 'hr_personnel:payroll_payslip_pdf' s.id %}" class="btn btn-sm btn-outline-dark" target="_blank">{% if request.LANGUAGE_CODE == 'fa' %}PDF{% else %}{% trans "PDF" %}{% endif %}</a>
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">{% if request.LANGUAGE_CODE == 'fa' %}فیش حقوقی ثبت نشده است.{% else %}{% trans "No payroll slips." %}{% endif %}</td>
+                                <td colspan="6" class="text-center text-muted">{% if request.LANGUAGE_CODE == 'fa' %}فیش حقوقی ثبت نشده است.{% else %}{% trans "No payroll slips." %}{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
