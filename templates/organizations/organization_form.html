@@ -6,121 +6,397 @@
 {% block content_title %}{% trans "Create Organization" %}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
+<style>
+    .org-form-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+    
+    .org-form-card {
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        border-radius: 18px;
+        padding: 2rem;
+        box-shadow: none;
+    }
+    
+    .form-section {
+        background: rgba(248, 249, 250, 0.8);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(67, 24, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .form-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #4318FF, #868CFF);
+    }
+    
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 700;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .section-title i {
+        background: linear-gradient(135deg, #4318FF, #868CFF);
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e0e5f2;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.9);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(67, 24, 255, 0.25);
+        background: white;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .module-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .module-item {
+        background: white;
+        border: 2px solid #e0e5f2;
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .module-item:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(67, 24, 255, 0.15);
+    }
+    
+    .module-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--primary-color), #868CFF);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .module-item:hover::before {
+        transform: scaleX(1);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .form-check-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(67, 24, 255, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #4318FF, #868CFF);
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(67, 24, 255, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(67, 24, 255, 0.4);
+    }
+    
+    .btn-outline-secondary {
+        border-radius: 10px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-color: #e0e5f2;
+        color: var(--text-muted);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-secondary:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: rgba(67, 24, 255, 0.1);
+    }
+    
+    .input-group-text {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 2px solid #e0e5f2;
+        border-left: none;
+        border-radius: 0 10px 10px 0;
+    }
+    
+    .disabled-field {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
+        cursor: not-allowed !important;
+        opacity: 0.8;
+    }
+    
+    @media (max-width: 768px) {
+        .org-form-card {
+            padding: 1.5rem;
+        }
+        
+        .module-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="org-form-container">
+            <div class="org-form-card">
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     {{ form.non_field_errors }}
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.name.label }}</label>
-                        {{ form.name }}
-                        {{ form.name.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.slug.label }}</label>
-                        <div class="input-group">
-                            {{ form.slug }}
-                            <span class="input-group-text">
-                                <i class="fas fa-magic text-muted" title="{% trans 'Auto-generated from company name' %}"></i>
-                            </span>
-                        </div>
-                        <div class="form-text text-muted">
-                            <i class="fas fa-info-circle"></i> {% trans "This subdomain is automatically generated from the company name and cannot be edited." %}
-                        </div>
-                        {{ form.slug.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.logo.label }}</label>
-                        {{ form.logo }}
-                        {% if form.logo.help_text %}
-                        <div class="form-text">{{ form.logo.help_text }}</div>
-                        {% endif %}
-                        {{ form.logo.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.representative_name.label }}</label>
-                        {{ form.representative_name }}
-                        {{ form.representative_name.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.representative_phone.label }}</label>
-                        {{ form.representative_phone }}
-                        {{ form.representative_phone.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.company_email.label }}</label>
-                        {{ form.company_email }}
-                        {{ form.company_email.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.timezone.label }}</label>
-                        {{ form.timezone }}
-                        {{ form.timezone.errors }}
-                    </div>
-                    <div class="mb-3 form-check">
-                        {{ form.is_active }}
-                        <label class="form-check-label">{{ form.is_active.label }}</label>
-                        {{ form.is_active.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.subscription_end_date.label }}</label>
-                        {{ form.subscription_end_date }}
-                        {{ form.subscription_end_date.errors }}
-                    </div>
-                    <h5 class="mt-4 mb-3">{% trans "Module Activation" %}</h5>
-                    <div class="row">
-                        <div class="col-12 col-md-6">
-                            <div class="form-check mb-2">
-                                {{ form.can_use_expenses }}
-                                <label class="form-check-label">{{ form.can_use_expenses.label }}</label>
+                    
+                    <!-- Basic Information Section -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-building"></i>
+                            {% trans "Basic Information" %}
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.name.label }}</label>
+                                    {{ form.name }}
+                                    {{ form.name.errors }}
+                                </div>
                             </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_ticketing }}
-                                <label class="form-check-label">{{ form.can_use_ticketing.label }}</label>
-                            </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_attendance }}
-                                <label class="form-check-label">{{ form.can_use_attendance.label }}</label>
-                            </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_projects }}
-                                <label class="form-check-label">{{ form.can_use_projects.label }}</label>
-                            </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_personnel }}
-                                <label class="form-check-label">{{ form.can_use_personnel.label }}</label>
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.slug.label }}</label>
+                                    <div class="input-group">
+                                        {{ form.slug }}
+                                        <span class="input-group-text">
+                                            <i class="fas fa-magic text-muted" title="{% trans 'Auto-generated from company name' %}"></i>
+                                        </span>
+                                    </div>
+                                    <div class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> {% trans "This subdomain is automatically generated from the company name and cannot be edited." %}
+                                    </div>
+                                    {{ form.slug.errors }}
+                                </div>
                             </div>
                         </div>
-                        <div class="col-12 col-md-6">
-                            <div class="form-check mb-2">
-                                {{ form.can_use_dms }}
-                                <label class="form-check-label">{{ form.can_use_dms.label }}</label>
+                        
+                        <div class="row">
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.logo.label }}</label>
+                                    {{ form.logo }}
+                                    {% if form.logo.help_text %}
+                                    <div class="form-text">{{ form.logo.help_text }}</div>
+                                    {% endif %}
+                                    {{ form.logo.errors }}
+                                </div>
                             </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_ai }}
-                                <label class="form-check-label">{{ form.can_use_ai.label }}</label>
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.company_email.label }}</label>
+                                    {{ form.company_email }}
+                                    {{ form.company_email.errors }}
+                                </div>
                             </div>
-                            <div class="form-check mb-2">
-                                {{ form.can_use_club }}
-                                <label class="form-check-label">{{ form.can_use_club.label }}</label>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12 col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.timezone.label }}</label>
+                                    {{ form.timezone }}
+                                    {{ form.timezone.errors }}
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.subscription_end_date.label }}</label>
+                                    {{ form.subscription_end_date }}
+                                    {{ form.subscription_end_date.errors }}
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <div class="form-check form-switch mt-2">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label">{{ form.is_active.label }}</label>
+                                    </div>
+                                    {{ form.is_active.errors }}
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="mt-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            {% trans "Save Organization" %}
-                        </button>
-                        <a href="{% url 'main_dashboard' %}" class="btn btn-outline-secondary">
-                            {% trans "Cancel" %}
-                        </a>
+                    
+                    <!-- Representative Information Section -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-user-tie"></i>
+                            {% trans "Representative Information" %}
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.representative_name.label }}</label>
+                                    {{ form.representative_name }}
+                                    {{ form.representative_name.errors }}
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ form.representative_phone.label }}</label>
+                                    {{ form.representative_phone }}
+                                    {{ form.representative_phone.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Module Activation Section -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-cubes"></i>
+                            {% trans "Module Activation" %}
+                        </h5>
+                        
+                        <div class="module-grid">
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_expenses }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_expenses.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable expense management and reporting</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_ticketing }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_ticketing.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable ticketing system and support</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_attendance }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_attendance.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable attendance and time tracking</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_projects }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_projects.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable project management tools</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_personnel }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_personnel.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable HR and payroll management</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_dms }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_dms.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable document management system</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_ai }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_ai.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable AI-powered features</small>
+                            </div>
+                            
+                            <div class="module-item">
+                                <div class="form-check mb-2">
+                                    {{ form.can_use_club }}
+                                    <label class="form-check-label fw-bold">{{ form.can_use_club.label }}</label>
+                                </div>
+                                <small class="text-muted d-block">Enable customer loyalty program</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle"></i> {% trans "All fields marked with * are required" %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'main_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Cancel" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                {% trans "Create Organization" %}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
 <script>
     (function() {
         const nameInput = document.getElementById('id_name');
@@ -129,8 +405,7 @@
         
         // Disable slug field to prevent user editing
         slugInput.disabled = true;
-        slugInput.style.backgroundColor = '#f8f9fa';
-        slugInput.style.cursor = 'not-allowed';
+        slugInput.classList.add('disabled-field');
         
         function slugify(text) {
             return text.toString().toLowerCase()

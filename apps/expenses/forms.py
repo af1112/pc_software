@@ -54,6 +54,7 @@ class ExpenseItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
+        instance = kwargs.get('instance', None)
         super(ExpenseItemForm, self).__init__(*args, **kwargs)
         
         # Rename Report to Statement
