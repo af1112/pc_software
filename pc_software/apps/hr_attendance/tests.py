@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 import datetime
 
-from apps.hr_attendance.models import Attendance, AttendanceChangeLog
+from apps.hr_attendance.models import Attendance, AttendanceChangeLog, Timesheet
 from apps.hrms.models import Company, Employee as HrmsEmployee, EmployeeShiftAssignment, ShiftTemplate, ShiftVersion, WorkCalendar
 from apps.hr_personnel.models import Employee
 from apps.organizations.models import Organization
@@ -142,6 +142,59 @@ class AttendanceFlowTests(TestCase):
         delete_log = AttendanceChangeLog.objects.filter(attendance=attendance, field_name='clock_out', action_type='delete').first()
         self.assertIsNotNone(delete_log)
         self.assertEqual(delete_log.performed_by, supervisor)
+
+    def test_supervisor_half_day_after_deleting_afternoon_punches_keeps_worked_hours(self):
+        supervisor = User.objects.create_user(username='supervisor3_halfday', password='pass1234')
+        supervisor_profile = supervisor.profile if hasattr(supervisor, 'profile') else UserProfile(user=supervisor)
+        supervisor_profile.organization = self.org
+        supervisor_profile.role = 'supervisor'
+        supervisor_profile.save()
+        self.user.profile.supervisor = supervisor
+        self.user.profile.save(update_fields=['supervisor'])
+
+        Employee.objects.create(
+            user=self.user,
+            organization=self.org,
+            first_name='Test',
+            last_name='Employee',
+            employee_id='EMP-HALF-01',
+        )
+
+        self.client.login(username='supervisor3_halfday', password='pass1234')
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'set_in', 'time_value': '06:15'},
+        )
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'set_lunch_out', 'time_value': '11:45'},
+        )
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'set_lunch_in', 'time_value': '13:15'},
+        )
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'set_out', 'time_value': '17:45'},
+        )
+
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'delete_lunch_in'},
+        )
+        self.client.post(
+            reverse('hr_attendance:supervisor_attendance_action', kwargs={'user_id': self.user.id}),
+            {'date': '2026-02-21', 'action': 'delete_out'},
+        )
+
+        attendance = Attendance.objects.get(user=self.user, date='2026-02-21')
+        self.assertIsNotNone(attendance.clock_in)
+        self.assertIsNotNone(attendance.lunch_out)
+        self.assertIsNone(attendance.lunch_in)
+        self.assertIsNone(attendance.clock_out)
+
+        timesheet = Timesheet.objects.get(employee=attendance.employee, work_date='2026-02-21')
+        self.assertAlmostEqual(float(timesheet.worked_hours), 5.5, places=2)
 
     def test_supervisor_action_set_in_for_employee_without_user(self):
         supervisor = User.objects.create_user(username='supervisor4', password='pass1234')

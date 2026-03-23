@@ -1,158 +1,249 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-{% load local_dates %}
+{% load i18n local_dates %}
 <html>
 <head>
-    <title>Expense Report: {{ report.title }}</title>
+    <title>{% trans "Statement" %}: {{ report.title }}</title>
     <style type="text/css">
-        /* @font-face {
+        @font-face {
             font-family: 'IranYekan';
             src: url('/static/fonts/IRANYekanWebRegular.ttf');
-        } */
+        }
+        @font-face {
+            font-family: 'IranYekan';
+            src: url('/static/fonts/iranyekan/IRANYekanWebRegular.ttf');
+        }
         body {
             font-family: 'IranYekan', Helvetica, Arial, sans-serif;
-            font-size: 12px;
-            color: #333;
+            font-size: 11px;
+            color: #1f2937;
         }
+        .dir-rtl { direction: rtl; text-align: right; }
+        .dir-ltr { direction: ltr; text-align: left; }
+        .align-start { text-align: left; }
+        .align-end { text-align: right; }
         .header {
-            text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #333;
+            border-bottom: 2px solid #1d4ed8;
             padding-bottom: 10px;
+            margin-bottom: 14px;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            color: #000;
-        }
-        .meta-info {
-            margin-bottom: 20px;
-        }
-        .meta-info table {
+        .header-table {
             width: 100%;
         }
-        .meta-info td {
-            padding: 5px;
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0f172a;
+            margin: 0;
+        }
+        .subtitle {
+            margin: 2px 0 0 0;
+            color: #475569;
+            font-size: 11px;
+        }
+        .logo {
+            max-width: 120px;
+            max-height: 50px;
+        }
+        .meta {
+            width: 100%;
+            border: 1px solid #dbeafe;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
+        .meta td {
+            padding: 6px;
+            border: 1px solid #dbeafe;
+            vertical-align: top;
         }
         .label {
             font-weight: bold;
-            color: #555;
+            color: #1e3a8a;
+            width: 18%;
+        }
+        .value {
+            width: 32%;
+            word-wrap: break-word;
         }
         .expenses-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            table-layout: fixed;
+            margin-bottom: 12px;
         }
-        .expenses-table th, .expenses-table td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
+        .expenses-table th,
+        .expenses-table td {
+            border: 1px solid #cbd5e1;
+            padding: 6px;
+            vertical-align: top;
+            word-wrap: break-word;
         }
         .expenses-table th {
-            background-color: #f2f2f2;
+            background-color: #eff6ff;
+            color: #1e3a8a;
             font-weight: bold;
         }
-        .total-section {
-            text-align: right;
-            font-size: 14px;
+        .col-index { width: 6%; text-align: center; }
+        .col-date { width: 14%; }
+        .col-category { width: 16%; }
+        .col-merchant { width: 16%; }
+        .col-description { width: 26%; }
+        .col-amount { width: 14%; text-align: right; }
+        .col-receipt { width: 8%; text-align: center; }
+        .total-box {
+            margin-top: 8px;
+            font-size: 13px;
             font-weight: bold;
-            margin-top: 10px;
-        }
-        .footer {
-            margin-top: 50px;
-            text-align: center;
-            font-size: 10px;
-            color: #777;
-            border-top: 1px solid #eee;
-            padding-top: 10px;
+            color: #0f172a;
         }
         .signature-box {
-            margin-top: 40px;
+            margin-top: 34px;
             width: 100%;
         }
         .signature-line {
-            width: 200px;
-            border-top: 1px solid #000;
-            margin-top: 40px;
+            width: 170px;
+            border-top: 1px solid #0f172a;
+            margin-top: 34px;
             text-align: center;
-            padding-top: 5px;
+            padding-top: 4px;
             display: inline-block;
+            color: #334155;
+            font-size: 10px;
+        }
+        .footer {
+            margin-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 6px;
+            text-align: center;
+            font-size: 9px;
+            color: #64748b;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .receipt-item {
+            margin-bottom: 16px;
+            border: 1px solid #cbd5e1;
+            padding: 8px;
+        }
+        .receipt-image {
+            max-width: 100%;
+            max-height: 420px;
         }
     </style>
 </head>
-<body>
+<body class="{% if is_rtl %}dir-rtl{% else %}dir-ltr{% endif %}">
     <div class="header">
-        <h1>Expense Report</h1>
-        <p>{{ report.title }}</p>
-    </div>
-
-    <div class="meta-info">
-        <table>
+        <table class="header-table">
             <tr>
-                <td class="label">Submitted By:</td>
-                <td>{{ report.submitted_by.username }}</td>
-                <td class="label">Date:</td>
-                <td>{% localized_date report.created_at "Y-m-d" %}</td>
-            </tr>
-            <tr>
-                <td class="label">Duration:</td>
-                <td>{{ report.start_date|default:"-" }} to {{ report.end_date|default:"-" }}</td>
-                <td class="label">Report ID:</td>
-                <td>{{ report.id|truncatechars:8 }}</td>
-            </tr>
-            <tr>
-                <td class="label">Purpose:</td>
-                <td colspan="3">{{ report.business_purpose|default:"N/A" }}</td>
+                <td>
+                    <p class="title">{% trans "Expense Statement" %}</p>
+                    <p class="subtitle">{{ report.title }}</p>
+                    {% if organization %}
+                        <p class="subtitle">{{ organization.name }}</p>
+                    {% endif %}
+                </td>
+                <td class="{% if is_rtl %}align-start{% else %}align-end{% endif %}">
+                    {% if organization and organization.logo %}
+                        <img src="{{ organization.logo.url }}" alt="Logo" class="logo">
+                    {% endif %}
+                </td>
             </tr>
         </table>
     </div>
 
+    <table class="meta">
+        <tr>
+            <td class="label">{% trans "Submitted By" %}</td>
+            <td class="value">{{ submitter_name|default:report.submitted_by.username }}</td>
+            <td class="label">{% trans "Date" %}</td>
+            <td class="value">{% localized_date report.created_at "Y-m-d" %}</td>
+        </tr>
+        <tr>
+            <td class="label">{% trans "Duration" %}</td>
+            <td class="value">{{ report.start_date|default:"-" }} - {{ report.end_date|default:"-" }}</td>
+            <td class="label">{% trans "Reference" %}</td>
+            <td class="value">{{ report.id|truncatechars:12 }}</td>
+        </tr>
+        <tr>
+            <td class="label">{% trans "Purpose" %}</td>
+            <td class="value" colspan="3">{{ report.business_purpose|default:"-" }}</td>
+        </tr>
+    </table>
+
     <table class="expenses-table">
         <thead>
             <tr>
-                <th>Date</th>
-                <th>Category</th>
-                <th>Merchant</th>
-                <th>Description</th>
-                <th>Amount ({{ report.currency }})</th>
+                <th class="col-index">#</th>
+                <th class="col-date">{% trans "Date" %}</th>
+                <th class="col-category">{% trans "Category" %}</th>
+                <th class="col-merchant">{% trans "Merchant" %}</th>
+                <th class="col-description">{% trans "Description" %}</th>
+                <th class="col-amount">{% trans "Amount" %} ({{ report.currency }})</th>
+                <th class="col-receipt">{% trans "Receipt" %}</th>
             </tr>
         </thead>
         <tbody>
             {% for item in expenses %}
-            <tr>
-                <td>{% localized_date item.date "Y-m-d" %}</td>
-                <td>{{ item.category }}</td>
-                <td>{{ item.merchant|default:"-" }}</td>
-                <td>{{ item.description|default:"-" }}</td>
-                <td style="text-align: right;">{{ item.amount|floatformat:3 }}</td>
-            </tr>
+                <tr>
+                    <td class="col-index">{{ forloop.counter }}</td>
+                    <td class="col-date">{% localized_date item.date "Y-m-d" %}</td>
+                    <td class="col-category">{{ item.category }}</td>
+                    <td class="col-merchant">{{ item.merchant|default:"-" }}</td>
+                    <td class="col-description">{{ item.description|default:"-" }}</td>
+                    <td class="col-amount">{{ item.amount|floatformat:3 }}</td>
+                    <td class="col-receipt">
+                        {% if item.receipt_image %}
+                            {% trans "Attached" %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
             {% empty %}
-            <tr>
-                <td colspan="5" style="text-align: center;">No expenses found.</td>
-            </tr>
+                <tr>
+                    <td colspan="7" style="text-align: center;">{% trans "No expenses found." %}</td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <div class="total-section">
-        Total: {{ report.total_amount|floatformat:3 }} {{ report.currency }}
+    <div class="total-box {% if is_rtl %}align-start{% else %}align-end{% endif %}">
+        {% trans "Total" %}: {{ report.total_amount|floatformat:3 }} {{ report.currency }}
     </div>
 
     <div class="signature-box">
         <table width="100%">
             <tr>
                 <td align="center">
-                    <div class="signature-line">Submitted By</div>
+                    <div class="signature-line">{% trans "Submitted By" %}</div>
                 </td>
                 <td align="center">
-                    <div class="signature-line">Approved By</div>
+                    <div class="signature-line">{% trans "Approved By" %}</div>
                 </td>
             </tr>
         </table>
     </div>
 
+    {% if receipt_items %}
+        <div class="page-break"></div>
+        <h4>{% trans "Receipt Attachments" %}</h4>
+        {% for item in receipt_items %}
+            <div class="receipt-item">
+                <div>
+                    <strong>{% trans "Expense" %} #{{ forloop.counter }}</strong>
+                    - {% localized_date item.date "Y-m-d" %}
+                    - {{ item.category }}
+                    - {{ item.amount|floatformat:3 }} {{ item.currency }}
+                </div>
+                <div>{{ item.merchant|default:"-" }}</div>
+                <img src="{{ item.receipt_image.url }}" alt="Receipt" class="receipt-image">
+            </div>
+        {% endfor %}
+    {% endif %}
+
     {% now "Y-m-d H:i:s" as generated_now %}
     <div class="footer">
-        Generated by PC Software on {% localized_date generated_now "Y-m-d H:i" %}
+        {% trans "Generated on" %} {% localized_date generated_now "Y-m-d H:i" %}
     </div>
 </body>
 </html>

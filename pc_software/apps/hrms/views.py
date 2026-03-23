@@ -581,15 +581,26 @@ def work_calendar_list(request):
 
     selected_month = request.GET.get('month')
     rows = WorkCalendar.objects.filter(tenant=tenant)
+    selected_year = datetime.date.today().year
     if selected_month:
         try:
             year, month = selected_month.split('-')
-            rows = rows.filter(date__year=int(year), date__month=int(month))
+            selected_year = int(year)
+            rows = rows.filter(date__year=selected_year, date__month=int(month))
         except Exception:
             pass
 
     rows = rows.order_by('-date')
-    return render(request, 'hrms/work_calendar_list.html', {'tenant': tenant, 'rows': rows, 'selected_month': selected_month or ''})
+    return render(
+        request,
+        'hrms/work_calendar_list.html',
+        {
+            'tenant': tenant,
+            'rows': rows,
+            'selected_month': selected_month or '',
+            'selected_year': selected_year,
+        },
+    )
 
 
 @login_required
@@ -610,7 +621,74 @@ def work_calendar_create(request):
     else:
         form = WorkCalendarForm()
 
-    return render(request, 'hrms/work_calendar_form.html', {'tenant': tenant, 'form': form})
+    return render(request, 'hrms/work_calendar_form.html', {'tenant': tenant, 'form': form, 'is_edit': False})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_calendar_edit(request, row_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    row = get_object_or_404(WorkCalendar, tenant=tenant, id=row_id)
+    if request.method == 'POST':
+        form = WorkCalendarForm(request.POST, instance=row)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _tr(request, 'Work calendar day updated.', 'روز تقویم کاری بروزرسانی شد.'))
+            return redirect('hrms:work_calendar_list')
+    else:
+        form = WorkCalendarForm(instance=row)
+
+    return render(request, 'hrms/work_calendar_form.html', {'tenant': tenant, 'form': form, 'is_edit': True, 'row': row})
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_calendar_delete(request, row_id):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    row = get_object_or_404(WorkCalendar, tenant=tenant, id=row_id)
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:work_calendar_list')
+
+    row.delete()
+    messages.success(request, _tr(request, 'Work calendar day deleted.', 'روز تقویم کاری حذف شد.'))
+    return redirect('hrms:work_calendar_list')
+
+
+@login_required
+@user_passes_test(is_hrms_manager)
+def work_calendar_delete_year(request):
+    tenant = _tenant_or_redirect(request)
+    if tenant is None:
+        return redirect('main_dashboard')
+
+    if request.method != 'POST':
+        messages.error(request, _tr(request, 'Invalid delete request.', 'درخواست حذف نامعتبر است.'))
+        return redirect('hrms:work_calendar_list')
+
+    year_raw = (request.POST.get('year') or '').strip()
+    try:
+        year = int(year_raw)
+    except Exception:
+        messages.error(request, _tr(request, 'Please provide a valid year.', 'لطفا سال معتبر وارد کنید.'))
+        return redirect('hrms:work_calendar_list')
+
+    deleted_count, _ = WorkCalendar.objects.filter(tenant=tenant, date__year=year).delete()
+    messages.success(
+        request,
+        _tr(
+            request,
+            f'All work-calendar rows for {year} were deleted ({deleted_count} rows).',
+            f'تمام ردیف‌های تقویم کاری سال {year} حذف شد ({deleted_count} ردیف).',
+        ),
+    )
+    return redirect('hrms:work_calendar_list')
 
 
 @login_required

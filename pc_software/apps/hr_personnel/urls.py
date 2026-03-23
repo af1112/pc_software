@@ -13,6 +13,7 @@ urlpatterns = [
     path('payroll/periods/', views.payroll_periods, name='payroll_periods'),
     path('payroll/periods/<uuid:period_id>/run/', views.payroll_run_period, name='payroll_run_period'),
     path('payroll/periods/<uuid:period_id>/finalize/', views.payroll_finalize_period, name='payroll_finalize_period'),
+    path('payroll/periods/<uuid:period_id>/delete/', views.payroll_delete_period, name='payroll_delete_period'),
     path('payroll/reports/', views.reports_hub, name='reports_hub'),
     path('payroll/reports/summary/', views.payroll_summary_report, name='payroll_summary_report'),
     path('payroll/slips/<uuid:slip_id>/pdf/', views.payroll_payslip_pdf, name='payroll_payslip_pdf'),

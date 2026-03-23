@@ -13,29 +13,43 @@
                 <h5 class="mb-0 fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}جزئیات حساب{% else %}{% trans "Account Details" %}{% endif %}</h5>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام کاربری{% else %}{% trans "Username" %}{% endif %}</label>
-                        <input class="form-control" value="{{ profile_user.username }}" disabled>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ایمیل{% else %}{% trans "Email" %}{% endif %}</label>
-                        <input class="form-control" value="{{ profile_user.email|default:'' }}" disabled>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نقش{% else %}{% trans "Role" %}{% endif %}</label>
-                        <input class="form-control" value="{{ profile_role_label|default:'-' }}" disabled>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام کاربری{% else %}{% trans "Username" %}{% endif %}</label>
+                            <input class="form-control" value="{{ profile_user.username }}" disabled>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام{% else %}{% trans "First Name" %}{% endif %}</label>
+                            {{ profile_form.first_name }}
+                            {{ profile_form.first_name.errors }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام خانوادگی{% else %}{% trans "Last Name" %}{% endif %}</label>
+                            {{ profile_form.last_name }}
+                            {{ profile_form.last_name.errors }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ایمیل{% else %}{% trans "Email" %}{% endif %}</label>
+                            {{ profile_form.email }}
+                            {{ profile_form.email.errors }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نقش{% else %}{% trans "Role" %}{% endif %}</label>
+                            <input class="form-control" value="{{ profile_role_label|default:'-' }}" disabled>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}سازمان{% else %}{% trans "Organization" %}{% endif %}</label>
+                            <input class="form-control" value="{{ profile_org.name|default:'-' }}" disabled>
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}سازمان{% else %}{% trans "Organization" %}{% endif %}</label>
-                        <input class="form-control" value="{{ profile_org.name|default:'-' }}" disabled>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">{% trans "Save Changes" %}</button>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نام کامل{% else %}{% trans "Full Name" %}{% endif %}</label>
-                        <input class="form-control" value="{{ profile_user.get_full_name|default:'-' }}" disabled>
-                    </div>
-                </div>
+                </form>
 
                 <hr class="my-4">
 

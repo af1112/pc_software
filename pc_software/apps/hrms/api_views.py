@@ -1,6 +1,7 @@
 import datetime
 from decimal import Decimal
 
+from django.db.models import Q
 from django.db.models import Count, Sum
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -45,6 +46,7 @@ from apps.hrms.serializers import (
 )
 from apps.hrms.services import LeaveManagementService, OvertimePayService, PayrollEngineService, TimesheetEngine
 from apps.hrms.tenant import TenantResolutionError, require_company_for_request
+from apps.hr_personnel.models import Employee as PersonnelEmployee
 
 
 class TenantFilteredModelViewSet(viewsets.ModelViewSet):
@@ -407,6 +409,81 @@ class ESSViewSet(viewsets.GenericViewSet):
         open_log.save(update_fields=['check_out', 'device_id', 'lat', 'lng'])
         TimesheetEngine.build_for_date(company, employee, open_log.check_in.date())
         return Response(AttendanceLogSerializer(open_log).data)
+
+    @action(detail=False, methods=['post'])
+    def attendance_punch_by_tag(self, request):
+        try:
+            company = require_company_for_request(request)
+        except TenantResolutionError as exc:
+            raise NotFound(str(exc)) from exc
+
+        tag_uid = str(request.data.get('tag_uid') or request.data.get('card_number') or '').strip()
+        if not tag_uid:
+            return Response({'detail': 'tag_uid or card_number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        personnel_qs = PersonnelEmployee.objects.filter(is_active=True).filter(
+            Q(attendance_tag_uid__iexact=tag_uid) | Q(attendance_card_number__iexact=tag_uid)
+        )
+        if company.organization_id:
+            personnel_qs = personnel_qs.filter(organization_id=company.organization_id)
+        personnel_employee = personnel_qs.first()
+        if personnel_employee is None:
+            return Response({'detail': 'No active personnel linked to this tag/card.'}, status=status.HTTP_404_NOT_FOUND)
+
+        employee = Employee.objects.filter(tenant=company, personnel_employee=personnel_employee, is_active=True).first()
+        if employee is None:
+            return Response({'detail': 'No active HRMS employee linked to this personnel profile.'}, status=status.HTTP_404_NOT_FOUND)
+
+        device_id = str(request.data.get('device_id') or '').strip() or None
+        action = str(request.data.get('action') or 'auto').strip().lower()
+        if action not in {'in', 'out', 'auto'}:
+            return Response({'detail': 'action must be one of: in, out, auto.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        now = timezone.now()
+        open_log = (
+            AttendanceLog.objects.filter(tenant=company, employee=employee, check_out__isnull=True)
+            .order_by('-check_in')
+            .first()
+        )
+        resolved_action = action
+        if action == 'auto':
+            resolved_action = 'out' if open_log is not None else 'in'
+
+        if resolved_action == 'in':
+            log = AttendanceLog.objects.create(
+                tenant=company,
+                employee=employee,
+                check_in=now,
+                source=AttendanceLog.Source.BIOMETRIC,
+                device_id=device_id,
+            )
+            TimesheetEngine.build_for_date(company, employee, now.date())
+            return Response(
+                {
+                    'action': 'in',
+                    'employee_id': str(employee.id),
+                    'personnel_employee_id': str(personnel_employee.id),
+                    'log': AttendanceLogSerializer(log).data,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        if open_log is None:
+            return Response({'detail': 'No open check-in found for check-out.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        open_log.check_out = now
+        if device_id:
+            open_log.device_id = device_id
+        open_log.save(update_fields=['check_out', 'device_id'])
+        TimesheetEngine.build_for_date(company, employee, open_log.check_in.date())
+        return Response(
+            {
+                'action': 'out',
+                'employee_id': str(employee.id),
+                'personnel_employee_id': str(personnel_employee.id),
+                'log': AttendanceLogSerializer(open_log).data,
+            }
+        )
 
 
 class ExecutiveDashboardViewSet(viewsets.ViewSet):

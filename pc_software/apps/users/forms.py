@@ -32,6 +32,17 @@ class LanguageSettingsForm(forms.ModelForm):
         model = UserProfile
         fields = ['preferred_language', 'currency_code', 'currency_symbol', 'currency_decimal_places']
 
+
+class UserSelfProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'given-name'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'family-name'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'autocomplete': 'email'}),
+        }
+
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}), 

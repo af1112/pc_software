@@ -168,6 +168,8 @@ class Employee(models.Model):
 
     bank_name = models.CharField(_('Bank Name'), max_length=120, blank=True, null=True)
     iban = models.CharField(_('IBAN'), max_length=64, blank=True, null=True)
+    attendance_card_number = models.CharField(_('Attendance Card Number'), max_length=64, blank=True, null=True)
+    attendance_tag_uid = models.CharField(_('Attendance Tag UID (RFID/NFC)'), max_length=128, blank=True, null=True)
     payment_method = models.CharField(_('Payment Method'), max_length=20, choices=PaymentMethod.choices, blank=True, null=True)
     basic_salary = models.DecimalField(_('Basic Salary'), max_digits=12, decimal_places=3, blank=True, null=True)
     currency = models.CharField(_('Currency'), max_length=10, blank=True, null=True)
@@ -303,7 +305,7 @@ class SalaryComponent(models.Model):
         SalaryStructure,
         on_delete=models.CASCADE,
         related_name='components',
-        db_column='salary_profile_id',
+        db_column='salary_structure_id',
     )
 
     component_type = models.CharField(_('Type'), max_length=20, choices=ComponentType.choices)
@@ -382,6 +384,7 @@ class PayrollPeriod(models.Model):
         PROCESSING = 'processing', _('Processing')
         REVIEW = 'review', _('Review')
         FINALIZED = 'finalized', _('Finalized')
+        CANCELED = 'canceled', _('Canceled')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
@@ -410,9 +413,25 @@ class PayrollPeriod(models.Model):
     def clean(self):
         if self.end_date < self.start_date:
             raise ValidationError(_('End date cannot be earlier than start date.'))
+
+        duplicate_qs = PayrollPeriod.objects.filter(
+            start_date=self.start_date,
+            end_date=self.end_date,
+        ).exclude(status=self.Status.CANCELED)
+        if self.organization_id:
+            duplicate_qs = duplicate_qs.filter(organization_id=self.organization_id)
+        else:
+            duplicate_qs = duplicate_qs.filter(organization__isnull=True)
+        if self.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+        if duplicate_qs.exists():
+            raise ValidationError(_('A payroll period already exists for this date range.'))
+
         open_qs = PayrollPeriod.objects.filter(status=self.Status.OPEN)
         if self.organization_id:
             open_qs = open_qs.filter(organization_id=self.organization_id)
+        else:
+            open_qs = open_qs.filter(organization__isnull=True)
         if self.pk:
             open_qs = open_qs.exclude(pk=self.pk)
         if open_qs.exists() and self.status == self.Status.OPEN:

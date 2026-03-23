@@ -20,7 +20,10 @@
                     {% endif %}
                     <div class="row g-3">
                         {% for field in form %}
-                        <div class="col-md-6">
+                        <div
+                            class="col-md-6{% if field.name == 'base_salary' %} pay-rate-field pay-rate-monthly{% elif field.name == 'daily_rate' %} pay-rate-field pay-rate-daily{% elif field.name == 'hourly_rate' %} pay-rate-field pay-rate-hourly{% endif %}"
+                            {% if field.name == 'base_salary' %}data-pay-field="monthly"{% elif field.name == 'daily_rate' %}data-pay-field="daily"{% elif field.name == 'hourly_rate' %}data-pay-field="hourly"{% endif %}
+                        >
                             <label class="form-label fw-bold text-dark small">{{ field.label }}</label>
                             {{ field }}
                             {% if field.errors %}
@@ -41,31 +44,31 @@
                         <div class="col-12">
                             <div class="border rounded-3 p-3 component-row">
                                 {% for hidden in cform.hidden_fields %}{{ hidden }}{% endfor %}
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-md-3">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-12 col-md-2">
                                         <label class="form-label small fw-bold">{{ cform.component_type.label }}</label>
                                         {{ cform.component_type }}
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-3">
                                         <label class="form-label small fw-bold">{{ cform.title.label }}</label>
                                         {{ cform.title }}
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-3">
                                         <label class="form-label small fw-bold">{{ cform.calculation_method.label }}</label>
                                         {{ cform.calculation_method }}
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-12 col-md-2">
                                         <label class="form-label small fw-bold">{{ cform.amount.label }}</label>
                                         {{ cform.amount }}
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-6 col-md-1">
                                         <label class="form-label small fw-bold">{{ cform.is_active.label }}</label>
-                                        <div class="form-check mt-1">
+                                        <div class="form-check form-switch mt-1">
                                             {{ cform.is_active }}
                                         </div>
                                     </div>
-                                    <div class="col-md-2 text-end">
-                                        {% if cform.DELETE %}{{ cform.DELETE }}{% endif %}
+                                    <div class="col-6 col-md-1 text-end">
+                                        {% if cform.DELETE %}{{ cform.DELETE.as_hidden }}{% endif %}
                                         <button type="button" class="btn btn-outline-danger btn-sm component-remove-btn">{% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans "Remove" %}{% endif %}</button>
                                     </div>
                                 </div>
@@ -92,29 +95,29 @@
                         <div class="border rounded-3 p-3 component-row">
                             {% with cform=formset.empty_form %}
                             {% for hidden in cform.hidden_fields %}{{ hidden }}{% endfor %}
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-12 col-md-2">
                                     <label class="form-label small fw-bold">{{ cform.component_type.label }}</label>
                                     {{ cform.component_type }}
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-12 col-md-3">
                                     <label class="form-label small fw-bold">{{ cform.title.label }}</label>
                                     {{ cform.title }}
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-12 col-md-3">
                                     <label class="form-label small fw-bold">{{ cform.calculation_method.label }}</label>
                                     {{ cform.calculation_method }}
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-12 col-md-2">
                                     <label class="form-label small fw-bold">{{ cform.amount.label }}</label>
                                     {{ cform.amount }}
                                 </div>
-                                <div class="col-md-1">
+                                <div class="col-6 col-md-1">
                                     <label class="form-label small fw-bold">{{ cform.is_active.label }}</label>
-                                    <div class="form-check mt-1">{{ cform.is_active }}</div>
+                                    <div class="form-check form-switch mt-1">{{ cform.is_active }}</div>
                                 </div>
-                                <div class="col-md-1 text-end">
-                                    {% if cform.DELETE %}{{ cform.DELETE }}{% endif %}
+                                <div class="col-6 col-md-1 text-end">
+                                    {% if cform.DELETE %}{{ cform.DELETE.as_hidden }}{% endif %}
                                     <button type="button" class="btn btn-outline-danger btn-sm component-remove-btn">{% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans "Remove" %}{% endif %}</button>
                                 </div>
                             </div>
@@ -135,8 +138,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const addBtn = document.getElementById('add-component-btn');
     const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
     const emptyTpl = document.getElementById('empty-component-template');
+    const payTypeInput = document.getElementById('id_pay_type');
 
     if (!container || !addBtn || !totalFormsInput || !emptyTpl) return;
+
+    const syncPayFields = () => {
+        if (!payTypeInput) return;
+        const selectedPayType = (payTypeInput.value || '').toLowerCase();
+        document.querySelectorAll('.pay-rate-field').forEach((fieldWrap) => {
+            const targetPayType = fieldWrap.dataset.payField;
+            const shouldShow = !targetPayType || targetPayType === selectedPayType;
+            fieldWrap.classList.toggle('d-none', !shouldShow);
+        });
+    };
 
     const visibleRows = () => Array.from(container.querySelectorAll('.component-row')).filter((row) => !row.closest('.col-12')?.classList.contains('d-none'));
 
@@ -155,9 +169,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const allRows = visibleRows();
             if (allRows.length <= 1) return;
 
-            const deleteInput = rowWrap.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            const deleteInput = rowWrap.querySelector('input[name$="-DELETE"]');
             if (deleteInput) {
-                deleteInput.checked = true;
+                if (deleteInput.type === 'checkbox') {
+                    deleteInput.checked = true;
+                } else {
+                    deleteInput.value = 'on';
+                }
                 rowWrap.closest('.col-12').classList.add('d-none');
             }
             updateDeleteVisibility();
@@ -182,9 +200,10 @@ document.addEventListener('DOMContentLoaded', function () {
         updateDeleteVisibility();
     });
 
-    container.querySelectorAll('input[type="checkbox"][name$="-is_active"]').forEach((el) => {
-        if (!el.checked) el.checked = true;
-    });
+    if (payTypeInput) {
+        payTypeInput.addEventListener('change', syncPayFields);
+    }
+    syncPayFields();
     updateDeleteVisibility();
 });
 </script>

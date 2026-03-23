@@ -1,0 +1,113 @@
+{% load i18n %}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% trans "Payroll Summary" %}</title>
+    <style>
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2937; }
+        h1 { margin: 0 0 8px; font-size: 18px; }
+        .meta { margin-bottom: 14px; }
+        .meta div { margin-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #d1d5db; padding: 6px; text-align: left; }
+        th { background: #f3f4f6; }
+        .summary { width: 55%; margin-top: 14px; }
+        .fw { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>{% trans "Payroll Summary" %}</h1>
+
+    <div class="meta">
+        <div><strong>{% trans "Period" %}:</strong> {{ period_label }}</div>
+        <div><strong>{% trans "Labor Supply Company" %}:</strong> {{ selected_supply_company_name }}</div>
+    </div>
+
+    <table class="summary">
+        <tr><td>{% trans "Total Gross" %}</td><td>{{ total_gross }}</td></tr>
+        <tr><td>{% trans "Total Net" %}</td><td>{{ total_net }}</td></tr>
+        <tr><td>{% trans "Supplier Liability (Net)" %}</td><td>{{ supplier_total_net }}</td></tr>
+    </table>
+
+    <h3>{% trans "Labor Supply Company Breakdown" %}</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>{% trans "Company" %}</th>
+                <th>{% trans "Personnel Count" %}</th>
+                <th>{% trans "Gross Total" %}</th>
+                <th>{% trans "Net Total" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in supplier_breakdown %}
+            <tr>
+                <td>{{ item.company_name }}</td>
+                <td>{{ item.employee_count }}</td>
+                <td>{{ item.gross_total }}</td>
+                <td>{{ item.net_total }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">{% trans "No supplier liabilities found for this selection." %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>{% trans "Cost by Department" %}</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>{% trans "Department" %}</th>
+                <th>{% trans "Personnel Count" %}</th>
+                <th>{% trans "Gross Total" %}</th>
+                <th>{% trans "Net Total" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in department_breakdown %}
+            <tr>
+                <td>{{ item.department_name }}</td>
+                <td>{{ item.employee_count }}</td>
+                <td>{{ item.gross_total }}</td>
+                <td>{{ item.net_total }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">{% trans "No department payroll data found for this selection." %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>{% trans "Payroll Rows" %}</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                <th>{% trans "Period" %}</th>
+                <th>{% trans "Gross" %}</th>
+                <th>{% trans "Net" %}</th>
+                <th>{% trans "Status" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.employee.first_name }} {{ row.employee.last_name }}</td>
+                <td>{{ row.period_year }}/{{ row.period_month|stringformat:"02d" }}</td>
+                <td>{{ row.currency }} {{ row.gross_amount }}</td>
+                <td class="fw">{{ row.currency }} {{ row.net_amount }}</td>
+                <td>{{ row.get_status_display }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">{% trans "No payroll data found." %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

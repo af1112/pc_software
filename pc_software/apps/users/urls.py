@@ -25,4 +25,5 @@ urlpatterns = [
     path('users/edit/<int:pk>/', views.user_edit, name='user_edit'),
     path('users/delete/<int:pk>/', views.user_delete, name='user_delete'),
     path('users/reset-password/<int:pk>/', views.user_reset_password, name='user_reset_password'),
+    path('alerts/', views.alerts_list, name='alerts_list'),
 ]

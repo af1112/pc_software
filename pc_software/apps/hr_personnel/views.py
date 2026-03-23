@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import ValidationError
 from django.db import transaction, OperationalError, ProgrammingError
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -24,7 +25,13 @@ from .forms import (
     WorkUnitForm,
 )
 from .models import Employee, LaborSupplyCompany, PayrollItem, PayrollPeriod, PayrollRun, PayrollSlip, SalaryComponent, SalaryStructure, WorkUnit
-from .services import PayrollCalculator, PayrollProcessingService, render_payslip_pdf_response
+from .services import (
+    PayrollCalculator,
+    PayrollProcessingService,
+    render_bank_payroll_csv_response,
+    render_payslip_pdf_response,
+    render_payroll_summary_pdf_response,
+)
 
 
 def _tr(request, en_text, fa_text):
@@ -282,18 +289,18 @@ def _payroll_nav_sections(request, is_manager):
             {
                 'group': _('Operational'),
                 'items': [
-                    {'key': 'payslip', 'title': _('Payslip'), 'url': _safe_reverse('hr_personnel:employee_list'), 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
+                    {'key': 'payslip', 'title': _('Payslip'), 'url': _safe_reverse('hr_personnel:payroll_summary_report'), 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
                     {'key': 'payroll-summary', 'title': _('Payroll Summary'), 'url': _safe_reverse('hr_personnel:payroll_summary_report'), 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
-                    {'key': 'bank-transfer-sheet', 'title': _('Bank Transfer Sheet'), 'url': placeholder('reports', 'bank-transfer-sheet'), 'implemented': False, 'status': _('Not Implemented'), 'status_class': 'bg-secondary'},
+                    {'key': 'bank-transfer-sheet', 'title': _('Bank Transfer Sheet'), 'url': f"{_safe_reverse('hr_personnel:payroll_summary_report')}?bank_export=bank_muscat", 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
                 ],
             },
             {
                 'group': _('Analytical'),
                 'items': [
-                    {'key': 'salary-breakdown', 'title': _('Salary Breakdown'), 'url': placeholder('reports', 'salary-breakdown'), 'implemented': False, 'status': _('Not Implemented'), 'status_class': 'bg-secondary'},
-                    {'key': 'cost-by-department', 'title': _('Cost by Department'), 'url': placeholder('reports', 'cost-by-department'), 'implemented': False, 'status': _('Not Implemented'), 'status_class': 'bg-secondary'},
-                    {'key': 'overtime-report', 'title': _('Overtime Report'), 'url': placeholder('reports', 'overtime-report'), 'implemented': False, 'status': _('Not Implemented'), 'status_class': 'bg-secondary'},
-                    {'key': 'deduction-analysis', 'title': _('Deduction Analysis'), 'url': placeholder('reports', 'deduction-analysis'), 'implemented': False, 'status': _('Not Implemented'), 'status_class': 'bg-secondary'},
+                    {'key': 'salary-breakdown', 'title': _('Salary Breakdown'), 'url': _safe_reverse('hr_personnel:payroll_summary_report'), 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
+                    {'key': 'cost-by-department', 'title': _('Cost by Department'), 'url': _safe_reverse('hr_personnel:payroll_summary_report'), 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
+                    {'key': 'overtime-report', 'title': _('Overtime Report'), 'url': f"{_safe_reverse('hr_personnel:payroll_summary_report')}?report_type=overtime", 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
+                    {'key': 'deduction-analysis', 'title': _('Deduction Analysis'), 'url': f"{_safe_reverse('hr_personnel:payroll_summary_report')}?report_type=deduction", 'implemented': True, 'status': _('Active'), 'status_class': 'bg-success'},
                 ],
             },
             {
@@ -369,11 +376,23 @@ def payroll_periods(request):
     rows = []
     payroll_schema_error = False
     organization = getattr(request, 'organization', None)
+    employees_for_run = []
+    supply_companies = []
     try:
         rows_qs = PayrollPeriod.objects.all()
         if organization is not None:
             rows_qs = rows_qs.filter(organization=organization)
         rows = list(rows_qs.order_by('-start_date', '-created_at')[:36])
+        employees_for_run = list(
+            _employee_queryset_for_request(request)
+            .filter(is_active=True)
+            .order_by('first_name', 'last_name')
+        )
+        supply_companies = list(
+            LaborSupplyCompany.objects.filter(is_active=True, organization=organization).order_by('name')
+            if organization is not None
+            else LaborSupplyCompany.objects.filter(is_active=True).order_by('name')
+        )
     except (OperationalError, ProgrammingError, Exception):
         payroll_schema_error = True
         messages.error(
@@ -391,9 +410,21 @@ def payroll_periods(request):
             period = form.save(commit=False)
             period.organization = organization
             period.status = PayrollPeriod.Status.OPEN
-            period.save()
-            messages.success(request, _tr(request, 'Payroll period created.', 'دوره حقوق و دستمزد ایجاد شد.'))
-            return redirect('hr_personnel:payroll_periods')
+            try:
+                period.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+                form.add_error(
+                    None,
+                    _tr(
+                        request,
+                        'If an existing period is wrong, invalidate that period first, then create and rerun this date range again.',
+                        'اگر دوره قبلی اشتباه است، ابتدا همان دوره را باطل کنید و سپس همین بازه را دوباره ایجاد و پردازش کنید.',
+                    ),
+                )
+            else:
+                messages.success(request, _tr(request, 'Payroll period created.', 'دوره حقوق و دستمزد ایجاد شد.'))
+                return redirect('hr_personnel:payroll_periods')
     else:
         form = PayrollPeriodForm()
 
@@ -404,6 +435,8 @@ def payroll_periods(request):
             'title': _tr(request, 'Payroll Periods', 'دوره‌های حقوق و دستمزد'),
             'rows': rows,
             'form': form,
+            'employees_for_run': employees_for_run,
+            'supply_companies': supply_companies,
             'payroll_schema_error': payroll_schema_error,
             **_payroll_current_period_context(request),
         },
@@ -425,11 +458,59 @@ def payroll_run_period(request, period_id):
     if organization is not None and period.organization_id != organization.id:
         messages.error(request, _tr(request, 'You cannot run payroll for this period.', 'شما دسترسی اجرای این دوره را ندارید.'))
         return redirect('hr_personnel:payroll_periods')
+    if period.status == PayrollPeriod.Status.CANCELED:
+        messages.error(request, _tr(request, 'Canceled periods cannot be processed.', 'دوره‌های باطل‌شده قابل پردازش نیستند.'))
+        return redirect('hr_personnel:payroll_periods')
 
-    employees = _employee_queryset_for_request(request).filter(is_active=True).order_by('first_name', 'last_name')
+    selected_employee_id = str(request.POST.get('employee_id') or '').strip()
+    selected_supply_company_id = str(request.POST.get('supply_company_id') or '').strip()
+
+    employees = _employee_queryset_for_request(request).filter(is_active=True)
+    if selected_supply_company_id:
+        employees = employees.filter(supply_company_id=selected_supply_company_id)
+    if selected_employee_id:
+        employees = employees.filter(id=selected_employee_id)
+    employees = employees.order_by('first_name', 'last_name')
+
     if not employees.exists():
         messages.warning(request, _tr(request, 'No active employees found for payroll run.', 'کارمند فعالی برای پردازش حقوق یافت نشد.'))
         return redirect('hr_personnel:payroll_periods')
+
+    eligible_employee_ids = []
+    skipped_names = []
+    for employee in employees:
+        has_active_structure = employee.salary_structures.filter(
+            is_active=True,
+            effective_from__lte=period.end_date,
+        ).filter(
+            Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date)
+        ).exists()
+        if has_active_structure:
+            eligible_employee_ids.append(employee.id)
+        else:
+            skipped_names.append(f"{employee.first_name} {employee.last_name}".strip())
+
+    employees = employees.filter(id__in=eligible_employee_ids)
+    if not employees.exists():
+        messages.warning(
+            request,
+            _tr(
+                request,
+                'No selected personnel has an active salary structure for this period.',
+                'هیچ‌یک از پرسنل انتخاب‌شده در این بازه استراکچر حقوق فعال ندارند.',
+            ),
+        )
+        return redirect('hr_personnel:payroll_periods')
+
+    if skipped_names:
+        messages.warning(
+            request,
+            _tr(
+                request,
+                f"{len(skipped_names)} employee(s) skipped because salary structure is missing.",
+                f"{len(skipped_names)} پرسنل به دلیل نداشتن استراکچر حقوق فعال رد شدند.",
+            ),
+        )
 
     try:
         with transaction.atomic():
@@ -470,6 +551,9 @@ def payroll_finalize_period(request, period_id):
     if organization is not None and period.organization_id != organization.id:
         messages.error(request, _tr(request, 'You cannot finalize this period.', 'شما دسترسی نهایی‌سازی این دوره را ندارید.'))
         return redirect('hr_personnel:payroll_periods')
+    if period.status == PayrollPeriod.Status.CANCELED:
+        messages.error(request, _tr(request, 'Canceled periods cannot be finalized.', 'دوره‌های باطل‌شده قابل نهایی‌سازی نیستند.'))
+        return redirect('hr_personnel:payroll_periods')
 
     with transaction.atomic():
         period.slips.filter(status=PayrollSlip.Status.DRAFT).update(status=PayrollSlip.Status.APPROVED)
@@ -477,6 +561,51 @@ def payroll_finalize_period(request, period_id):
         period.save(update_fields=['status'])
 
     messages.success(request, _tr(request, 'Payroll period finalized and locked.', 'دوره حقوق و دستمزد نهایی و قفل شد.'))
+    return redirect('hr_personnel:payroll_periods')
+
+
+@login_required
+@user_passes_test(is_supervisor_or_admin)
+def payroll_delete_period(request, period_id):
+    if request.method != 'POST':
+        return redirect('hr_personnel:payroll_periods')
+
+    try:
+        period = get_object_or_404(PayrollPeriod, id=period_id)
+    except (OperationalError, ProgrammingError, Exception):
+        messages.error(request, _tr(request, 'Payroll schema is not ready. Run migrations first.', 'ساختار حقوق آماده نیست. ابتدا مایگریشن را اجرا کنید.'))
+        return redirect('hr_personnel:payroll_periods')
+
+    organization = getattr(request, 'organization', None)
+    if organization is not None and period.organization_id != organization.id:
+        messages.error(request, _tr(request, 'You cannot delete this period.', 'شما دسترسی حذف این دوره را ندارید.'))
+        return redirect('hr_personnel:payroll_periods')
+
+    if period.status == PayrollPeriod.Status.FINALIZED and period.slips.filter(status=PayrollSlip.Status.PAID).exists():
+        messages.error(
+            request,
+            _tr(
+                request,
+                'Finalized periods with PAID slips cannot be invalidated. Create an adjustment run instead.',
+                'دوره نهایی‌شده‌ای که فیش پرداخت‌شده دارد قابل ابطال نیست. برای اصلاح، دوره تعدیل ایجاد کنید.',
+            ),
+        )
+        return redirect('hr_personnel:payroll_periods')
+
+    if period.status == PayrollPeriod.Status.CANCELED:
+        messages.info(request, _tr(request, 'This payroll period is already canceled.', 'این دوره قبلاً باطل شده است.'))
+        return redirect('hr_personnel:payroll_periods')
+
+    period.status = PayrollPeriod.Status.CANCELED
+    period.save(update_fields=['status'])
+    messages.success(
+        request,
+        _tr(
+            request,
+            'Payroll period invalidated and kept for audit history. You can now recreate and rerun this date range.',
+            'دوره حقوق باطل شد و برای سوابق نگهداری می‌شود. اکنون می‌توانید همین بازه را دوباره ایجاد و پردازش کنید.',
+        ),
+    )
     return redirect('hr_personnel:payroll_periods')
 
 
@@ -493,22 +622,224 @@ def payroll_payslip_pdf(request, slip_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def payroll_summary_report(request):
-    open_period = _payroll_open_period_for_request(request)
+    selected_period = None
+    periods = []
     rows = []
     total_gross = Decimal('0.000')
     total_net = Decimal('0.000')
+    supplier_total_net = Decimal('0.000')
+    supplier_breakdown = []
+    department_breakdown = []
+    selected_supply_company_id = str(request.GET.get('supply_company_id') or '').strip()
+    selected_period_id = str(request.GET.get('period_id') or '').strip()
+    selected_report_type = str(request.GET.get('report_type') or 'summary').strip().lower()
+    selected_bank_export = str(request.GET.get('bank_export') or '').strip().lower()
+    export_format = str(request.GET.get('export') or '').strip().lower()
+    if selected_report_type not in {'summary', 'overtime', 'deduction'}:
+        selected_report_type = 'summary'
+    supply_companies = []
     payroll_schema_error = False
+    selected_period_badge = _('Not Selected')
+    selected_period_badge_class = 'bg-secondary'
+    overtime_total = Decimal('0.000')
+    overtime_rows = []
+    overtime_department_breakdown = []
+    deduction_total = Decimal('0.000')
+    deduction_breakdown = []
+
+    def _period_badge(status):
+        if status == PayrollPeriod.Status.FINALIZED:
+            return _('Locked'), 'bg-danger'
+        if status == PayrollPeriod.Status.REVIEW:
+            return _('In Review'), 'bg-warning text-dark'
+        if status == PayrollPeriod.Status.PROCESSING:
+            return _('Processing'), 'bg-info text-dark'
+        if status == PayrollPeriod.Status.CANCELED:
+            return _('Canceled'), 'bg-secondary'
+        return _('Active'), 'bg-success'
+
     try:
-        slips_qs = PayrollSlip.objects.select_related('employee', 'period').all()
         organization = getattr(request, 'organization', None)
+        periods_qs = PayrollPeriod.objects.all()
+        if organization is not None:
+            periods_qs = periods_qs.filter(organization=organization)
+        periods = list(periods_qs.order_by('-start_date', '-created_at')[:60])
+
+        if selected_period_id:
+            selected_period = next((item for item in periods if str(item.id) == selected_period_id), None)
+        if selected_period is None:
+            selected_period = _payroll_open_period_for_request(request) or (periods[0] if periods else None)
+
+        if selected_period is not None:
+            selected_period_badge, selected_period_badge_class = _period_badge(selected_period.status)
+
+        supply_companies_qs = LaborSupplyCompany.objects.filter(is_active=True)
+        if organization is not None:
+            supply_companies_qs = supply_companies_qs.filter(organization=organization)
+        supply_companies = list(supply_companies_qs.order_by('name'))
+
+        slips_qs = PayrollSlip.objects.select_related('employee', 'period').prefetch_related('items').all()
         if organization is not None:
             slips_qs = slips_qs.filter(employee__organization=organization)
-        if open_period is not None:
-            slips_qs = slips_qs.filter(period=open_period)
+        if selected_period is not None:
+            slips_qs = slips_qs.filter(period=selected_period)
+        if selected_supply_company_id:
+            slips_qs = slips_qs.filter(employee__supply_company_id=selected_supply_company_id)
 
+        company_buckets = {}
+        department_buckets = {}
+        overtime_employee_buckets = {}
+        overtime_department_buckets = {}
+        deduction_buckets = {}
         for slip in slips_qs:
-            total_gross += Decimal(str(slip.gross_amount or 0))
-            total_net += Decimal(str(slip.net_amount or 0))
+            gross_amount = Decimal(str(slip.gross_amount or 0))
+            net_amount = Decimal(str(slip.net_amount or 0))
+            total_gross += gross_amount
+            total_net += net_amount
+
+            company_id = str(slip.employee.supply_company_id or '')
+            company_name = getattr(getattr(slip.employee, 'supply_company', None), 'name', '') or _('Unassigned')
+            bucket = company_buckets.setdefault(
+                company_id,
+                {
+                    'company_id': company_id,
+                    'company_name': company_name,
+                    'employees': set(),
+                    'gross_total': Decimal('0.000'),
+                    'net_total': Decimal('0.000'),
+                },
+            )
+            bucket['employees'].add(slip.employee_id)
+            bucket['gross_total'] += gross_amount
+            bucket['net_total'] += net_amount
+
+            dept_name = (getattr(slip.employee, 'department', '') or '').strip() or _('Unassigned')
+            dept_bucket = department_buckets.setdefault(
+                dept_name,
+                {
+                    'department_name': dept_name,
+                    'employees': set(),
+                    'gross_total': Decimal('0.000'),
+                    'net_total': Decimal('0.000'),
+                },
+            )
+            dept_bucket['employees'].add(slip.employee_id)
+            dept_bucket['gross_total'] += gross_amount
+            dept_bucket['net_total'] += net_amount
+
+            overtime_amount = Decimal(str(slip.overtime_amount or 0)).quantize(Decimal('0.001'))
+            if overtime_amount > 0:
+                overtime_total += overtime_amount
+                employee_name = f"{slip.employee.first_name or ''} {slip.employee.last_name or ''}".strip()
+                overtime_emp_bucket = overtime_employee_buckets.setdefault(
+                    str(slip.employee_id),
+                    {
+                        'employee_name': employee_name,
+                        'employee_code': slip.employee.employee_id or '',
+                        'department_name': dept_name,
+                        'currency': slip.currency or '',
+                        'overtime_total': Decimal('0.000'),
+                    },
+                )
+                overtime_emp_bucket['overtime_total'] += overtime_amount
+
+                overtime_dept_bucket = overtime_department_buckets.setdefault(
+                    dept_name,
+                    {
+                        'department_name': dept_name,
+                        'employee_count': set(),
+                        'overtime_total': Decimal('0.000'),
+                    },
+                )
+                overtime_dept_bucket['employee_count'].add(slip.employee_id)
+                overtime_dept_bucket['overtime_total'] += overtime_amount
+
+            for payroll_item in slip.items.all():
+                if payroll_item.item_type != PayrollItem.ItemType.DEDUCTION:
+                    continue
+                item_amount = Decimal(str(payroll_item.amount or 0)).quantize(Decimal('0.001'))
+                if item_amount <= 0:
+                    continue
+                deduction_total += item_amount
+                deduction_title = str(payroll_item.title or _('Deduction')).strip() or _('Deduction')
+                deduction_bucket = deduction_buckets.setdefault(
+                    deduction_title,
+                    {
+                        'title': deduction_title,
+                        'employee_count': set(),
+                        'amount_total': Decimal('0.000'),
+                    },
+                )
+                deduction_bucket['employee_count'].add(slip.employee_id)
+                deduction_bucket['amount_total'] += item_amount
+
+        supplier_breakdown = sorted(
+            [
+                {
+                    'company_id': item['company_id'],
+                    'company_name': item['company_name'],
+                    'employee_count': len(item['employees']),
+                    'gross_total': item['gross_total'],
+                    'net_total': item['net_total'],
+                }
+                for item in company_buckets.values()
+            ],
+            key=lambda row: row['company_name'],
+        )
+
+        department_breakdown = sorted(
+            [
+                {
+                    'department_name': item['department_name'],
+                    'employee_count': len(item['employees']),
+                    'gross_total': item['gross_total'],
+                    'net_total': item['net_total'],
+                }
+                for item in department_buckets.values()
+            ],
+            key=lambda row: row['department_name'],
+        )
+
+        overtime_rows = sorted(
+            [
+                {
+                    'employee_name': item['employee_name'],
+                    'employee_code': item['employee_code'],
+                    'department_name': item['department_name'],
+                    'currency': item['currency'],
+                    'overtime_total': item['overtime_total'],
+                }
+                for item in overtime_employee_buckets.values()
+            ],
+            key=lambda row: row['employee_name'],
+        )
+
+        overtime_department_breakdown = sorted(
+            [
+                {
+                    'department_name': item['department_name'],
+                    'employee_count': len(item['employee_count']),
+                    'overtime_total': item['overtime_total'],
+                }
+                for item in overtime_department_buckets.values()
+            ],
+            key=lambda row: row['department_name'],
+        )
+
+        deduction_breakdown = sorted(
+            [
+                {
+                    'title': item['title'],
+                    'employee_count': len(item['employee_count']),
+                    'amount_total': item['amount_total'],
+                }
+                for item in deduction_buckets.values()
+            ],
+            key=lambda row: row['title'],
+        )
+
+        if selected_supply_company_id:
+            supplier_total_net = total_net
         rows = list(slips_qs.order_by('employee__first_name', 'employee__last_name')[:200])
     except (OperationalError, ProgrammingError, Exception):
         payroll_schema_error = True
@@ -521,15 +852,65 @@ def payroll_summary_report(request):
             ),
         )
 
+    if export_format == 'pdf' and not payroll_schema_error:
+        period_label = '-'
+        if selected_period is not None:
+            period_label = f"{selected_period.name} ({selected_period.start_date} - {selected_period.end_date})"
+        summary_context = {
+            'title': _tr(request, 'Payroll Summary', 'خلاصه حقوق و دستمزد'),
+            'period_label': period_label,
+            'selected_supply_company_name': next((c.name for c in supply_companies if str(c.id) == selected_supply_company_id), _('All Companies')),
+            'total_gross': total_gross,
+            'total_net': total_net,
+            'supplier_total_net': supplier_total_net,
+            'supplier_breakdown': supplier_breakdown,
+            'department_breakdown': department_breakdown,
+            'rows': rows,
+        }
+        return render_payroll_summary_pdf_response(context=summary_context)
+
+    if export_format == 'excel' and not payroll_schema_error:
+        if not selected_bank_export:
+            messages.warning(
+                request,
+                _tr(
+                    request,
+                    'Select a bank export template first.',
+                    'ابتدا قالب خروجی بانک را انتخاب کنید.',
+                ),
+            )
+            return redirect('hr_personnel:payroll_summary_report')
+        return render_bank_payroll_csv_response(
+            rows=rows,
+            selected_period=selected_period,
+            bank_code=selected_bank_export,
+        )
+
     return render(
         request,
         'hr_personnel/payroll_report_summary.html',
         {
             'title': _tr(request, 'Payroll Summary', 'خلاصه حقوق و دستمزد'),
             'rows': rows,
-            'open_period': open_period,
+            'periods': periods,
+            'selected_period': selected_period,
+            'selected_period_id': selected_period_id,
+            'selected_report_type': selected_report_type,
+            'selected_period_badge': selected_period_badge,
+            'selected_period_badge_class': selected_period_badge_class,
             'total_gross': total_gross,
             'total_net': total_net,
+            'supplier_total_net': supplier_total_net,
+            'supplier_breakdown': supplier_breakdown,
+            'department_breakdown': department_breakdown,
+            'overtime_total': overtime_total,
+            'overtime_rows': overtime_rows,
+            'overtime_department_breakdown': overtime_department_breakdown,
+            'deduction_total': deduction_total,
+            'deduction_breakdown': deduction_breakdown,
+            'supply_companies': supply_companies,
+            'selected_supply_company_id': selected_supply_company_id,
+            'selected_bank_export': selected_bank_export,
             'payroll_schema_error': payroll_schema_error,
             **_payroll_current_period_context(request),
         },

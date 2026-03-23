@@ -5,6 +5,28 @@ from django.dispatch import receiver
 from django.conf import settings
 # from apps.organizations.models import Organization
 
+class UserAlert(models.Model):
+    ALERT_TYPES = [
+        ('info', 'Information'),
+        ('warning', 'Warning'),
+        ('error', 'Error'),
+        ('success', 'Success'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='alerts')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    alert_type = models.CharField(max_length=10, choices=ALERT_TYPES, default='info')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    link = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Admin'),

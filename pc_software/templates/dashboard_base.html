@@ -56,7 +56,6 @@
         .sidebar-collapsed .sidebar .nav-link i { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 12px; background: rgba(67,24,255,.12); border: 1px solid rgba(67,24,255,.18); }
         .sidebar-collapsed .sidebar .mt-auto { display: flex; justify-content: center; padding-inline: 0 !important; }
 
-        .mobile-bottom-nav { display: none; }
         .sidebar-backdrop {
             display: none;
         }
@@ -91,7 +90,7 @@
         mark.page-search-hit { background: #fff2a8; padding: 0 2px; border-radius: 2px; }
 
         @media (max-width: 991.98px) {
-            .main-content { padding-bottom: 24px; }
+            .main-content { padding-bottom: 80px; }
             #sidebar-toggle {
                 display: inline-flex !important;
             }
@@ -108,33 +107,6 @@
                 opacity: 1;
                 pointer-events: auto;
             }
-            .mobile-bottom-nav {
-                display: none !important;
-            }
-            .mobile-bottom-nav .mobile-nav-item,
-            .mobile-bottom-nav .mobile-nav-btn {
-                min-height: 64px;
-                border: 0;
-                background: transparent;
-                text-decoration: none;
-                color: var(--text-color, #495057);
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 4px;
-                font-size: 12px;
-                font-weight: 600;
-            }
-            .mobile-bottom-nav .mobile-nav-item i,
-            .mobile-bottom-nav .mobile-nav-btn i {
-                font-size: 18px;
-            }
-            .mobile-bottom-nav .mobile-nav-item.active,
-            .mobile-bottom-nav .mobile-nav-btn.active {
-                color: var(--primary-color, #6f42c1);
-            }
-            .mobile-bottom-nav form { margin: 0; }
             .mobile-top-brand img {
                 width: 28px;
                 height: 28px;
@@ -157,7 +129,7 @@
     <div id="sidebar-backdrop" class="sidebar-backdrop d-lg-none"></div>
 
     <!-- Sidebar -->
-    <div class="sidebar d-flex flex-column">
+    <div class="sidebar d-flex flex-column d-print-none">
         <div class="brand-row d-flex align-items-center justify-content-between p-3 position-relative">
             <a href="{% url 'main_dashboard' %}" class="brand-logo">
                 {% if org_logo %}
@@ -165,7 +137,7 @@
                 {% else %}
                     <i class="fas fa-layer-group text-primary"></i>
                 {% endif %}
-                <span class="ms-2">{{ org_name }}</span>
+                <span class="ms-2 text-main">{{ org_name }}</span>
             </a>
         </div>
         <button id="sidebar-collapse-handle" class="collapse-handle d-none d-lg-inline-flex align-items-center justify-content-center" type="button" title="{% trans 'Collapse Sidebar' %}">
@@ -462,24 +434,20 @@
     <!-- Main Content -->
     <div class="main-content">
         <!-- Top Navbar -->
-        <div class="top-navbar">
-            <div>
-                <div class="mobile-top-brand d-flex d-lg-none align-items-center gap-2 mb-2">
+        <div class="top-navbar d-print-none">
+            <div class="d-flex align-items-center gap-3">
+                <div class="mobile-top-brand d-flex d-lg-none align-items-center gap-2">
                     {% if org_logo %}
-                    <img src="{{ org_logo }}" alt="{{ org_name }}">
+                    <img src="{{ org_logo }}" alt="{{ org_name }}" style="height: 32px; width: auto;">
                     {% else %}
-                    <i class="fas fa-layer-group text-primary"></i>
+                    <i class="fas fa-layer-group text-primary fs-4"></i>
                     {% endif %}
-                    <span class="fw-bold small text-muted">{{ org_name }}</span>
+                    <span class="fw-bold text-main">{{ org_name }}</span>
                 </div>
-                <p class="page-title">{% trans "Pages" %} / {% block page_title %}{% trans "Dashboard" %}{% endblock %}</p>
-                <h4 class="current-page mb-0">{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}</h4>
+                <h4 class="current-page mb-0 d-none d-lg-block">{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}</h4>
             </div>
             
             <div class="d-flex align-items-center gap-3">
-                <button id="sidebar-toggle" class="btn btn-icon-only shadow-none border-0 p-2 d-none" type="button" title="{% trans 'Toggle Sidebar' %}">
-                    <i class="fas fa-bars fs-5 text-secondary"></i>
-                </button>
                 <button id="theme-toggle" class="btn btn-icon-only shadow-none border-0 p-2" type="button" title="{% trans 'Toggle Theme' %}">
                     <i class="fas fa-moon fs-5 text-secondary dark-icon"></i>
                     <i class="fas fa-sun fs-5 text-warning light-icon d-none"></i>
@@ -517,6 +485,7 @@
             </div>
         </div>
 
+        {% if request.resolver_match.url_name != 'main_dashboard' and request.resolver_match.url_name != 'login' %}
         <div class="mb-3 d-flex {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}justify-content-end{% else %}justify-content-start{% endif %}">
             <button
                 type="button"
@@ -528,6 +497,7 @@
                 <i class="fas fa-arrow-left me-1"></i>{% if request.LANGUAGE_CODE == 'fa' %}بازگشت{% else %}{% trans "Back" %}{% endif %}
             </button>
         </div>
+        {% endif %}
 
         <!-- Messages -->
         {% if messages %}
@@ -544,30 +514,7 @@
         {% block content %}{% endblock %}
     </div>
 
-    <nav class="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
-        <a href="{% url 'main_dashboard' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
-            <i class="fas fa-home"></i>
-            <span>{% trans "Home" %}</span>
-        </a>
-        <a href="{% url 'users:settings' %}" class="mobile-nav-item {% if 'settings' in request.path %}active{% endif %}">
-            <i class="fas fa-cog"></i>
-            <span>{% trans "Settings" %}</span>
-        </a>
-        {% if user.is_authenticated %}
-        <form action="{% url 'logout' %}" method="post">
-            {% csrf_token %}
-            <button type="submit" class="mobile-nav-btn text-danger">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>{% trans "Logout" %}</span>
-            </button>
-        </form>
-        {% else %}
-        <a href="{% url 'login' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'login' %}active{% endif %}">
-            <i class="fas fa-sign-in-alt"></i>
-            <span>{% trans "Login" %}</span>
-        </a>
-        {% endif %}
-    </nav>
+    {% include 'includes/mobile_nav.html' %}
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script>
@@ -758,12 +705,61 @@
 
         // Global page back button
         const pageBackBtn = document.getElementById('page-back-btn');
+        const navStackKey = 'akaf_nav_stack_v1';
+        const currentUrl = window.location.href;
+
+        const readNavStack = () => {
+            try {
+                const parsed = JSON.parse(sessionStorage.getItem(navStackKey) || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                return [];
+            }
+        };
+
+        const writeNavStack = (stack) => {
+            try {
+                sessionStorage.setItem(navStackKey, JSON.stringify(stack.slice(-40)));
+            } catch (err) {}
+        };
+
+        const normalizeUrl = (urlValue) => {
+            try {
+                const url = new URL(urlValue, window.location.origin);
+                return `${url.pathname}${url.search}`;
+            } catch (err) {
+                return urlValue || '';
+            }
+        };
+
+        // Keep a small in-session navigation stack so Back can skip same-page refresh entries.
+        const navStack = readNavStack();
+        const normalizedCurrent = normalizeUrl(currentUrl);
+        if (!navStack.length || normalizeUrl(navStack[navStack.length - 1]) !== normalizedCurrent) {
+            navStack.push(currentUrl);
+            writeNavStack(navStack);
+        }
+
         pageBackBtn?.addEventListener('click', () => {
             const explicitBackUrl = pageBackBtn.getAttribute('data-back-url');
             if (explicitBackUrl) {
                 window.location.href = explicitBackUrl;
                 return;
             }
+
+            const stack = readNavStack();
+            const currentNormalized = normalizeUrl(window.location.href);
+            while (stack.length && normalizeUrl(stack[stack.length - 1]) === currentNormalized) {
+                stack.pop();
+            }
+
+            if (stack.length) {
+                const target = stack.pop();
+                writeNavStack(stack);
+                window.location.href = target;
+                return;
+            }
+
             if (window.history.length > 1) {
                 window.history.back();
                 return;

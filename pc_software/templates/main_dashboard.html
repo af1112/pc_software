@@ -39,7 +39,7 @@
     {% endif %}
 </div>
 
-<h5 class="mb-4 fw-bold text-dark mt-4">{% trans "Business Modules" %}</h5>
+<h2 class="dashboard-section-title text-main">{% trans "Business Modules" %}</h2>
 
 <div class="row g-4">
     <!-- Expense Manager -->
@@ -87,23 +87,6 @@
                 <div class="card-content">
                     <h3 class="card-title-lg">{% trans "Attendance" %}</h3>
                     <p class="card-desc">{% trans "Clock in/out and track." %}</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    {% endif %}
-
-    <!-- Personnel & Payroll -->
-    {% if can_use_personnel or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'hr_personnel:personnel_hub' %}" class="text-decoration-none">
-            <div class="dashboard-card">
-                <div class="card-icon-wrapper bg-light-info">
-                    <i class="fas fa-id-badge"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Personnel" %}</h3>
-                    <p class="card-desc">{% trans "Employees, payroll and benefits." %}</p>
                 </div>
             </div>
         </a>

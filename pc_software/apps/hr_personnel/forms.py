@@ -208,6 +208,8 @@ class EmployeeForm(forms.ModelForm):
             self.fields['reporting_manager'].label = 'مدیر مستقیم'
             self.fields['bank_name'].label = 'نام بانک'
             self.fields['iban'].label = 'شماره شبا'
+            self.fields['attendance_card_number'].label = 'شماره کارت حضور و غیاب'
+            self.fields['attendance_tag_uid'].label = 'شناسه تگ حضور و غیاب (RFID/NFC)'
             self.fields['payment_method'].label = 'روش پرداخت'
             self.fields['basic_salary'].label = 'حقوق پایه'
             self.fields['currency'].label = 'واحد پول'
@@ -266,6 +268,8 @@ class EmployeeForm(forms.ModelForm):
             'reporting_manager',
             'bank_name',
             'iban',
+            'attendance_card_number',
+            'attendance_tag_uid',
             'payment_method',
             'basic_salary',
             'currency',
@@ -303,6 +307,8 @@ class EmployeeForm(forms.ModelForm):
             'reporting_manager': forms.Select(attrs={'class': 'form-select'}),
             'bank_name': forms.TextInput(attrs={'class': 'form-control'}),
             'iban': forms.TextInput(attrs={'class': 'form-control'}),
+            'attendance_card_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CARD-0001'}),
+            'attendance_tag_uid': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '04AABBCC1122'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
             'basic_salary': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
             'currency': forms.Select(attrs={'class': 'form-select'}),
@@ -518,6 +524,23 @@ class PayrollSlipForm(forms.ModelForm):
 
 
 class PayrollPeriodForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['name'].required = False
+        self.fields['name'].widget.attrs.update({'placeholder': '2026-01'})
+
+    def clean(self):
+        cleaned_data = super().clean()
+        name = str(cleaned_data.get('name') or '').strip()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        if not name and start_date and end_date:
+            if start_date.year == end_date.year and start_date.month == end_date.month:
+                cleaned_data['name'] = f"{start_date.year}-{start_date.month:02d}"
+            else:
+                cleaned_data['name'] = f"{start_date.isoformat()} to {end_date.isoformat()}"
+        return cleaned_data
+
     class Meta:
         model = PayrollPeriod
         fields = ['name', 'start_date', 'end_date']

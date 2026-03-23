@@ -35,7 +35,7 @@
   <div class="summary">
     <span><strong>{% trans "Present Days" %}:</strong> {{ summary.days_present }}</span>
     <span><strong>{% trans "Absent Days" %}:</strong> {{ summary.days_absent }}</span>
-    <span><strong>{% trans "Total Worked Hours" %}:</strong> {{ summary.total_worked_hours }}</span>
+    <span><strong>{% trans "Total Worked Hours" %}:</strong> {{ summary.total_worked_hours_display|default:"00:00" }}</span>
   </div>
 
   <table>
@@ -63,7 +63,7 @@
         <td>{{ row.attendance.lunch_out|time:"H:i"|default:"-" }}</td>
         <td>{{ row.attendance.lunch_in|time:"H:i"|default:"-" }}</td>
         <td>{{ row.attendance.clock_out|time:"H:i"|default:"-" }}</td>
-        <td class="right">{{ row.worked_hours|default:"0" }}</td>
+        <td class="right">{{ row.worked_hours_display|default:"00:00" }}</td>
         <td class="right">{{ row.timesheet.overtime_hours|default:"0" }}</td>
         <td class="right">{{ row.timesheet.late_minutes|default:"0" }}</td>
         <td class="right">{{ row.timesheet.early_leave_minutes|default:"0" }}</td>

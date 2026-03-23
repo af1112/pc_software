@@ -1,6 +1,6 @@
 {% load i18n local_dates static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,9 +31,14 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border: none;
             transition: transform 0.2s;
+            text-decoration: none;
+            display: block;
         }
         .card-stat:active {
             transform: scale(0.98);
+        }
+        .card-stat:hover {
+            color: white;
         }
         .bg-red { background: linear-gradient(135deg, #ff6b6b, #ee5253); }
         .bg-blue { background: linear-gradient(135deg, #48dbfb, #0abde3); }
@@ -116,7 +121,7 @@
         }
         .sidebar-link i {
             width: 30px;
-            margin-right: 10px;
+            margin-inline-end: 10px;
             color: #0069ff;
         }
         .user-profile {
@@ -132,13 +137,38 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 15px;
+            margin-inline-end: 15px;
             font-size: 1.5rem;
             color: #333;
+        }
+        .global-loading {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+        }
+        .global-loading .loading-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
     </style>
 </head>
 <body>
+
+    <div id="globalLoading" class="global-loading" aria-live="polite" aria-busy="true">
+        <div class="loading-card">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span>{% trans "Loading..." %}</span>
+        </div>
+    </div>
 
     <!-- Sidebar -->
     <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar">
@@ -167,13 +197,16 @@
             <a href="{% url 'expenses:create_advance' %}" class="sidebar-link">
                 <i class="fas fa-money-bill-wave"></i> {% trans "Request Advance" %}
             </a>
+            <a href="{% url 'expenses:category_list' %}" class="sidebar-link">
+                <i class="fas fa-tags"></i> {% trans "Categories" %}
+            </a>
             <a href="{% url 'users:settings' %}" class="sidebar-link">
                 <i class="fas fa-cog"></i> {% trans "Settings" %}
             </a>
             <div class="border-top mt-3 pt-3">
                  <form action="{% url 'logout' %}" method="post" class="d-block w-100">
                     {% csrf_token %}
-                    <button type="submit" class="sidebar-link w-100 text-start bg-transparent border-0 text-danger">
+                    <button type="submit" class="sidebar-link w-100 {% if LANGUAGE_BIDI %}text-end{% else %}text-start{% endif %} bg-transparent border-0 text-danger">
                         <i class="fas fa-sign-out-alt text-danger"></i> {% trans "Logout" %}
                     </button>
                 </form>
@@ -185,6 +218,9 @@
         <!-- Header -->
         <div class="header-section d-flex justify-content-between align-items-center">
             <div>
+                <a href="{% url 'main_dashboard' %}" class="btn btn-sm btn-outline-light rounded-pill mb-2" data-no-loading>
+                    <i class="fas fa-arrow-left me-1"></i>{% trans "Back to Main Dashboard" %}
+                </a>
                 <h4 class="mb-0 fw-bold">{% trans "Dashboard" %}</h4>
                 <small class="opacity-75">{% trans "Welcome" %}, {{ request.user.username }}</small>
             </div>
@@ -206,22 +242,22 @@
         <!-- Stats Cards -->
         <div class="row g-2">
             <div class="col-6">
-                <div class="card-stat bg-red">
+                <a href="{% url 'expenses:create_expense' %}" class="card-stat bg-red">
                     <h2>{{ unreported_count }}</h2>
                     <small>{% trans "Unreported Expenses" %}</small>
-                </div>
+                </a>
             </div>
             <div class="col-6">
-                <div class="card-stat bg-blue">
+                <a href="{% url 'expenses:statement_list' %}?status=draft" class="card-stat bg-blue">
                     <h2>{{ unsubmitted_count }}</h2>
                     <small>{% trans "Unsubmitted Reports" %}</small>
-                </div>
+                </a>
             </div>
             <div class="col-12">
-                <div class="card-stat bg-green">
+                <a href="{% url 'expenses:statement_list' %}?status=submitted" class="card-stat bg-green">
                     <h2>{{ submitted_count }}</h2>
                     <small>{% trans "Submitted Reports" %}</small>
-                </div>
+                </a>
             </div>
         </div>
 
@@ -235,8 +271,8 @@
                     <small class="text-muted">{% localized_date report.created_at "d M Y" %}</small>
 
                 </div>
-                <div class="text-end">
-                    <span class="badge badge-draft mb-1">{{ report.status|title }}</span>
+                <div class="{% if LANGUAGE_BIDI %}text-start{% else %}text-end{% endif %}">
+                    <span class="badge badge-draft mb-1">{{ report.get_status_display }}</span>
                     <br>
                     <strong>{{ report.currency }} {{ report.total_amount }}</strong>
                     <br>
@@ -259,7 +295,7 @@
                     <div class="fw-bold">{{ advance.currency }} {{ advance.amount }}</div>
                     <small class="text-muted">{{ advance.notes|truncatechars:20 }}</small>
                 </div>
-                <div class="text-end">
+                <div class="{% if LANGUAGE_BIDI %}text-start{% else %}text-end{% endif %}">
                     <small>{% localized_date advance.date "d M" %}</small>
                 </div>
             </div>
@@ -283,11 +319,38 @@
         <a href="#" class="nav-item">
             <i class="fas fa-bell fa-lg"></i>
         </a>
-        <a href="{% url 'users:settings' %}" class="nav-item" style="cursor: pointer; position: relative; z-index: 2001;">
+        <a href="{% url 'users:profile' %}" class="nav-item" style="cursor: pointer; position: relative; z-index: 2001;">
             <i class="fas fa-user fa-lg"></i>
         </a>
     </div>
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const globalLoading = document.getElementById('globalLoading');
+
+            function showGlobalLoading() {
+                globalLoading.style.display = 'flex';
+            }
+
+            function hideGlobalLoading() {
+                globalLoading.style.display = 'none';
+            }
+
+            document.querySelectorAll('a[href]:not([data-no-loading])').forEach((link) => {
+                link.addEventListener('click', function() {
+                    showGlobalLoading();
+                });
+            });
+
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', function() {
+                    showGlobalLoading();
+                });
+            });
+
+            hideGlobalLoading();
+        });
+    </script>
 </body>
 </html>

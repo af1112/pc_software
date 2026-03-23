@@ -11,19 +11,32 @@
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-body p-4">
                 <h6 class="fw-bold mb-3">{% trans "Create Payroll Period" %}</h6>
+                <div class="alert alert-info py-2">
+                    {% trans "Correction workflow: if a previous period is wrong, invalidate that period from the table below, then recreate and rerun the same date range." %}
+                </div>
                 <form method="post" class="row g-3">
                     {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="col-12">
+                        <div class="alert alert-danger py-2 mb-0">
+                            {{ form.non_field_errors }}
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="col-12 col-md-4">
-                        <label class="form-label">{% trans "Name" %}</label>
+                        <label class="form-label">{% trans "Name (Optional)" %}</label>
                         {{ form.name }}
+                        {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|first }}</div>{% endif %}
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">{% trans "Start Date" %}</label>
                         {{ form.start_date }}
+                        {% if form.start_date.errors %}<div class="text-danger small mt-1">{{ form.start_date.errors|first }}</div>{% endif %}
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">{% trans "End Date" %}</label>
                         {{ form.end_date }}
+                        {% if form.end_date.errors %}<div class="text-danger small mt-1">{{ form.end_date.errors|first }}</div>{% endif %}
                     </div>
                     <div class="col-12 col-md-2 d-grid">
                         <label class="form-label d-none d-md-block">&nbsp;</label>
@@ -72,6 +85,8 @@
                                 <td>
                                     {% if row.status == 'finalized' %}
                                     <span class="badge bg-danger">{% trans "Locked" %}</span>
+                                    {% elif row.status == 'canceled' %}
+                                    <span class="badge bg-secondary">{% trans "Canceled" %}</span>
                                     {% elif row.status == 'review' %}
                                     <span class="badge bg-warning text-dark">{% trans "In Review" %}</span>
                                     {% elif row.status == 'processing' %}
@@ -82,10 +97,34 @@
                                 </td>
                                 <td class="pe-4">
                                     <div class="d-flex gap-2 flex-wrap">
-                                        {% if row.status == 'open' %}
-                                        <form method="post" action="{% url 'hr_personnel:payroll_run_period' row.id %}">
+                                        {% if row.status == 'open' or row.status == 'review' %}
+                                        <form method="post" action="{% url 'hr_personnel:payroll_run_period' row.id %}" class="d-flex gap-2 flex-wrap align-items-end">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-primary">{% trans "Run Payroll" %}</button>
+                                            <div>
+                                                <label class="form-label small mb-1">{% trans "Labor Supply Company" %}</label>
+                                                <select name="supply_company_id" class="form-select form-select-sm">
+                                                    <option value="">{% trans "All Companies" %}</option>
+                                                    {% for company in supply_companies %}
+                                                        <option value="{{ company.id }}">{{ company.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="form-label small mb-1">{% trans "Personnel" %}</label>
+                                                <select name="employee_id" class="form-select form-select-sm">
+                                                    <option value="">{% trans "All Active Personnel" %}</option>
+                                                    {% for employee in employees_for_run %}
+                                                        <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                {% if row.status == 'review' %}
+                                                    {% trans "Recalculate Payroll" %}
+                                                {% else %}
+                                                    {% trans "Run Payroll" %}
+                                                {% endif %}
+                                            </button>
                                         </form>
                                         {% endif %}
                                         {% if row.status == 'review' %}
@@ -94,7 +133,18 @@
                                             <button type="submit" class="btn btn-sm btn-danger">{% trans "Finalize" %}</button>
                                         </form>
                                         {% endif %}
-                                        <a href="{% url 'hr_personnel:payroll_hub' %}?tab=processing" class="btn btn-sm btn-outline-primary">{% trans "Back" %}</a>
+                                        {% if row.status != 'canceled' %}
+                                        <form method="post" action="{% url 'hr_personnel:payroll_delete_period' row.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                {% if row.status == 'finalized' %}
+                                                    {% trans "Invalidate" %}
+                                                {% else %}
+                                                    {% trans "Cancel" %}
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>

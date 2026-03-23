@@ -120,15 +120,32 @@ def _worked_hours(clock_in, clock_out):
 
 
 def _worked_hours_from_attendance(attendance):
-    total_hours = _worked_hours(attendance.clock_in, attendance.clock_out)
+    end_punch = attendance.clock_out
+    if end_punch is None and attendance.lunch_out and not attendance.lunch_in:
+        end_punch = attendance.lunch_out
+
+    total_hours = _worked_hours(attendance.clock_in, end_punch)
     if total_hours <= 0:
         return 0.0
 
-    if attendance.lunch_out and attendance.lunch_in and attendance.lunch_in > attendance.lunch_out:
+    if attendance.clock_out and attendance.lunch_out and attendance.lunch_in and attendance.lunch_in > attendance.lunch_out:
         break_seconds = (attendance.lunch_in - attendance.lunch_out).total_seconds()
         total_hours -= max(break_seconds / 3600, 0)
 
     return max(total_hours, 0.0)
+
+
+def _format_hours_hhmm(hours_value):
+    try:
+        total_minutes = int(round(float(hours_value or 0) * 60))
+    except (TypeError, ValueError):
+        total_minutes = 0
+
+    if total_minutes < 0:
+        total_minutes = 0
+
+    hours, minutes = divmod(total_minutes, 60)
+    return f"{hours:02d}:{minutes:02d}"
 
 
 def _attendance_next_event(attendance):
@@ -797,23 +814,50 @@ def attendance_card(request):
     role = getattr(getattr(request.user, 'profile', None), 'role', 'user')
     current_employee = _employee_for_user(request.user)
 
-    if request.method == 'POST' and request.POST.get('action') == 'connect_supervisor':
-        if role != 'supervisor' or current_employee is None:
-            messages.error(request, _("Only supervisors can perform this action."))
-        elif selected_employee is None:
-            messages.error(request, _("Please select a valid employee."))
-        elif selected_employee.id == current_employee.id:
-            messages.error(request, _("You cannot assign yourself as your own manager."))
-        elif (
-            not request.user.is_superuser
-            and getattr(selected_employee, 'organization_id', None)
-            != getattr(getattr(request.user, 'profile', None), 'organization_id', None)
-        ):
-            messages.error(request, _("You cannot modify employees outside your organization."))
-        else:
-            selected_employee.reporting_manager = current_employee
-            selected_employee.save(update_fields=['reporting_manager'])
-            messages.success(request, _("Employee connected to this supervisor successfully."))
+    if request.method == 'POST':
+        action = str(request.POST.get('action') or '').strip()
+        if action == 'connect_supervisor':
+            if role != 'supervisor' or current_employee is None:
+                messages.error(request, _("Only supervisors can perform this action."))
+            elif selected_employee is None:
+                messages.error(request, _("Please select a valid employee."))
+            elif selected_employee.id == current_employee.id:
+                messages.error(request, _("You cannot assign yourself as your own manager."))
+            elif (
+                not request.user.is_superuser
+                and getattr(selected_employee, 'organization_id', None)
+                != getattr(getattr(request.user, 'profile', None), 'organization_id', None)
+            ):
+                messages.error(request, _("You cannot modify employees outside your organization."))
+            else:
+                selected_employee.reporting_manager = current_employee
+                selected_employee.save(update_fields=['reporting_manager'])
+                messages.success(request, _("Employee connected to this supervisor successfully."))
+
+        elif action == 'recalculate_month':
+            if selected_employee is None:
+                messages.error(request, _("Please select a valid employee."))
+            else:
+                attendance_filter = Q(employee=selected_employee)
+                if selected_employee.user_id:
+                    attendance_filter |= Q(user_id=selected_employee.user_id)
+
+                attendances = Attendance.objects.filter(
+                    date__range=(month_start, month_end),
+                ).filter(attendance_filter).distinct()
+
+                recalculated_count = 0
+                for attendance in attendances:
+                    _upsert_timesheet_from_attendance(attendance)
+                    recalculated_count += 1
+
+                messages.success(
+                    request,
+                    _(
+                        'Monthly timesheet recalculation completed for %(count)s record(s).'
+                    ) % {'count': recalculated_count},
+                )
+
         if selected_employee:
             return redirect(
                 f"/attendance/card/?employee_id={selected_employee.id}&month={month_start.strftime('%Y-%m')}"
@@ -861,6 +905,7 @@ def attendance_card(request):
                     'attendance': attendance,
                     'timesheet': timesheet,
                     'worked_hours': round(worked_hours, 2),
+                    'worked_hours_display': _format_hours_hhmm(worked_hours),
                 }
             )
 
@@ -881,6 +926,7 @@ def attendance_card(request):
             'days_present': summary['days_present'],
             'days_absent': summary['days_absent'],
             'total_worked_hours': round(summary['total_worked_hours'], 2),
+            'total_worked_hours_display': _format_hours_hhmm(summary['total_worked_hours']),
         },
         'pdf_url': (
             f"{reverse('hr_attendance:attendance_card_pdf')}?employee_id={selected_employee.id}&month={month_start.strftime('%Y-%m')}"
@@ -952,6 +998,7 @@ def attendance_card_pdf(request):
                     'attendance': attendance,
                     'timesheet': timesheet,
                     'worked_hours': round(worked_hours, 2),
+                    'worked_hours_display': _format_hours_hhmm(worked_hours),
                 }
             )
 
@@ -966,6 +1013,7 @@ def attendance_card_pdf(request):
                 'days_present': summary['days_present'],
                 'days_absent': summary['days_absent'],
                 'total_worked_hours': round(summary['total_worked_hours'], 2),
+                'total_worked_hours_display': _format_hours_hhmm(summary['total_worked_hours']),
             },
             'org': org,
         },

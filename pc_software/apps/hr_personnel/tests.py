@@ -157,6 +157,50 @@ class PayrollCalculatorTests(TestCase):
         with self.assertRaises(ValidationError):
             PayrollCalculator.validate_structure_components(structure)
 
+    def test_validate_structure_allows_configured_base_rate_without_earning_component(self):
+        structure = SalaryStructure.objects.create(
+            employee=self.employee,
+            effective_from=datetime.date(2026, 1, 1),
+            pay_type=SalaryStructure.PayType.MONTHLY,
+            base_salary=Decimal('750.000'),
+            currency='OMR',
+            is_active=True,
+        )
+
+        PayrollCalculator.validate_structure_components(structure)
+
+    def test_calculation_falls_back_to_structure_base_rate_when_matching_component_missing(self):
+        structure = SalaryStructure.objects.create(
+            employee=self.employee,
+            effective_from=datetime.date(2026, 1, 1),
+            pay_type=SalaryStructure.PayType.DAILY,
+            daily_rate=Decimal('15.000'),
+            currency='OMR',
+            is_active=True,
+        )
+        SalaryComponent.objects.create(
+            salary_structure=structure,
+            component_type=SalaryComponent.ComponentType.DEDUCTION,
+            title='Service Fee',
+            calculation_method=SalaryComponent.CalculationMethod.FIXED_MONTHLY,
+            amount=Decimal('5.000'),
+            is_active=True,
+        )
+
+        result = PayrollCalculator.calculate(
+            employee=self.employee,
+            period_start=datetime.date(2026, 1, 1),
+            period_end=datetime.date(2026, 1, 31),
+            worked_days=Decimal('20.00'),
+            worked_hours=Decimal('0.00'),
+            overtime_hours=Decimal('0.00'),
+        )
+
+        self.assertEqual(result['base_pay'], Decimal('300.000'))
+        self.assertEqual(result['total_earnings'], Decimal('300.000'))
+        self.assertEqual(result['total_deductions'], Decimal('5.000'))
+        self.assertEqual(result['net_pay'], Decimal('295.000'))
+
 
 class SalaryStructureActiveReplacementTests(TestCase):
     def test_new_active_structure_deactivates_previous_one(self):
@@ -237,3 +281,23 @@ class PayrollWorkflowServiceTests(TestCase):
         slip.net_amount = Decimal('490.000')
         with self.assertRaises(ValidationError):
             slip.save()
+
+
+class PayrollPeriodValidationTests(TestCase):
+    def test_duplicate_date_range_is_rejected(self):
+        PayrollPeriod.objects.create(
+            name='2026-01-A',
+            start_date=datetime.date(2026, 1, 1),
+            end_date=datetime.date(2026, 1, 31),
+            status=PayrollPeriod.Status.REVIEW,
+        )
+
+        duplicate = PayrollPeriod(
+            name='2026-01-B',
+            start_date=datetime.date(2026, 1, 1),
+            end_date=datetime.date(2026, 1, 31),
+            status=PayrollPeriod.Status.OPEN,
+        )
+
+        with self.assertRaises(ValidationError):
+            duplicate.save()

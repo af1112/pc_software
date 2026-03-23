@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.conf import settings
-from .models import UserProfile
-from .forms import LanguageSettingsForm, UserCreateForm, UserPermissionsForm
+from .models import UserProfile, UserAlert
+from .forms import LanguageSettingsForm, UserCreateForm, UserPermissionsForm, UserSelfProfileForm
 from django.utils.translation import activate
 from django.utils.translation import gettext as _
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -195,6 +195,16 @@ def profile_view(request):
         }
     profile_permission_labels = [perm_labels.get(p.codename, p.name) for p in perms]
 
+    if request.method == 'POST':
+        profile_form = UserSelfProfileForm(request.POST, instance=user)
+        if profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, _('Profile updated successfully.'))
+            return redirect('users:profile')
+        messages.error(request, _('Please correct the errors below.'))
+    else:
+        profile_form = UserSelfProfileForm(instance=user)
+
     return render(
         request,
         'users/profile.html',
@@ -205,6 +215,7 @@ def profile_view(request):
             'profile_role_label': profile_role_label,
             'profile_permissions': perms,
             'profile_permission_labels': profile_permission_labels,
+            'profile_form': profile_form,
         },
     )
 
@@ -651,3 +662,10 @@ def user_reset_password(request, pk):
         % {'username': target_user.username, 'password': DEFAULT_RESET_PASSWORD},
     )
     return redirect('users:user_list')
+
+@login_required
+def alerts_list(request):
+    alerts = request.user.alerts.all()
+    # Mark all as read when visiting the page
+    alerts.update(is_read=True)
+    return render(request, 'users/alerts_list.html', {'alerts': alerts})

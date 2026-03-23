@@ -1,0 +1,60 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block content_title %}{% trans "Alerts" %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold mb-0">{% trans "System Notifications" %}</h3>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            {% if alerts %}
+                {% for alert in alerts %}
+                <div class="card mb-3 border-0 shadow-sm glassmorphism" style="border-radius: 15px;">
+                    <div class="card-body p-3">
+                        <div class="d-flex gap-3 align-items-start">
+                            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center 
+                                {% if alert.alert_type == 'info' %}bg-light-info text-info
+                                {% elif alert.alert_type == 'warning' %}bg-light-warning text-warning
+                                {% elif alert.alert_type == 'error' %}bg-light-danger text-danger
+                                {% elif alert.alert_type == 'success' %}bg-light-success text-success
+                                {% endif %}" style="width: 45px; height: 45px; min-width: 45px;">
+                                <i class="fas 
+                                    {% if alert.alert_type == 'info' %}fa-info-circle
+                                    {% elif alert.alert_type == 'warning' %}fa-exclamation-triangle
+                                    {% elif alert.alert_type == 'error' %}fa-times-circle
+                                    {% elif alert.alert_type == 'success' %}fa-check-circle
+                                    {% endif %} fs-5"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="fw-bold mb-1">{{ alert.title }}</h6>
+                                    <small class="text-muted">{{ alert.created_at|timesince }} {% trans "ago" %}</small>
+                                </div>
+                                <p class="text-muted small mb-2">{{ alert.message }}</p>
+                                {% if alert.link %}
+                                <a href="{{ alert.link }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    {% trans "View Details" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="fas fa-bell-slash text-muted opacity-25" style="font-size: 5rem;"></i>
+                    </div>
+                    <h5 class="text-muted">{% trans "No alerts found" %}</h5>
+                    <p class="small text-muted">{% trans "You are all caught up!" %}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,12 +1,14 @@
 from io import BytesIO
 from django.http import HttpResponse
 from django.template.loader import get_template
+from django.utils.translation import gettext as _
 try:
     from xhtml2pdf import pisa
 except ImportError:
     pisa = None
 from django.conf import settings
 import os
+import logging
 try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -14,9 +16,14 @@ except ImportError:
     pdfmetrics = None
     TTFont = None
 
+logger = logging.getLogger(__name__)
+
 def render_to_pdf(template_src, context_dict={}):
     if pisa is None:
-        return HttpResponse("PDF Generation is temporarily disabled due to server compatibility issues. Please contact admin.", status=503)
+        return HttpResponse(
+            _("PDF generation is temporarily unavailable due to server compatibility issues. Please contact admin."),
+            status=503,
+        )
 
     # Register Persian font
     if pdfmetrics:
@@ -25,7 +32,7 @@ def render_to_pdf(template_src, context_dict={}):
             if os.path.exists(font_path):
                 pdfmetrics.registerFont(TTFont('IranYekan', font_path))
             else:
-                print(f"DEBUG: Font file not found at {font_path}")
+                logger.debug("Font file not found at %s", font_path)
         except Exception as e:
             # Ignore if already registered
             pass
@@ -83,7 +90,7 @@ def render_to_pdf(template_src, context_dict={}):
                             return possible_path
             
              # If still not found, print debug info
-             print(f"DEBUG: File not found in link_callback. URI: {uri}, Path: {path}")
+             logger.debug("File not found in link_callback. URI: %s, Path: %s", uri, path)
              # We don't raise exception here to allow other resources to load if possible, 
              # but for fonts it will likely fail later.
              # raise Exception('media URI must start with %s or %s' % (sUrl, mUrl))

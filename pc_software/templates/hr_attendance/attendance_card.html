@@ -39,6 +39,18 @@
                 {% endif %}
             </form>
 
+            {% if selected_employee %}
+            <form method="post" class="mt-2 d-flex flex-wrap gap-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="recalculate_month">
+                <input type="hidden" name="employee_id" value="{{ selected_employee.id }}">
+                <input type="hidden" name="month" value="{{ month_value }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-calculator me-1"></i>{% trans "Recalculate This Month" %}
+                </button>
+            </form>
+            {% endif %}
+
             {% if can_connect_selected and selected_employee %}
             <form method="post" class="mt-2">
                 {% csrf_token %}
@@ -69,7 +81,7 @@
         <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات کار{% else %}{% trans "Total Worked Hours" %}{% endif %}</div>
-                <div class="h4 mb-0">{{ summary.total_worked_hours|unlocalize }}</div>
+                <div class="h4 mb-0">{{ summary.total_worked_hours_display|default:"00:00"|unlocalize }}</div>
             </div></div>
         </div>
     </div>
@@ -102,7 +114,7 @@
                             <td>{{ row.attendance.lunch_in|time:"H:i"|default:"--"|unlocalize }}</td>
                             <td>{{ row.attendance.clock_out|time:"H:i"|default:"--"|unlocalize }}</td>
                             <td>{{ row.attendance.duration|default:"--"|unlocalize }}</td>
-                            <td>{{ row.worked_hours|unlocalize }}</td>
+                            <td>{{ row.worked_hours_display|default:"00:00"|unlocalize }}</td>
                             <td>{{ row.timesheet.overtime_hours|default:"0"|unlocalize }}</td>
                             <td>{{ row.timesheet.late_minutes|default:"0"|unlocalize }}</td>
                             <td>{{ row.timesheet.early_leave_minutes|default:"0"|unlocalize }}</td>

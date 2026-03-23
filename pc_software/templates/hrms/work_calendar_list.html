@@ -14,6 +14,13 @@
                 <input type="month" name="month" value="{{ selected_month }}" class="form-control form-control-sm">
                 <button class="btn btn-outline-secondary btn-sm rounded-pill" type="submit">{% trans "Filter" %}</button>
             </form>
+            <form method="post" action="{% url 'hrms:work_calendar_delete_year' %}" onsubmit="return confirm('{% trans 'Delete all work-calendar rows for this year?' %}');">
+                {% csrf_token %}
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <button class="btn btn-outline-danger btn-sm rounded-pill" type="submit">
+                    <i class="fas fa-trash-alt me-1"></i>{% trans "Delete Year" %}
+                </button>
+            </form>
             <a href="{% url 'hrms:work_calendar_bulk_generate' %}" class="btn btn-outline-primary btn-sm rounded-pill"><i class="fas fa-magic me-1"></i>{% trans "Generate Year" %}</a>
             <a href="{% url 'hrms:work_calendar_create' %}" class="btn btn-primary btn-sm rounded-pill"><i class="fas fa-plus me-1"></i>{% trans "Add Day" %}</a>
         </div>
@@ -21,7 +28,7 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover align-middle">
-                <thead class="table-light"><tr><th>{% trans "Date" %}</th><th>{% trans "Day Type" %}</th><th>{% trans "Holiday" %}</th><th>{% trans "Work Minutes" %}</th><th>{% trans "Flags" %}</th></tr></thead>
+                <thead class="table-light"><tr><th>{% trans "Date" %}</th><th>{% trans "Day Type" %}</th><th>{% trans "Holiday" %}</th><th>{% trans "Work Minutes" %}</th><th>{% trans "Flags" %}</th><th>{% trans "Actions" %}</th></tr></thead>
                 <tbody>
                     {% for row in rows %}
                     <tr>
@@ -33,9 +40,18 @@
                             {% if row.is_ramadan %}<span class="badge bg-info text-dark">{% trans "Ramadan" %}</span>{% endif %}
                             {% if row.is_summer_schedule %}<span class="badge bg-warning text-dark">{% trans "Summer" %}</span>{% endif %}
                         </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'hrms:work_calendar_edit' row.id %}" class="btn btn-sm btn-outline-secondary">{% trans "Edit" %}</a>
+                                <form method="post" action="{% url 'hrms:work_calendar_delete' row.id %}" onsubmit="return confirm('{% trans 'Delete this day?' %}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Delete" %}</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">{% trans "No records found." %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

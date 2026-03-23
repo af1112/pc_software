@@ -17,6 +17,8 @@ class AddFieldIfNotExists(migrations.AddField):
             if (
                 'duplicate column name' in message
                 or ('column' in message and 'exists' in message)
+                or ('duplicate key name' in message)
+                or ('key column' in message and "doesn't exist in table" in message)
             ):
                 return
             raise
@@ -28,7 +30,11 @@ class CreateModelIfNotExists(migrations.CreateModel):
             super().database_forwards(app_label, schema_editor, from_state, to_state)
         except OperationalError as exc:
             message = str(exc).lower()
-            if 'already exists' in message or ('table' in message and 'exists' in message):
+            if (
+                'already exists' in message
+                or ('table' in message and 'exists' in message)
+                or ('key column' in message and "doesn't exist in table" in message)
+            ):
                 return
             raise
 
@@ -139,5 +145,20 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Payroll Runs',
                 'ordering': ['-run_date'],
             },
+        ),
+        AddFieldIfNotExists(
+            model_name='payrollrun',
+            name='period',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='runs', to='hr_personnel.payrollperiod'),
+        ),
+        AddFieldIfNotExists(
+            model_name='payrollrun',
+            name='created_by',
+            field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_payroll_runs', to=settings.AUTH_USER_MODEL, verbose_name='Created By'),
+        ),
+        AddFieldIfNotExists(
+            model_name='payrollrun',
+            name='execution_ms',
+            field=models.PositiveIntegerField(default=0, verbose_name='Execution Time (ms)'),
         ),
     ]

@@ -1,0 +1,172 @@
+{% load i18n %}
+
+<div class="mobile-nav d-md-none" style="background: inherit;">
+    <div class="container-fluid h-100">
+        <div class="row h-100 align-items-center text-center">
+            
+            {# Home #}
+            <div class="col">
+                <a href="{% url 'main_dashboard' %}" class="mobile-nav-link {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span>{% trans "Home" %}</span>
+                </a>
+            </div>
+
+            {% if 'attendance' in request.path %}
+                {# Attendance Module Navigation #}
+                <div class="col">
+                    <a href="{% url 'hr_attendance:attendance_card' %}" class="mobile-nav-link">
+                        <i class="fas fa-history"></i>
+                        <span>{% trans "History" %}</span>
+                    </a>
+                </div>
+                <div class="col-3 action-col">
+                    <a href="{% url 'hr_attendance:quick_clock' %}" class="action-btn btn-clock">
+                        <i class="fas fa-fingerprint"></i>
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="#" class="mobile-nav-link">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>{% trans "Leave" %}</span>
+                    </a>
+                </div>
+            {% elif 'expenses' in request.path %}
+                {# Petty Cash Module Navigation #}
+                <div class="col">
+                    <a href="{% url 'expenses:dashboard' %}" class="mobile-nav-link">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        <span>{% trans "Advances" %}</span>
+                    </a>
+                </div>
+                <div class="col-3 action-col">
+                    <a href="{% url 'expenses:expense_create' %}" class="action-btn btn-camera">
+                        <i class="fas fa-camera"></i>
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="{% url 'expenses:report_list' %}" class="mobile-nav-link">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>{% trans "Reports" %}</span>
+                    </a>
+                </div>
+            {% elif 'ticketing' in request.path %}
+                {# Ticketing Module Navigation #}
+                <div class="col">
+                    <a href="{% url 'ticketing:ticket_list' %}" class="mobile-nav-link">
+                        <i class="fas fa-ticket-alt"></i>
+                        <span>{% trans "My Tickets" %}</span>
+                    </a>
+                </div>
+                <div class="col-3 action-col">
+                    <a href="{% url 'ticketing:ticket_create' %}" class="action-btn btn-plus">
+                        <i class="fas fa-plus"></i>
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="#" class="mobile-nav-link">
+                        <i class="fas fa-users-cog"></i>
+                        <span>{% trans "Depts" %}</span>
+                    </a>
+                </div>
+            {% elif 'personnel' in request.path %}
+                {# HR/Payroll Module Navigation #}
+                <div class="col">
+                    <a href="{% url 'hr_personnel:employee_list' %}" class="mobile-nav-link">
+                        <i class="fas fa-file-invoice"></i>
+                        <span>{% trans "Payslips" %}</span>
+                    </a>
+                </div>
+                <div class="col-3 action-col">
+                    <a href="#" class="action-btn btn-download">
+                        <i class="fas fa-file-download"></i>
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="#" class="mobile-nav-link">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>{% trans "Requests" %}</span>
+                    </a>
+                </div>
+            {% else %}
+                {# Main Dashboard Navigation #}
+                <div class="col">
+                    <button class="mobile-nav-link bg-transparent border-0 w-100 h-100" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenuOffcanvas">
+                        <i class="fas fa-th-large"></i>
+                        <span>{% trans "Modules" %}</span>
+                    </button>
+                </div>
+                <div class="col-3 action-col">
+                    <a href="{% url 'main_dashboard' %}" class="action-btn btn-main">
+                        <i class="fas fa-layer-group"></i>
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="{% url 'users:alerts_list' %}" class="mobile-nav-link position-relative">
+                        <i class="fas fa-bell"></i>
+                        <span>{% trans "Alerts" %}</span>
+                        {% if unread_alerts_count > 0 %}
+                        <span class="position-absolute top-0 start-50 translate-middle-y badge rounded-pill bg-danger" style="font-size: 0.65rem; margin-left: 10px;">
+                            {{ unread_alerts_count }}
+                        </span>
+                        {% endif %}
+                    </a>
+                </div>
+            {% endif %}
+
+
+            {# Profile #}
+            <div class="col">
+                <a href="{% url 'users:settings' %}" class="mobile-nav-link {% if 'settings' in request.path %}active{% endif %}">
+                    <i class="fas fa-user"></i>
+                    <span>{% trans "Profile" %}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Offcanvas for full menu on mobile #}
+<div class="offcanvas offcanvas-start glassmorphism border-0" tabindex="-1" id="mobileMenuOffcanvas" aria-labelledby="mobileMenuOffcanvasLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold text-primary" id="mobileMenuOffcanvasLabel">{% trans "Main Menu" %}</h5>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+        <div class="list-group list-group-flush">
+            <a href="{% url 'main_dashboard' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-home me-3 text-primary"></i> {% trans "Dashboard" %}
+            </a>
+            {% if can_use_expenses and perms.users.can_access_expenses or user.is_superuser %}
+            <a href="{% url 'expenses:dashboard' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-wallet me-3 text-success"></i> {% trans "Expenses" %}
+            </a>
+            {% endif %}
+            {% if can_use_ticketing and perms.users.can_access_ticketing or user.is_superuser %}
+            <a href="{% url 'ticketing:ticket_list' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-ticket-alt me-3 text-info"></i> {% trans "Ticketing" %}
+            </a>
+            {% endif %}
+            {% if can_use_attendance and perms.users.can_access_attendance or user.is_superuser %}
+            <a href="{% url 'hr_attendance:dashboard' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-clock me-3 text-warning"></i> {% trans "Attendance" %}
+            </a>
+            {% endif %}
+            {% if can_use_personnel and perms.users.can_access_personnel or user.is_superuser %}
+            <a href="{% url 'hr_personnel:employee_list' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-id-badge me-3 text-danger"></i> {% trans "Personnel" %}
+            </a>
+            {% endif %}
+            <hr class="my-2">
+            <a href="{% url 'users:settings' %}" class="list-group-item list-group-item-action border-0 py-3 ps-4">
+                <i class="fas fa-cog me-3 text-secondary"></i> {% trans "Settings" %}
+            </a>
+            <form action="{% url 'logout' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="list-group-item list-group-item-action border-0 py-3 ps-4 text-danger bg-transparent">
+                    <i class="fas fa-sign-out-alt me-3"></i> {% trans "Logout" %}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

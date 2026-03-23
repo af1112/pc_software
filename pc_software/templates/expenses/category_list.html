@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load i18n local_dates %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0 fw-bold text-primary">{% trans "Expense Categories" %}</h4>
+        <a href="{% url 'expenses:create_expense' %}" class="btn btn-outline-secondary btn-sm">{% trans "Back to New Expense" %}</a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <strong>{% trans "Add Category" %}</strong>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'expenses:category_create' %}">
+                {% csrf_token %}
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-7">
+                        <label class="form-label">{% trans "Category Name" %}</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{% trans "Active" %}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <strong>{% trans "Your Categories" %}</strong>
+            <span class="badge bg-secondary">{{ categories|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if categories %}
+                <div class="list-group list-group-flush">
+                    {% for category in categories %}
+                        <div class="list-group-item">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-7">
+                                    <form method="post" action="{% url 'expenses:category_update' category.id %}" class="d-flex gap-2">
+                                        {% csrf_token %}
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value="{{ category.name }}"
+                                            class="form-control"
+                                            maxlength="100"
+                                            required
+                                        >
+                                        <div class="form-check d-flex align-items-center">
+                                            <input
+                                                type="checkbox"
+                                                class="form-check-input me-1"
+                                                name="is_active"
+                                                id="cat-active-{{ category.id }}"
+                                                {% if category.is_active %}checked{% endif %}
+                                            >
+                                            <label class="form-check-label small" for="cat-active-{{ category.id }}">{% trans "Active" %}</label>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Save" %}</button>
+                                    </form>
+                                </div>
+                                <div class="col-md-3 text-muted small">
+                                    {% localized_date category.created_at "Y-m-d" %}
+                                </div>
+                                <div class="col-md-2 {% if LANGUAGE_BIDI %}text-start{% else %}text-end{% endif %}">
+                                    <form method="post" action="{% url 'expenses:category_delete' category.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            {% trans "Delete" %}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="p-4 text-center text-muted">{% trans "No categories yet." %}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

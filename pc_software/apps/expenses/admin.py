@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ExpenseReport, ExpenseItem, Trip, Advance
+from .models import ExpenseReport, ExpenseItem, Trip, Advance, ExpenseCategory
 
 class ExpenseItemInline(admin.TabularInline):
     model = ExpenseItem
@@ -16,6 +16,13 @@ class TripAdmin(admin.ModelAdmin):
 class AdvanceAdmin(admin.ModelAdmin):
     list_display = ('user', 'amount', 'currency', 'date', 'paid_through')
     list_filter = ('date', 'paid_through')
+
+
+@admin.register(ExpenseCategory)
+class ExpenseCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_by', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'created_by__username')
 
 @admin.register(ExpenseItem)
 class ExpenseItemAdmin(admin.ModelAdmin):

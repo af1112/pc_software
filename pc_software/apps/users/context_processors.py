@@ -45,7 +45,11 @@ def user_settings(request):
                             logo_url = org.logo.url
                     except Exception:
                         logo_url = None
+                
+                unread_alerts_count = request.user.alerts.filter(is_read=False).count()
+                
                 settings_data = {
+                    'unread_alerts_count': unread_alerts_count,
                     'user_currency_code': profile.currency_code,
                     'user_currency_symbol': profile.currency_symbol,
                     'user_decimal_places': profile.currency_decimal_places,

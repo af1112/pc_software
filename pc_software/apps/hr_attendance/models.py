@@ -152,9 +152,13 @@ class Attendance(models.Model):
 
     @property
     def duration(self):
-        if self.clock_in and self.clock_out:
-            total_seconds = (self.clock_out - self.clock_in).total_seconds()
-            if self.lunch_out and self.lunch_in and self.lunch_in > self.lunch_out:
+        end_punch = self.clock_out
+        if end_punch is None and self.lunch_out and not self.lunch_in:
+            end_punch = self.lunch_out
+
+        if self.clock_in and end_punch:
+            total_seconds = (end_punch - self.clock_in).total_seconds()
+            if self.clock_out and self.lunch_out and self.lunch_in and self.lunch_in > self.lunch_out:
                 total_seconds -= (self.lunch_in - self.lunch_out).total_seconds()
             if total_seconds <= 0:
                 return None
