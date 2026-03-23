@@ -1,0 +1,36 @@
+# Environment Configuration Files
+# These files contain environment-specific settings and should NOT be committed
+
+# Local development settings (contains local database paths, debug settings, etc.)
+settings_local.py
+
+# Production settings (contains production secrets, database credentials, etc.)
+settings_production.py
+
+# Environment variables file (contains sensitive data)
+.env
+
+# Local database
+db.sqlite3
+
+# Media files (user uploads)
+media/
+
+# Static files (collected static files)
+staticfiles/
+
+# Logs
+logs/
+*.log
+
+# Cache
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

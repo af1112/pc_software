@@ -7,18 +7,42 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv'
+# Environment detection
+ENVIRONMENT = os.environ.get('DJANGO_ENV', 'local')
 
-DEBUG = True
-
-ALLOWED_HOSTS = ['*']
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://akafbusiness.com',
-    'https://www.akafbusiness.com',
-    'http://141.98.169.227:8080',
-    'http://localhost:8080',
-]
+# Load environment-specific settings
+if ENVIRONMENT == 'production':
+    from .settings_production import *
+elif ENVIRONMENT == 'local':
+    from .settings_local import *
+else:
+    # Default fallback to local settings
+    try:
+        from .settings_local import *
+    except ImportError:
+        # Fallback settings if settings_local doesn't exist
+        SECRET_KEY = 'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv'
+        DEBUG = True
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+        CSRF_TRUSTED_ORIGINS = [
+            'http://localhost:8000',
+            'http://127.0.0.1:8000',
+        ]
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+        MEDIA_URL = '/media/'
+        MEDIA_ROOT = BASE_DIR / 'media'
+        STATIC_URL = '/static/'
+        STATIC_ROOT = BASE_DIR / 'staticfiles'
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        SECURE_SSL_REDIRECT = False
+        SECURE_HSTS_SECONDS = 0
+        SESSION_COOKIE_SECURE = False
+        CSRF_COOKIE_SECURE = False
 
 INSTALLED_APPS = [
     'django.contrib.admin',

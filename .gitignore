@@ -9,6 +9,10 @@ media/
 staticfiles/
 .env
 
+# Environment-specific settings (NEVER commit these)
+core/settings_local.py
+core/settings_production.py
+
 # Environments
 .venv/
 env/
