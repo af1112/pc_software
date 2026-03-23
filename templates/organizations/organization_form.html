@@ -20,7 +20,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.slug.label }}</label>
-                        {{ form.slug }}
+                        <div class="input-group">
+                            {{ form.slug }}
+                            <span class="input-group-text">
+                                <i class="fas fa-magic text-muted" title="{% trans 'Auto-generated from company name' %}"></i>
+                            </span>
+                        </div>
+                        <div class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> {% trans "This subdomain is automatically generated from the company name and cannot be edited." %}
+                        </div>
                         {{ form.slug.errors }}
                     </div>
                     <div class="mb-3">
@@ -95,10 +103,6 @@
                                 <label class="form-check-label">{{ form.can_use_ai.label }}</label>
                             </div>
                             <div class="form-check mb-2">
-                                {{ form.can_use_menu }}
-                                <label class="form-check-label">{{ form.can_use_menu.label }}</label>
-                            </div>
-                            <div class="form-check mb-2">
                                 {{ form.can_use_club }}
                                 <label class="form-check-label">{{ form.can_use_club.label }}</label>
                             </div>
@@ -121,9 +125,13 @@
     (function() {
         const nameInput = document.getElementById('id_name');
         const slugInput = document.getElementById('id_slug');
-        let userEditedSlug = false;
         if (!nameInput || !slugInput) return;
-        slugInput.addEventListener('input', () => { userEditedSlug = true; });
+        
+        // Disable slug field to prevent user editing
+        slugInput.disabled = true;
+        slugInput.style.backgroundColor = '#f8f9fa';
+        slugInput.style.cursor = 'not-allowed';
+        
         function slugify(text) {
             return text.toString().toLowerCase()
                 .trim()
@@ -131,8 +139,8 @@
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '');
         }
+        
         nameInput.addEventListener('input', (e) => {
-            if (userEditedSlug) return;
             const val = e.target.value || '';
             const s = slugify(val);
             if (s) slugInput.value = s;

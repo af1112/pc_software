@@ -32,6 +32,14 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
+            <div class="mb-3">
+                <p class="mb-1 text-muted">{% trans "Statement Title" %}</p>
+                <h5 class="mb-0">{{ report.title }}</h5>
+                {% if report.business_purpose %}
+                    <small class="text-muted d-block mt-1">{{ report.business_purpose }}</small>
+                {% endif %}
+            </div>
+            <hr>
             <div class="row">
                 <div class="col-6">
                     <p class="mb-1 text-muted">{% trans "Report ID" %}</p>
@@ -42,6 +50,17 @@
                     <span class="badge bg-{% if report.status == 'approved' %}success{% elif report.status == 'submitted' %}info{% else %}secondary{% endif %}">
                         {{ report.get_status_display }}
                     </span>
+                </div>
+            </div>
+            <hr>
+            <div class="row">
+                <div class="col-6">
+                    <p class="mb-1 text-muted">{% trans "Submitted By" %}</p>
+                    <small>{{ report.submitted_by.get_full_name|default:report.submitted_by.username }}</small>
+                </div>
+                <div class="col-6 {% if LANGUAGE_BIDI %}text-start{% else %}text-end{% endif %}">
+                    <p class="mb-1 text-muted">{% trans "Created At" %}</p>
+                    <small>{% localized_date report.created_at "Y-m-d" %}</small>
                 </div>
             </div>
             <hr>
@@ -60,12 +79,14 @@
                 <div class="col-6">
                     <p class="mb-1 text-muted">{% trans "Total Advances" %}</p>
                     <strong>{{ total_advances|floatformat:3 }} {{ report.currency }}</strong>
+                    <div class="small text-muted mt-1">{% blocktrans %}{{ advance_count }} advance(s){% endblocktrans %}</div>
                 </div>
                 <div class="col-6 {% if LANGUAGE_BIDI %}text-start{% else %}text-end{% endif %}">
                     <p class="mb-1 text-muted">{% trans "Net Position" %}</p>
                     <strong class="{% if net_balance > 0 %}text-danger{% elif net_balance < 0 %}text-success{% else %}text-muted{% endif %}">
                         {{ net_balance|floatformat:3 }} {{ report.currency }}
                     </strong>
+                    <div class="small text-muted mt-1">{% blocktrans %}{{ expense_count }} expense item(s){% endblocktrans %}</div>
                     <div class="small text-muted">
                         {% if net_balance > 0 %}
                             {% trans "Employee owes this amount to settle advances." %}

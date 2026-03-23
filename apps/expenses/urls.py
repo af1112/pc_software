@@ -6,6 +6,7 @@ app_name = 'expenses'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('statements/', views.statement_list, name='statement_list'),
+    path('unreported/', views.unreported_expenses, name='unreported_expenses'),
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),
     path('categories/<int:category_id>/update/', views.category_update, name='category_update'),

@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .forms import AdvanceForm, ExpenseItemForm
-from .models import ExpenseReport
+from .models import ExpenseItem, ExpenseReport
 
 
 User = get_user_model()
@@ -101,3 +101,48 @@ class DraftSelectionTests(TestCase):
         self.assertIn(self.draft_report.id, report_ids)
         self.assertNotIn(self.approved_report.id, report_ids)
         self.assertNotIn(self.other_users_draft.id, report_ids)
+
+
+class UnreportedExpensesViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='expense_user', password='pass1234')
+        self.other_user = User.objects.create_user(username='other_expense_user', password='pass1234')
+
+        self.report = ExpenseReport.objects.create(
+            title='Linked Statement',
+            submitted_by=self.user,
+            status='draft',
+        )
+
+        ExpenseItem.objects.create(
+            created_by=self.user,
+            report=None,
+            date='2026-03-23',
+            category='Food',
+            amount='10.500',
+        )
+        ExpenseItem.objects.create(
+            created_by=self.user,
+            report=self.report,
+            date='2026-03-23',
+            category='Transport',
+            amount='5.000',
+        )
+        ExpenseItem.objects.create(
+            created_by=self.other_user,
+            report=None,
+            date='2026-03-23',
+            category='Other',
+            amount='3.000',
+        )
+
+    def test_unreported_view_shows_only_current_user_unreported_items(self):
+        self.client.login(username='expense_user', password='pass1234')
+
+        response = self.client.get(reverse('expenses:unreported_expenses'))
+
+        self.assertEqual(response.status_code, 200)
+        expenses = list(response.context['expenses'])
+        self.assertEqual(len(expenses), 1)
+        self.assertIsNone(expenses[0].report)
+        self.assertEqual(expenses[0].created_by, self.user)

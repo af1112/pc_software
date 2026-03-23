@@ -35,6 +35,8 @@ def dashboard(request):
         context['pending_reports'] = ExpenseReport.objects.filter(status='draft', submitted_by=user).order_by('-created_at')[:5]
         context['recent_trips'] = Trip.objects.filter(created_by=user).order_by('-created_at')[:5]
         context['recent_advances'] = Advance.objects.filter(user=user).order_by('-created_at')[:5]
+        # Add recent unreported expenses
+        context['recent_unreported'] = ExpenseItem.objects.filter(report__isnull=True, created_by=user).order_by('-created_at')[:5]
     else:
         # Fallback for demo/dev without login
         # Only show public data or nothing, but for now we keep it empty or safe default
@@ -44,6 +46,7 @@ def dashboard(request):
         context['pending_reports'] = []
         context['recent_trips'] = []
         context['recent_advances'] = []
+        context['recent_unreported'] = []
 
     return render(request, 'expenses/dashboard.html', context)
 
@@ -85,6 +88,7 @@ def create_report(request):
 def statement_list(request):
     user = request.user if request.user.is_authenticated else None
     selected_status = request.GET.get('status', 'all')
+    source = request.GET.get('source', '')
 
     if user:
         reports = ExpenseReport.objects.filter(submitted_by=user).order_by('-created_at')
@@ -103,6 +107,22 @@ def statement_list(request):
         {
             'reports': reports,
             'selected_status': selected_status,
+            'from_expense_dashboard': source == 'dashboard',
+        },
+    )
+
+
+@login_required
+def unreported_expenses(request):
+    expenses = ExpenseItem.objects.filter(
+        created_by=request.user,
+        report__isnull=True,
+    ).order_by('-date', '-created_at')
+    return render(
+        request,
+        'expenses/unreported_expenses.html',
+        {
+            'expenses': expenses,
         },
     )
 
@@ -135,9 +155,22 @@ def create_advance(request):
 
 def create_expense(request):
     user = request.user if request.user.is_authenticated else None
+    edit_id = request.GET.get('edit')
+    expense_instance = None
+    
+    # Handle editing existing expense
+    if edit_id:
+        try:
+            expense_instance = ExpenseItem.objects.get(id=edit_id, created_by=user)
+            if expense_instance.report and expense_instance.report.status != 'draft':
+                messages.error(request, _('This expense cannot be edited because it belongs to a submitted statement.'))
+                return redirect('expenses:dashboard')
+        except ExpenseItem.DoesNotExist:
+            messages.error(request, _('Expense not found.'))
+            return redirect('expenses:dashboard')
 
     if request.method == 'POST':
-        form = ExpenseItemForm(request.POST, request.FILES, user=user)
+        form = ExpenseItemForm(request.POST, request.FILES, user=user, instance=expense_instance)
         if form.is_valid():
             expense = form.save(commit=False)
             if expense.report and expense.report.status != 'draft':
@@ -158,13 +191,15 @@ def create_expense(request):
             # Update report total if linked
             if expense.report:
                 expense.report.update_total()
-                
+            
+            action = "updated" if edit_id else "added"
+            messages.success(request, _(f'Expense {action} successfully.'))
             return redirect('expenses:dashboard')
         else:
             # Form errors will be displayed in the template
             pass
     else:
-        form = ExpenseItemForm(user=user)
+        form = ExpenseItemForm(user=user, instance=expense_instance)
 
     user_currency_code = getattr(getattr(user, 'profile', None), 'currency_code', 'OMR')
     return render(
@@ -174,6 +209,7 @@ def create_expense(request):
             'form': form,
             'merchant_suggestions': getattr(form, 'merchant_suggestions', []),
             'user_currency_code': user_currency_code,
+            'editing': bool(edit_id),
         },
     )
 
@@ -237,7 +273,9 @@ def report_detail(request, report_id):
     report = get_object_or_404(ExpenseReport, id=report_id)
     # Group expenses by date or category if needed
     expenses = report.items.all().order_by('date')
+    expense_count = expenses.count()
     advances = report.advances.select_related('user').order_by('date', 'created_at')
+    advance_count = advances.count()
     total_advances = advances.aggregate(total=Sum('amount'))['total'] or 0
     net_balance = report.total_amount - total_advances
     
@@ -245,6 +283,8 @@ def report_detail(request, report_id):
         'report': report,
         'expenses': expenses,
         'advances': advances,
+        'expense_count': expense_count,
+        'advance_count': advance_count,
         'total_advances': total_advances,
         'net_balance': net_balance,
         'can_submit': request.user == report.submitted_by and report.status == 'draft',

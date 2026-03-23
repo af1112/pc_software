@@ -98,7 +98,6 @@ class UserPermissionsForm(forms.Form):
     CAN_ACCESS_PROJECTS = forms.BooleanField(required=False, label="Access Project Control")
     CAN_ACCESS_DMS = forms.BooleanField(required=False, label="Access Document DMS")
     CAN_ACCESS_AI = forms.BooleanField(required=False, label="Access AI Engine")
-    CAN_ACCESS_MENU = forms.BooleanField(required=False, label="Access Digital Menu")
     CAN_ACCESS_CLUB = forms.BooleanField(required=False, label="Access Customer Club")
     
     REQUIRE_PHOTO = forms.BooleanField(required=False, label="Require Photo for Attendance")
@@ -115,7 +114,6 @@ class UserPermissionsForm(forms.Form):
             'CAN_ACCESS_PROJECTS': _('Access Project Control'),
             'CAN_ACCESS_DMS': _('Access Document DMS'),
             'CAN_ACCESS_AI': _('Access AI Engine'),
-            'CAN_ACCESS_MENU': _('Access Digital Menu'),
             'CAN_ACCESS_CLUB': _('Access Customer Club'),
             'REQUIRE_PHOTO': _('Require Photo for Attendance'),
         }
@@ -131,7 +129,6 @@ class UserPermissionsForm(forms.Form):
                     'CAN_ACCESS_PROJECTS': 'دسترسی به کنترل پروژه',
                     'CAN_ACCESS_DMS': 'دسترسی به مدیریت اسناد',
                     'CAN_ACCESS_AI': 'دسترسی به موتور هوش مصنوعی',
-                    'CAN_ACCESS_MENU': 'دسترسی به منوی دیجیتال',
                     'CAN_ACCESS_CLUB': 'دسترسی به باشگاه مشتریان',
                     'REQUIRE_PHOTO': 'الزام عکس برای حضور و غیاب',
                 }

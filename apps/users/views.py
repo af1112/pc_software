@@ -346,67 +346,77 @@ def user_create(request):
                             try:
                                 candidate = User.objects.select_related('profile').get(id=int(selected_supervisor_id))
                                 if (
-                                    candidate.profile.organization_id == profile.organization_id
-                                    and candidate.profile.role == 'supervisor'
+                                    candidate.id != user.id
+                                    and getattr(candidate.profile, 'role', None) == 'supervisor'
+                                    and candidate.profile.organization_id == profile.organization_id
                                 ):
                                     profile.supervisor = candidate
                             except Exception:
                                 profile.supervisor = None
             profile.save()
-            
-            # Update user staff status based on role
-            if profile.role in ['admin', 'supervisor']:
-                user.is_staff = True
-                user.save()
-            
-            # We need the ContentType for UserProfile since that's where perms are defined
+
+            # Assign permissions based on form and organization modules
+            from django.contrib.auth.models import Permission
             from django.contrib.contenttypes.models import ContentType
-            content_type = ContentType.objects.get_for_model(UserProfile)
             
-            # Save permissions
-            for field, value in perm_form.cleaned_data.items():
-                if field == 'REQUIRE_PHOTO':
-                    profile.require_photo = value
-                    profile.save()
-                    continue
+            # Get organization's enabled modules
+            org_modules = {}
+            if selected_org:
+                org_modules = {
+                    'expenses': selected_org.can_use_expenses,
+                    'ticketing': selected_org.can_use_ticketing,
+                    'attendance': selected_org.can_use_attendance,
+                    'personnel': selected_org.can_use_personnel,
+                    'projects': selected_org.can_use_projects,
+                    'dms': selected_org.can_use_dms,
+                    'ai': selected_org.can_use_ai,
+                    'club': selected_org.can_use_club,
+                }
+            
+            # Map form fields to permission codenames
+            permission_map = {
+                'CAN_ACCESS_EXPENSES': 'can_access_expenses',
+                'CAN_ACCESS_TICKETING': 'can_access_ticketing',
+                'CAN_ACCESS_ATTENDANCE': 'can_access_attendance',
+                'CAN_ACCESS_PERSONNEL': 'can_access_personnel',
+                'CAN_ACCESS_PROJECTS': 'can_access_projects',
+                'CAN_ACCESS_DMS': 'can_access_dms',
+                'CAN_ACCESS_AI': 'can_access_ai',
+                'CAN_ACCESS_CLUB': 'can_access_club',
+            }
+            
+            # Only assign permissions if organization has the module enabled
+            for form_field, perm_codename in permission_map.items():
+                if perm_form.cleaned_data.get(form_field):
+                    # Check if organization has this module enabled
+                    module_key = perm_codename.replace('can_access_', '')
+                    if not org_modules.get(module_key, True):  # Default to True if no org selected
+                        continue  # Skip this permission if org doesn't have the module
                     
-                if value:
-                    perm_codename = field.lower()
                     try:
-                        # Find the permission specifically for our model
-                        permission = Permission.objects.filter(
-                            codename=perm_codename,
-                            content_type=content_type
-                        ).first()
-                        
-                        if not permission:
-                            # Create if missing
-                            permission = Permission.objects.create(
-                                codename=perm_codename,
-                                name=f'Can access {perm_codename.split("_")[-1].capitalize()}',
-                                content_type=content_type,
-                            )
-                        
-                        user.user_permissions.add(permission)
-                        # Also add to staff_user's group or direct perms if they are staff
-                        if user.is_staff:
-                            user.user_permissions.add(permission)
-                    except Exception as e:
-                        print(f"DEBUG: Error adding permission {perm_codename}: {e}")
-            
-            # CLEAR CACHE AFTER SAVING
-            settings_key = f'user_settings_{user.id}'
-            if settings_key in request.session:
-                del request.session[settings_key]
-            
+                        perm = Permission.objects.get(codename=perm_codename)
+                        user.user_permissions.add(perm)
+                    except Permission.DoesNotExist:
+                        pass
+
+            # Handle REQUIRE_PHOTO permission
+            if perm_form.cleaned_data.get('REQUIRE_PHOTO'):
+                try:
+                    profile.require_photo = True
+                    profile.save()
+                except:
+                    pass
+
             messages.success(request, _('User created successfully.'))
             return redirect('users:user_list')
     else:
         user_form = UserCreateForm()
         perm_form = UserPermissionsForm()
         selected_supervisor = None
+        selected_org = None
 
-    supervisors = User.objects.none()
+    # Prepare context data
+    supervisors = []
     selected_org_id = None
     if request.user.is_superuser:
         try:
@@ -414,16 +424,22 @@ def user_create(request):
         except Exception:
             selected_org = None
         selected_org_id = selected_org.id if selected_org else None
+        organizations = Organization.objects.order_by('name')
         supervisors = User.objects.select_related('profile').filter(profile__role='supervisor')
-        supervisors = supervisors.order_by('username')
+        if selected_org:
+            supervisors = supervisors.filter(profile__organization=selected_org)
+        supervisors = supervisors.exclude(id=request.user.id).order_by('username')
     else:
+        organizations = Organization.objects.none()
         try:
-            org = request.user.profile.organization
-        except Exception:
-            org = None
-        if org:
-            selected_org_id = org.id
-            supervisors = User.objects.select_related('profile').filter(profile__organization=org, profile__role='supervisor').order_by('username')
+            selected_org = request.user.profile.organization
+            selected_org_id = selected_org.id if selected_org else None
+            supervisors = User.objects.select_related('profile').filter(
+                profile__role='supervisor',
+                profile__organization=selected_org
+            ).exclude(id=request.user.id).order_by('username')
+        except UserProfile.DoesNotExist:
+            supervisors = []
 
     try:
         current_role = getattr(request.user.profile, 'role', 'user')

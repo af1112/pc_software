@@ -150,13 +150,6 @@
                 <span>{% trans "Dashboard" %}</span>
             </a>
             
-            {% if user.is_staff or user.is_superuser %}
-            <a href="{% url 'users:user_list' %}" data-title="{% trans 'User Management' %}" class="nav-link {% if 'users' in request.path %}active{% endif %}">
-                <i class="fas fa-user-shield text-danger"></i>
-                <span class="fw-bold">{% trans "User Management" %}</span>
-            </a>
-            {% endif %}
-
             <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "Modules" %}</p>
             {% if request.resolver_match.namespace != 'hr_personnel' and request.resolver_match.namespace != 'hr_attendance' and request.resolver_match.namespace != 'hrms' %}
 
@@ -389,13 +382,6 @@
             </a>
             {% endif %}
             
-            {% if can_use_menu and perms.users.can_access_menu or user.is_superuser %}
-            <a href="#" data-title="{% trans 'Digital Menu' %}" class="nav-link {% if 'menu' in request.path %}active{% endif %}">
-                <i class="fas fa-utensils"></i>
-                <span>{% trans "Digital Menu" %}</span>
-            </a>
-            {% endif %}
-            
             {% if can_use_club and perms.users.can_access_club or user.is_superuser %}
             <a href="#" data-title="{% trans 'Customer Club' %}" class="nav-link {% if 'club' in request.path %}active{% endif %}">
                 <i class="fas fa-users"></i>
@@ -406,6 +392,12 @@
 
              <p class="sidebar-section-title text-uppercase text-secondary small fw-bold mt-4 mb-2 ps-3">{% trans "System" %}</p>
             
+            {% if user.is_staff or user.is_superuser %}
+            <a href="{% url 'users:user_list' %}" data-title="{% trans 'User Management' %}" class="nav-link {% if 'users' in request.path %}active{% endif %}">
+                <i class="fas fa-user-shield text-danger"></i>
+                <span class="fw-bold">{% trans "User Management" %}</span>
+            </a>
+            {% endif %}
 
             {% if user.is_superuser %}
             <a href="{% url 'organizations:list' %}" data-title="{% trans 'Organizations' %}" class="nav-link {% if 'organizations' in request.path %}active{% endif %}">

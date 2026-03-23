@@ -114,7 +114,7 @@ class ExpenseItemForm(forms.ModelForm):
         widgets = {
             'report': forms.Select(attrs={'class': 'form-select'}),
             'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'merchant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Tap to select'), 'list': 'merchant-list'}),
+            'merchant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Tap to enter merchant name'), 'list': 'merchant-list'}),
             'category': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Tap to select')}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'currency': forms.HiddenInput(),

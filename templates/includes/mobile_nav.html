@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="mobile-nav d-md-none" style="background: inherit;">
+<div class="mobile-nav d-lg-none" style="background: inherit;">
     <div class="container-fluid h-100">
         <div class="row h-100 align-items-center text-center">
             
@@ -40,12 +40,12 @@
                     </a>
                 </div>
                 <div class="col-3 action-col">
-                    <a href="{% url 'expenses:expense_create' %}" class="action-btn btn-camera">
+                    <a href="{% url 'expenses:create_expense' %}" class="action-btn btn-camera">
                         <i class="fas fa-camera"></i>
                     </a>
                 </div>
                 <div class="col">
-                    <a href="{% url 'expenses:report_list' %}" class="mobile-nav-link">
+                    <a href="{% url 'expenses:statement_list' %}" class="mobile-nav-link">
                         <i class="fas fa-file-invoice-dollar"></i>
                         <span>{% trans "Reports" %}</span>
                     </a>

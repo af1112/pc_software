@@ -152,6 +152,13 @@
                                 <option value="{{ merchant }}"></option>
                             {% endfor %}
                         </datalist>
+                        <small class="text-muted d-block mt-1">
+                            {% if merchant_suggestions %}
+                                {% trans "Type merchant name or pick from your previous merchants." %}
+                            {% else %}
+                                {% trans "Type merchant name manually. Suggestions will appear after you save expenses." %}
+                            {% endif %}
+                        </small>
                         {{ form.merchant.errors }}
                     </div>
                 </div>
@@ -287,23 +294,6 @@
             }
 
             pageBackBtn?.addEventListener('click', () => {
-                const stack = readNavStack();
-                const currentNormalized = normalizeUrl(window.location.href);
-                while (stack.length && normalizeUrl(stack[stack.length - 1]) === currentNormalized) {
-                    stack.pop();
-                }
-
-                if (stack.length) {
-                    const target = stack.pop();
-                    writeNavStack(stack);
-                    window.location.href = target;
-                    return;
-                }
-
-                if (window.history.length > 1) {
-                    window.history.back();
-                    return;
-                }
                 window.location.href = "{% url 'expenses:dashboard' %}";
             });
 
@@ -355,8 +345,17 @@
                         body: formData
                     })
                     .then(async (response) => {
-                        const data = await response.json();
-                        return { ok: response.ok, data };
+                        const rawText = await response.text();
+                        let payload;
+                        try {
+                            payload = JSON.parse(rawText);
+                        } catch (err) {
+                            payload = {
+                                status: 'error',
+                                message: rawText || '{% trans "Scan failed. Please enter details manually." %}'
+                            };
+                        }
+                        return { ok: response.ok, data: payload };
                     })
                     .then(data => {
                         overlay.style.display = 'none';
