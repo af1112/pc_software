@@ -1,84 +1,161 @@
 {% extends 'dashboard_base.html' %}
 {% load i18n %}
 {% load static %}
+{% load l10n %}
+{% load local_dates %}
 
 {% block title %}{% trans "Attendance Dashboard" %}{% endblock %}
 
 {% block extra_css %}
 <style>
+    :root {
+        --dash-bg-1: #0c1f2b;
+        --dash-bg-2: #143346;
+        --dash-accent: #2fb8a9;
+        --dash-warning: #f4b740;
+        --dash-danger: #df5b57;
+        --dash-muted: #6f8091;
+    }
+    .kpi-card,
+    .panel-card,
+    .clock-card,
+    .nav-tile {
+        border: 1px solid #e8edf2;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(18, 38, 63, 0.06);
+    }
+    .kpi-card {
+        padding: 16px;
+        height: 100%;
+    }
+    .kpi-label {
+        font-size: 0.78rem;
+        color: var(--dash-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .kpi-value {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #0d2538;
+        line-height: 1.1;
+    }
+    .kpi-footnote {
+        font-size: 0.8rem;
+        color: #4f6070;
+    }
     .clock-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 20px;
-        overflow: hidden;
+        background: linear-gradient(130deg, var(--dash-bg-1), var(--dash-bg-2));
+        color: #fff;
+        padding: 1.6rem;
         position: relative;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
     }
     .clock-display {
-        font-size: 3.5rem;
-        font-weight: 700;
-        letter-spacing: -1px;
+        font-size: 3rem;
+        font-weight: 800;
         margin-bottom: 0;
+        letter-spacing: -0.03em;
     }
     .date-display {
-        font-size: 1.1rem;
-        opacity: 0.9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        margin-bottom: 8px;
+        min-height: 46px;
     }
-    .btn-action {
-        border-radius: 50px;
-        padding: 12px 30px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-        border: none;
-        width: 100%;
-        max-width: 300px;
-    }
-    .btn-clock-in { background-color: #48bb78; color: white; box-shadow: 0 4px 14px 0 rgba(72, 187, 120, 0.39); }
-    .btn-clock-in:hover { background-color: #38a169; transform: translateY(-2px); color: white; }
-    .btn-clock-out { background-color: #f56565; color: white; box-shadow: 0 4px 14px 0 rgba(245, 101, 101, 0.39); }
-    .btn-clock-out:hover { background-color: #e53e3e; transform: translateY(-2px); color: white; }
-    
     .status-badge {
         position: absolute;
-        top: 20px;
-        right: 20px;
-        padding: 5px 12px;
-        border-radius: 50px;
-        background: rgba(255,255,255,0.2);
-        backdrop-filter: blur(5px);
+        top: 16px;
+        inset-inline-end: 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        padding: 6px 12px;
         font-size: 0.75rem;
     }
-    
+    .btn-action {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 22px;
+        font-weight: 700;
+    }
+    .btn-clock-in { background: #28b37f; color: #fff; }
+    .btn-clock-out { background: #e76b68; color: #fff; }
+    .btn-clock-in:hover,
+    .btn-clock-out:hover { color: #fff; opacity: 0.95; }
+    .panel-card {
+        padding: 1rem;
+        height: 100%;
+    }
+    .panel-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #12324a;
+        margin-bottom: 0.75rem;
+    }
+    .history-item {
+        border: 1px solid #ebf0f4;
+        border-left: 4px solid var(--dash-accent);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #fbfdff;
+    }
+    [dir="rtl"] .history-item { border-left: 1px solid #ebf0f4; border-right: 4px solid var(--dash-accent); }
+    .week-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    .week-bar-track {
+        flex: 1;
+        height: 10px;
+        border-radius: 999px;
+        background: #edf2f6;
+        overflow: hidden;
+    }
+    .week-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #1f9ea2, #2fb8a9);
+    }
+    .nav-tile {
+        display: block;
+        padding: 14px;
+        text-decoration: none;
+        color: #0d2538;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .nav-tile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(18, 38, 63, 0.1);
+        color: #0d2538;
+    }
+    .nav-tile .small {
+        color: #6f8091;
+    }
+    .module-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
     #camera-container {
         width: 100%;
         max-width: 300px;
-        margin: 0 auto 20px;
-        border-radius: 15px;
+        margin: 0 auto 16px;
+        border-radius: 14px;
         overflow: hidden;
         background: #000;
         display: none;
-        position: relative;
     }
     #camera-preview { width: 100%; transform: scaleX(-1); }
-    #photo-preview { width: 100%; display: none; border-radius: 15px; margin-bottom: 20px; }
-    
-    .attendance-history-card { border-radius: 20px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-    .history-item {
-        border-left: 4px solid #764ba2;
-        padding: 12px;
-        margin-bottom: 8px;
-        background: #f8f9fa;
-        border-radius: 0 10px 10px 0;
-    }
-    [dir="rtl"] .history-item { border-left: none; border-right: 4px solid #764ba2; border-radius: 10px 0 0 10px; }
-    
-    .location-info { font-size: 0.75rem; opacity: 0.8; margin-top: 10px; }
-    
-    @media (max-width: 768px) {
-        .clock-display { font-size: 2.5rem; }
-        .clock-card { padding: 30px 15px !important; }
+    #photo-preview { width: 100%; display: none; border-radius: 14px; margin-bottom: 12px; }
+    .location-info { font-size: 0.8rem; opacity: 0.9; }
+    @media (max-width: 992px) {
+        .clock-display { font-size: 2.3rem; }
+        .module-grid { grid-template-columns: 1fr; }
     }
 </style>
 {% endblock %}
@@ -87,228 +164,186 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row justify-content-center">
-        <div class="col-lg-8 mb-4">
-            <div class="clock-card p-5 text-center">
-                <div class="status-badge">
-                    {% if not attendance.clock_in %}
-                        <i class="bi bi-circle-fill text-warning me-1"></i> {% trans "Not Clocked In" %}
-                    {% elif attendance.clock_in and not attendance.clock_out %}
-                        <i class="bi bi-circle-fill text-success me-1"></i> {% trans "Working" %}
-                    {% else %}
-                        <i class="bi bi-circle-fill text-danger me-1"></i> {% trans "Finished" %}
-                    {% endif %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}کل پرسنل{% else %}{% trans "Total Employees" %}{% endif %}</div>
+                <div class="kpi-value">{{ total_employees|unlocalize }}</div>
+                <div class="kpi-footnote">{% if request.LANGUAGE_CODE == 'fa' %}در سازمان شما{% else %}{% trans "In your organization" %}{% endif %}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}حاضر امروز{% else %}{% trans "Checked In Today" %}{% endif %}</div>
+                <div class="kpi-value text-success">{{ checked_in_count|unlocalize }}</div>
+                <div class="kpi-footnote">{% if request.LANGUAGE_CODE == 'fa' %}خروج ثبت‌شده: {% else %}{% trans "Checked Out:" %} {% endif %}{{ checked_out_count|unlocalize }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}غایب امروز{% else %}{% trans "Absent Today" %}{% endif %}</div>
+                <div class="kpi-value" style="color: var(--dash-danger);">{{ absent_count|unlocalize }}</div>
+                <div class="kpi-footnote">{% if request.LANGUAGE_CODE == 'fa' %}بر اساس Clock-in{% else %}{% trans "Based on clock-in status" %}{% endif %}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="kpi-card">
+                <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}تکمیل Core HR{% else %}{% trans "Core HR Completion" %}{% endif %}</div>
+                <div class="kpi-value">{{ profile_completion_percent|unlocalize }}%</div>
+                <div class="kpi-footnote">{{ complete_profiles|unlocalize }} / {{ total_employees|unlocalize }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <div class="panel-card">
+                <h6 class="panel-title">{% if request.LANGUAGE_CODE == 'fa' %}دسترسی سریع ماژول‌ها{% else %}{% trans "Module Navigation" %}{% endif %}</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <div class="kpi-card py-2 px-2 text-center">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}هشدار حضور AI{% else %}{% trans "AI Attendance Alerts" %}{% endif %}</div>
+                            <div class="kpi-value" style="font-size:1.1rem; color: var(--dash-danger);">{{ attendance_ai_alerts|unlocalize }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="kpi-card py-2 px-2 text-center">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}مرخصی معلق{% else %}{% trans "Pending Leaves" %}{% endif %}</div>
+                            <div class="kpi-value" style="font-size:1.1rem;">{{ pending_leave_requests|unlocalize }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="kpi-card py-2 px-2 text-center">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}ریسک سوءاستفاده{% else %}{% trans "Abuse Risk" %}{% endif %}</div>
+                            <div class="kpi-value" style="font-size:1.1rem; color: #f39c12;">{{ leave_risk_alerts|unlocalize }}</div>
+                        </div>
+                    </div>
                 </div>
-                
-                <p class="date-display mt-2" id="current-date">--</p>
-                <h1 class="clock-display" id="current-time">00:00:00</h1>
-                
-                <div id="location-status" class="location-info">
-                    <i class="bi bi-geo-alt-fill"></i> <span id="location-text">{% trans "Detecting location..." %}</span>
+                <div class="module-grid">
+                    <a class="nav-tile" href="{% url 'hr_attendance:clock_center' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ثبت ساعت و سابقه من{% else %}{% trans "My Clock & History" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}ثبت ورود/خروج و مشاهده سابقه شخصی{% else %}{% trans "Clock in/out and personal history" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hr_personnel:personnel_hub' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}مدیریت پرسنل{% else %}{% trans "Personnel Management" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}لیست و پروفایل پرسنل{% else %}{% trans "Employee list and profiles" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hr_personnel:employee_create' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}ثبت پرسنل جدید{% else %}{% trans "New Employee" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}ورود اطلاعات Core HR{% else %}{% trans "Capture Core HR fields" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hr_attendance:quick_clock' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}صفحه موبایل حضور{% else %}{% trans "Mobile Quick Clock" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}ثبت سریع ورود/خروج{% else %}{% trans "Fast clock in/out page" %}{% endif %}</div>
+                    </a>
+                    {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+                    <a class="nav-tile" href="{% url 'hr_attendance:supervisor_panel' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}پنل سرپرست{% else %}{% trans "Supervisor Panel" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}ثبت حضور پرسنل توسط سرپرست{% else %}{% trans "Register attendance on behalf of staff" %}{% endif %}</div>
+                    </a>
+                    {% endif %}
                 </div>
 
-                <div class="mt-4">
-                    <div id="camera-container">
-                        <video id="camera-preview" autoplay playsinline></video>
-                    </div>
-                    <img id="photo-preview" alt="{% trans "Photo Preview" %}">
+                {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+                <hr class="my-3">
+                <h6 class="panel-title mb-2">{% if request.LANGUAGE_CODE == 'fa' %}دسترسی کامل HRMS{% else %}{% trans "HRMS Full Access" %}{% endif %}</h6>
+                <div class="module-grid">
+                    <a class="nav-tile" href="{% url 'hrms:dashboard' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}داشبورد HRMS{% else %}{% trans "HRMS Dashboard" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}نمای کلی شیفت، تقویم و اضافه‌کاری{% else %}{% trans "Overview of shifts, calendar and overtime" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hrms:shift_template_list' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}الگوهای شیفت{% else %}{% trans "Shift Templates" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}تعریف شیفت‌های پایه کاری{% else %}{% trans "Define base shift patterns" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hrms:shift_version_list' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}نسخه‌های شیفت{% else %}{% trans "Shift Versions" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}نسخه‌بندی زمان‌بندی شیفت‌ها{% else %}{% trans "Versioned shift schedules" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hrms:shift_assignment_list' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}اختصاص شیفت{% else %}{% trans "Shift Assignments" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}اتصال پرسنل به شیفت‌های فعال{% else %}{% trans "Assign employees to active shifts" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hrms:work_calendar_list' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}تقویم کاری و تعطیلی{% else %}{% trans "Work Calendar" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}تنظیم روزهای کاری/تعطیل{% else %}{% trans "Configure work and holiday days" %}{% endif %}</div>
+                    </a>
+                    <a class="nav-tile" href="{% url 'hrms:overtime_policy_list' %}">
+                        <div class="fw-bold">{% if request.LANGUAGE_CODE == 'fa' %}سیاست‌های اضافه‌کاری{% else %}{% trans "Overtime Policies" %}{% endif %}</div>
+                        <div class="small">{% if request.LANGUAGE_CODE == 'fa' %}تعریف قوانین پرداخت اضافه‌کاری{% else %}{% trans "Manage overtime pay rules" %}{% endif %}</div>
+                    </a>
                 </div>
-                
-                <div class="mt-3 d-flex justify-content-center gap-3 flex-wrap">
-                    {% if not attendance.clock_in %}
-                    <form id="attendance-form" action="{% url 'hr_attendance:clock_in' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="latitude" id="id_latitude">
-                        <input type="hidden" name="longitude" id="id_longitude">
-                        <input type="hidden" name="photo" id="id_photo">
-                        
-                        {% if require_photo %}
-                        <button type="button" id="start-camera-btn" class="btn btn-action btn-clock-in mb-2">
-                            <i class="fas fa-camera me-2"></i> {% trans "Take Selfie & Clock In" %}
-                        </button>
-                        <button type="submit" id="submit-btn" class="btn btn-action btn-clock-in" style="display:none;">
-                            <i class="fas fa-sign-in-alt me-2"></i> {% trans "Confirm Clock In" %}
-                        </button>
-                        {% else %}
-                        <button type="submit" class="btn btn-action btn-clock-in">
-                            <i class="fas fa-sign-in-alt me-2"></i> {% trans "Clock In Now" %}
-                        </button>
-                        {% endif %}
-                    </form>
-                    {% elif attendance.clock_in and not attendance.clock_out %}
-                    <form id="attendance-form" action="{% url 'hr_attendance:clock_out' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="latitude" id="id_latitude">
-                        <input type="hidden" name="longitude" id="id_longitude">
-                        <input type="hidden" name="photo" id="id_photo">
-                        
-                        {% if require_photo %}
-                        <button type="button" id="start-camera-btn" class="btn btn-action btn-clock-out mb-2">
-                            <i class="fas fa-camera me-2"></i> {% trans "Take Selfie & Clock Out" %}
-                        </button>
-                        <button type="submit" id="submit-btn" class="btn btn-action btn-clock-out" style="display:none;">
-                            <i class="fas fa-sign-out-alt me-2"></i> {% trans "Confirm Clock Out" %}
-                        </button>
-                        {% else %}
-                        <button type="submit" class="btn btn-action btn-clock-out">
-                            <i class="fas fa-sign-out-alt me-2"></i> {% trans "Clock Out Now" %}
-                        </button>
-                        {% endif %}
-                    </form>
-                    {% else %}
-                    <div class="alert alert-light bg-opacity-10 text-white border-0 py-3 px-4 rounded-pill">
-                        <i class="fas fa-check-circle me-2"></i> {% trans "Today's work completed." %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-xl-7">
+            <div class="panel-card h-100">
+                <h6 class="panel-title">{% if request.LANGUAGE_CODE == 'fa' %}تحلیل هفتگی ساعات کار{% else %}{% trans "Weekly Working Hours" %}{% endif %}</h6>
+                {% for row in weekly_hours %}
+                <div class="week-bar">
+                    <div class="small fw-bold" style="min-width: 108px;">{% localized_date row.date "D d" %}</div>
+                    <div class="week-bar-track">
+                        <div class="week-bar-fill" style="width: {{ row.width_percent|unlocalize }}%; max-width: 100%;"></div>
                     </div>
-                    {% endif %}
+                    <div class="small fw-bold">{{ row.hours|unlocalize }}h</div>
                 </div>
-                
-                <div class="row mt-5">
-                    <div class="col-6 border-end border-light border-opacity-25">
-                        <small class="opacity-75 d-block">{% trans "Entry" %}</small>
-                        <h5 class="mb-0">{{ attendance.clock_in|time:"H:i"|default:"--" }}</h5>
+                {% empty %}
+                <div class="text-muted small">{% trans "No weekly records yet." %}</div>
+                {% endfor %}
+
+                <div class="row mt-3 g-2">
+                    <div class="col-md-4">
+                        <div class="kpi-card">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}ساعت کل امروز{% else %}{% trans "Today Total Hours" %}{% endif %}</div>
+                            <div class="kpi-value">{{ total_worked_hours_today|unlocalize }}</div>
+                        </div>
                     </div>
-                    <div class="col-6">
-                        <small class="opacity-75 d-block">{% trans "Exit" %}</small>
-                        <h5 class="mb-0">{{ attendance.clock_out|time:"H:i"|default:"--" }}</h5>
+                    <div class="col-md-4">
+                        <div class="kpi-card">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}میانگین امروز{% else %}{% trans "Today Average" %}{% endif %}</div>
+                            <div class="kpi-value">{{ avg_worked_hours_today|unlocalize }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="kpi-card">
+                            <div class="kpi-label">{% if request.LANGUAGE_CODE == 'fa' %}مجموع حقوق پایه{% else %}{% trans "Basic Salary Sum" %}{% endif %}</div>
+                            <div class="kpi-value" style="font-size: 1.2rem;">{{ total_basic_salary|unlocalize }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-4 mb-4">
-            <div class="card attendance-history-card h-100">
-                <div class="card-body">
-                    <h6 class="card-title fw-bold mb-3">{% trans "Recent History" %}</h6>
-                    <div class="history-list">
-                        {% for record in recent_attendances %}
-                        <div class="history-item">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="fw-bold small">{{ record.date|date:"Y/m/d" }}</span>
-                                <div class="d-flex gap-1">
-                                    {% if record.photo_in %}
-                                        <img src="{{ record.photo_in }}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 5px;" alt="In">
-                                    {% endif %}
-                                    {% if record.photo_out %}
-                                        <img src="{{ record.photo_out }}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 5px;" alt="Out">
-                                    {% endif %}
-                                    <span class="badge bg-soft-primary text-primary small">{{ record.duration|default:"--" }}</span>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-3 extra-small text-muted">
-                                <span><i class="bi bi-box-arrow-in-right"></i> {{ record.clock_in|time:"H:i" }}</span>
-                                {% if record.clock_out %}
-                                <span><i class="bi bi-box-arrow-right"></i> {{ record.clock_out|time:"H:i" }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="text-center py-4 text-muted small">{% trans "No history." %}</div>
-                        {% endfor %}
-                    </div>
+        <div class="col-xl-5">
+            <div class="panel-card h-100">
+                <h6 class="panel-title">{% if request.LANGUAGE_CODE == 'fa' %}وضعیت تکمیل Core HR{% else %}{% trans "Core HR Readiness" %}{% endif %}</h6>
+                <div class="d-flex justify-content-between mb-2 small">
+                    <span>{% if request.LANGUAGE_CODE == 'fa' %}پروفایل‌های کامل{% else %}{% trans "Complete Profiles" %}{% endif %}</span>
+                    <span class="fw-bold text-success">{{ complete_profiles|unlocalize }}</span>
                 </div>
+                <div class="d-flex justify-content-between mb-3 small">
+                    <span>{% if request.LANGUAGE_CODE == 'fa' %}پروفایل‌های ناقص{% else %}{% trans "Incomplete Profiles" %}{% endif %}</span>
+                    <span class="fw-bold" style="color: var(--dash-danger);">{{ incomplete_profiles|unlocalize }}</span>
+                </div>
+
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ profile_completion_percent|unlocalize }}%"></div>
+                </div>
+
+                <div class="small text-muted mb-2">{% if request.LANGUAGE_CODE == 'fa' %}نیازمند تکمیل اطلاعات{% else %}{% trans "Top missing data profiles" %}{% endif %}</div>
+                {% for item in employees_missing_core %}
+                    <div class="d-flex justify-content-between align-items-center border rounded-3 px-2 py-2 mb-2">
+                        <div class="small fw-bold">{{ item.employee.first_name }} {{ item.employee.last_name }}</div>
+                        <span class="badge bg-warning text-dark">{{ item.missing_count|unlocalize }}</span>
+                    </div>
+                {% empty %}
+                    <div class="text-success small">{% if request.LANGUAGE_CODE == 'fa' %}همه پروفایل‌ها کامل هستند.{% else %}{% trans "All profiles are complete." %}{% endif %}</div>
+                {% endfor %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    const cameraContainer = document.getElementById('camera-container');
-    const cameraPreview = document.getElementById('camera-preview');
-    const photoPreview = document.getElementById('photo-preview');
-    const startCameraBtn = document.getElementById('start-camera-btn');
-    const submitBtn = document.getElementById('submit-btn');
-    const idPhoto = document.getElementById('id_photo');
-    const idLat = document.getElementById('id_latitude');
-    const idLng = document.getElementById('id_longitude');
-    const locationText = document.getElementById('location-text');
-
-    // Clock
-    function updateClock() {
-        const now = new Date();
-        const isRtl = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'fa';
-        
-        const timeOptions = { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit', 
-            hour12: false 
-        };
-        const dateOptions = { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        };
-
-        if (isRtl) {
-            timeOptions.numberingSystem = 'arab';
-            dateOptions.numberingSystem = 'arab';
-            document.getElementById('current-time').textContent = now.toLocaleTimeString('fa-IR', timeOptions);
-            document.getElementById('current-date').textContent = now.toLocaleDateString('fa-IR', dateOptions);
-        } else {
-            timeOptions.numberingSystem = 'latn';
-            dateOptions.numberingSystem = 'latn';
-            document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', timeOptions);
-            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', dateOptions);
-        }
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-    // Geolocation
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                idLat.value = position.coords.latitude;
-                idLng.value = position.coords.longitude;
-                locationText.textContent = "{% trans 'Location captured' %}";
-                locationText.parentElement.classList.add('text-success');
-            },
-            (error) => {
-                locationText.textContent = "{% trans 'Location access denied' %}";
-                locationText.parentElement.classList.add('text-warning');
-            }
-        );
-    }
-
-    // Camera
-    const requirePhoto = {{ require_photo|yesno:"true,false" }};
-    
-    if (startCameraBtn) {
-        startCameraBtn.addEventListener('click', async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-                    cameraPreview.srcObject = stream;
-                    cameraContainer.style.display = 'block';
-                    startCameraBtn.innerHTML = '<i class="fas fa-circle text-danger me-2"></i> {% trans "Capture Photo" %}';
-                    
-                    startCameraBtn.onclick = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = cameraPreview.videoWidth;
-                        canvas.height = cameraPreview.videoHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.translate(canvas.width, 0);
-                        ctx.scale(-1, 1);
-                        ctx.drawImage(cameraPreview, 0, 0);
-                        
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Reduced quality to avoid "Data Too Long"
-                        idPhoto.value = dataUrl;
-                        photoPreview.src = dataUrl;
-                        photoPreview.style.display = 'block';
-                        
-                        cameraContainer.style.display = 'none';
-                        stream.getTracks().forEach(track => track.stop());
-                        
-                        startCameraBtn.style.display = 'none';
-                        submitBtn.style.display = 'block';
-                    };
-                } catch (err) {
-                    console.error("Camera access error:", err);
-                    alert("{% trans 'Error accessing camera. Please ensure permissions are granted.' %}");
-                }
-        });
-    }
-</script>
 {% endblock %}

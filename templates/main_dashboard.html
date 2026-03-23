@@ -7,20 +7,39 @@
 
 {% block content %}
 <div class="row">
-    <!-- Welcome Banner -->
-    <div class="col-12">
-        <div class="welcome-banner">
-            <div class="welcome-content">
-                <h2 class="welcome-title">{% trans "Welcome back" %}, {{ user.first_name|default:user.username }}!</h2>
-                <p class="welcome-subtitle">
-                    {% trans "Manage your business modules, track expenses, and monitor performance all in one place." %}
+    {% if user.is_superuser %}
+    <div class="col-12 col-lg-4 mt-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="fw-bold mb-2">{% trans "Create New Organization" %}</h5>
+                <p class="text-muted small mb-3">
+                    {% trans "Add a new customer company and configure its subscription." %}
                 </p>
+                <a href="{% url 'organizations:create' %}" class="btn btn-outline-primary align-self-start">
+                    <i class="fas fa-building me-2"></i>
+                    {% trans "Add Organization" %}
+                </a>
             </div>
         </div>
     </div>
+    <div class="col-12 col-lg-4 mt-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex flex-column">
+                <h5 class="fw-bold mb-2">{% trans "Manage Organizations" %}</h5>
+                <p class="text-muted small mb-3">
+                    {% trans "View and edit all registered organizations." %}
+                </p>
+                <a href="{% url 'organizations:list' %}" class="btn btn-outline-secondary align-self-start">
+                    <i class="fas fa-list me-2"></i>
+                    {% trans "View Organizations" %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-<h5 class="mb-4 fw-bold text-dark">{% trans "Business Modules" %}</h5>
+<h2 class="dashboard-section-title text-main">{% trans "Business Modules" %}</h2>
 
 <div class="row g-4">
     <!-- Expense Manager -->
@@ -60,7 +79,7 @@
     <!-- Attendance System -->
     {% if can_use_attendance or user.is_superuser %}
     <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'hr_attendance:dashboard' %}" class="text-decoration-none">
+        <a href="{% url 'hr_attendance:hub' %}" class="text-decoration-none">
             <div class="dashboard-card">
                 <div class="card-icon-wrapper bg-light-warning">
                     <i class="fas fa-clock"></i>
@@ -68,23 +87,6 @@
                 <div class="card-content">
                     <h3 class="card-title-lg">{% trans "Attendance" %}</h3>
                     <p class="card-desc">{% trans "Clock in/out and track." %}</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    {% endif %}
-
-    <!-- Personnel & Payroll -->
-    {% if can_use_personnel or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'hr_personnel:employee_list' %}" class="text-decoration-none">
-            <div class="dashboard-card">
-                <div class="card-icon-wrapper bg-light-info">
-                    <i class="fas fa-id-badge"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Personnel" %}</h3>
-                    <p class="card-desc">{% trans "Employees, payroll and benefits." %}</p>
                 </div>
             </div>
         </a>

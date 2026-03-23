@@ -11,17 +11,6 @@ if BASE_DIR not in sys.path:
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
-# Ensure CA certificate is available if provided via environment variable content
-ca_content = os.environ.get('DB_CA_CONTENT')
-if ca_content and not os.environ.get('DB_CA'):
-    try:
-        ca_path = '/tmp/tidb-ca.pem'
-        with open(ca_path, 'w') as f:
-            f.write(ca_content)
-        os.environ['DB_CA'] = ca_path
-    except Exception:
-        pass
-
 try:
     from django.core.wsgi import get_wsgi_application
     app = get_wsgi_application()

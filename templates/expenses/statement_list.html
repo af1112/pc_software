@@ -1,12 +1,12 @@
-{% load i18n %}
+{% load i18n local_dates static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% trans "Statements" %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
     <style>
         body {
             background-color: #f5f7fa;
@@ -42,15 +42,64 @@
         .status-submitted { background-color: #3498db; color: white; }
         .status-approved { background-color: #2ecc71; color: white; }
         .status-rejected { background-color: #e74c3c; color: white; }
+        .fab-create {
+            position: fixed;
+            bottom: 30px;
+            z-index: 1000;
+        }
+        .fab-create-end {
+            right: 30px;
+        }
+        .fab-create-start {
+            left: 30px;
+        }
+        .global-loading {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+        }
+        .global-loading .loading-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-tabs .btn {
+            border-radius: 999px;
+        }
     </style>
 </head>
 <body>
+    <div id="globalLoading" class="global-loading" aria-live="polite" aria-busy="true">
+        <div class="loading-card">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span>{% trans "Loading..." %}</span>
+        </div>
+    </div>
+
     <div class="container mt-3">
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <a href="{% url 'expenses:dashboard' %}" class="text-dark"><i class="fas fa-arrow-left fa-lg"></i></a>
+            <button type="button" id="page-back-btn" class="btn btn-sm btn-outline-secondary rounded-pill" data-no-loading>
+                <i class="fas fa-arrow-left me-1"></i>{% trans "Back" %}
+            </button>
             <h5 class="m-0 fw-bold">{% trans "All Statements" %}</h5>
             <div style="width: 20px;"></div>
+        </div>
+
+        <div class="status-tabs d-flex flex-wrap gap-2 mb-3">
+            <a href="{% url 'expenses:statement_list' %}?status=all" class="btn btn-sm {% if selected_status == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">{% trans "All" %}</a>
+            <a href="{% url 'expenses:statement_list' %}?status=draft" class="btn btn-sm {% if selected_status == 'draft' %}btn-primary{% else %}btn-outline-primary{% endif %}">{% trans "Draft" %}</a>
+            <a href="{% url 'expenses:statement_list' %}?status=submitted" class="btn btn-sm {% if selected_status == 'submitted' %}btn-primary{% else %}btn-outline-primary{% endif %}">{% trans "Submitted" %}</a>
+            <a href="{% url 'expenses:statement_list' %}?status=approved" class="btn btn-sm {% if selected_status == 'approved' %}btn-primary{% else %}btn-outline-primary{% endif %}">{% trans "Approved" %}</a>
+            <a href="{% url 'expenses:statement_list' %}?status=rejected" class="btn btn-sm {% if selected_status == 'rejected' %}btn-primary{% else %}btn-outline-primary{% endif %}">{% trans "Rejected" %}</a>
         </div>
 
         <!-- Statements List -->
@@ -60,9 +109,9 @@
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <div class="fw-bold">{{ report.title }}</div>
-                        <small class="text-muted">{{ report.start_date|date:"d M" }} - {{ report.end_date|date:"d M Y" }}</small>
+                        <small class="text-muted">{% localized_date report.start_date "d M" %} - {% localized_date report.end_date "d M Y" %}</small>
                     </div>
-                    <span class="badge badge-status status-{{ report.status }}">{{ report.status|title }}</span>
+                    <span class="badge badge-status status-{{ report.status }}">{{ report.get_status_display }}</span>
                 </div>
                 <div class="d-flex justify-content-between align-items-center mt-2">
                     <small class="text-muted">{% trans "Ref" %}: {{ report.id|truncatechars:8 }}</small>
@@ -77,13 +126,94 @@
             </div>
             {% endfor %}
         </div>
-        
+
         <!-- Floating Action Button -->
-        <div style="position: fixed; bottom: 30px; right: 30px; z-index: 1000;">
+        <div class="fab-create {% if LANGUAGE_BIDI %}fab-create-start{% else %}fab-create-end{% endif %}">
             <a href="{% url 'expenses:create_report' %}" class="btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const navStackKey = 'akaf_nav_stack_v1';
+            const pageBackBtn = document.getElementById('page-back-btn');
+            const globalLoading = document.getElementById('globalLoading');
+
+            const readNavStack = () => {
+                try {
+                    const parsed = JSON.parse(sessionStorage.getItem(navStackKey) || '[]');
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (err) {
+                    return [];
+                }
+            };
+
+            const writeNavStack = (stack) => {
+                try {
+                    sessionStorage.setItem(navStackKey, JSON.stringify(stack.slice(-40)));
+                } catch (err) {}
+            };
+
+            const normalizeUrl = (urlValue) => {
+                try {
+                    const url = new URL(urlValue, window.location.origin);
+                    return `${url.pathname}${url.search}`;
+                } catch (err) {
+                    return urlValue || '';
+                }
+            };
+
+            const navStack = readNavStack();
+            const normalizedCurrent = normalizeUrl(window.location.href);
+            if (!navStack.length || normalizeUrl(navStack[navStack.length - 1]) !== normalizedCurrent) {
+                navStack.push(window.location.href);
+                writeNavStack(navStack);
+            }
+
+            pageBackBtn?.addEventListener('click', () => {
+                const stack = readNavStack();
+                const currentNormalized = normalizeUrl(window.location.href);
+                while (stack.length && normalizeUrl(stack[stack.length - 1]) === currentNormalized) {
+                    stack.pop();
+                }
+
+                if (stack.length) {
+                    const target = stack.pop();
+                    writeNavStack(stack);
+                    window.location.href = target;
+                    return;
+                }
+
+                if (window.history.length > 1) {
+                    window.history.back();
+                    return;
+                }
+                window.location.href = "{% url 'expenses:dashboard' %}";
+            });
+
+            function showGlobalLoading() {
+                globalLoading.style.display = 'flex';
+            }
+
+            function hideGlobalLoading() {
+                globalLoading.style.display = 'none';
+            }
+
+            document.querySelectorAll('a[href]:not([data-no-loading])').forEach((link) => {
+                link.addEventListener('click', function() {
+                    showGlobalLoading();
+                });
+            });
+
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', function() {
+                    showGlobalLoading();
+                });
+            });
+
+            hideGlobalLoading();
+        });
+    </script>
 </body>
 </html>

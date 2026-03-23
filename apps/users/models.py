@@ -5,6 +5,28 @@ from django.dispatch import receiver
 from django.conf import settings
 # from apps.organizations.models import Organization
 
+class UserAlert(models.Model):
+    ALERT_TYPES = [
+        ('info', 'Information'),
+        ('warning', 'Warning'),
+        ('error', 'Error'),
+        ('success', 'Success'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='alerts')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    alert_type = models.CharField(max_length=10, choices=ALERT_TYPES, default='info')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    link = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -12,8 +34,23 @@ class UserProfile(models.Model):
         ('user', 'User'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    organization = models.ForeignKey('organizations.Organization', on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+        db_constraint=False,
+    )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_users',
+        db_constraint=False,
+    )
     preferred_language = models.CharField(
         max_length=10,
         choices=settings.LANGUAGES,
@@ -23,16 +60,10 @@ class UserProfile(models.Model):
     currency_code = models.CharField(max_length=10, default='OMR', help_text="ISO 4217 Currency Code (e.g. OMR, USD)")
     currency_symbol = models.CharField(max_length=10, default='ر.ع.', help_text="Currency Symbol (e.g. $, €)")
     currency_decimal_places = models.IntegerField(default=3, help_text="Number of decimal places (e.g. 3 for OMR, 2 for USD)")
+    timezone = models.CharField(max_length=64, default='Asia/Tehran', help_text="IANA timezone (e.g. Asia/Tehran)")
 
     # Attendance Settings
     require_photo = models.BooleanField(default=True, help_text="Require a photo for attendance clock-in/out")
-    
-    # Timezone Settings (per company/user)
-    timezone = models.CharField(
-        max_length=50,
-        default='UTC',
-        help_text="IANA timezone name (e.g. Asia/Tehran, Europe/London)"
-    )
 
     def __str__(self):
         return f"{self.user.username} Profile"
@@ -57,4 +88,7 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    instance.profile.save()
+    try:
+        instance.profile.save()
+    except UserProfile.DoesNotExist:
+        UserProfile.objects.create(user=instance)

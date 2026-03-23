@@ -1,7 +1,0 @@
-from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
-
-class TicketingConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.ticketing'
-    verbose_name = _("Ticketing System")

@@ -230,3 +230,21 @@ msgstr "ویڈیو پیغام"
 
 msgid "Record voice or video"
 msgstr "آواز یا ویڈیو ریکارڈ کریں"
+
+msgid "Request from Support Unit"
+msgstr "سپورٹ یونٹ سے درخواست"
+
+msgid "Problem Report"
+msgstr "مسئلے کی اطلاع"
+
+msgid "Finance Unit"
+msgstr "فنانس یونٹ"
+
+msgid "Contact Management"
+msgstr "انتظامیہ سے رابطہ"
+
+msgid "Training Unit"
+msgstr "تربیتی یونٹ"
+
+msgid "Criticism and Suggestions"
+msgstr "تنقید اور تجاویز"

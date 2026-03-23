@@ -398,3 +398,21 @@ msgstr "رسالة فيديو"
 
 msgid "Record voice or video"
 msgstr "تسجيل صوت أو فيديو"
+
+msgid "Request from Support Unit"
+msgstr "طلب من وحدة الدعم"
+
+msgid "Problem Report"
+msgstr "الإبلاغ عن مشكلة"
+
+msgid "Finance Unit"
+msgstr "وحدة المالية"
+
+msgid "Contact Management"
+msgstr "التواصل مع الإدارة"
+
+msgid "Training Unit"
+msgstr "وحدة التدريب"
+
+msgid "Criticism and Suggestions"
+msgstr "الانتقادات والاقتراحات"

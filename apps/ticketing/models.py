@@ -1,8 +1,20 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
+
+
+class TicketIssuerSequence(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ticket_sequence')
+    last_serial = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("Ticket Issuer Sequence")
+        verbose_name_plural = _("Ticket Issuer Sequences")
+
+    def __str__(self):
+        return f"{self.user_id}:{self.last_serial}"
 
 class Ticket(models.Model):
     STATUS_CHOICES = [
@@ -25,10 +37,12 @@ class Ticket(models.Model):
     ]
 
     CATEGORY_CHOICES = [
-        ('bug', _('Bug')),
-        ('feature', _('Feature Request')),
-        ('support', _('Support')),
-        ('other', _('Other')),
+        ('support_request', _('Request from Support Unit')),
+        ('problem_report', _('Problem Report')),
+        ('finance_unit', _('Finance Unit')),
+        ('management_contact', _('Contact Management')),
+        ('training_unit', _('Training Unit')),
+        ('feedback_suggestions', _('Criticism and Suggestions')),
     ]
 
     title = models.CharField(_("Title"), max_length=200)
@@ -36,7 +50,7 @@ class Ticket(models.Model):
     
     status = models.CharField(_("Status"), max_length=20, choices=STATUS_CHOICES, default='open')
     priority = models.CharField(_("Priority"), max_length=20, choices=PRIORITY_CHOICES, default='medium')
-    category = models.CharField(_("Category"), max_length=20, choices=CATEGORY_CHOICES, default='support')
+    category = models.CharField(_("Category"), max_length=20, choices=CATEGORY_CHOICES, default='support_request')
     
     # Remote Software Fields
     remote_software_name = models.CharField(_("Remote Software Name"), max_length=100, blank=True, null=True)
@@ -44,6 +58,7 @@ class Ticket(models.Model):
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tickets', verbose_name=_("Created By"))
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets', verbose_name=_("Assigned To"))
+    issuer_serial = models.PositiveIntegerField(_("Issuer Serial"), null=True, blank=True, editable=False, db_index=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -56,9 +71,31 @@ class Ticket(models.Model):
         verbose_name = _("Ticket")
         verbose_name_plural = _("Tickets")
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['created_by', 'issuer_serial'], name='uniq_ticket_serial_per_issuer'),
+        ]
+
+    @property
+    def serial_display(self):
+        if not self.issuer_serial:
+            return str(self.id)
+        return f"{self.created_by_id}{self.issuer_serial:04d}"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.issuer_serial and self.created_by_id:
+            with transaction.atomic():
+                seq, _ = TicketIssuerSequence.objects.select_for_update().get_or_create(
+                    user_id=self.created_by_id,
+                    defaults={'last_serial': 0},
+                )
+                seq.last_serial += 1
+                self.issuer_serial = seq.last_serial
+                seq.save(update_fields=['last_serial'])
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"#{self.id} - {self.title}"
+        return f"#{self.serial_display} - {self.title}"
 
 class TicketComment(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='comments')
@@ -71,6 +108,20 @@ class TicketComment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user} on #{self.ticket.id}"
+
+
+class TicketReadReceipt(models.Model):
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='read_receipts')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ticket_read_receipts')
+    first_read_at = models.DateTimeField(auto_now_add=True)
+    last_read_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Ticket Read Receipt")
+        verbose_name_plural = _("Ticket Read Receipts")
+        constraints = [
+            models.UniqueConstraint(fields=['ticket', 'user'], name='uniq_ticket_read_receipt_per_user'),
+        ]
 
 class TicketAttachment(models.Model):
     FILE_TYPES = [

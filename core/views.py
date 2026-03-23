@@ -1,49 +1,22 @@
-from django.shortcuts import render, HttpResponse, redirect
+from django.shortcuts import render, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 import os
 import traceback
 import sys
+from django.urls import resolve
+from django.template.loader import get_template
 
 @login_required
 def main_dashboard(request):
     """
     Main landing dashboard showing available modules based on organization subscription.
     """
-    # Get user profile and organization
-    profile = getattr(request.user, 'profile', None)
-    organization = profile.organization if profile else None
-    
-    context = {
-        'organization': organization,
-        # Access is granted if:
-        # 1. User is superuser OR
-        # 2. (Organization allows OR no organization assigned) AND (User has direct permission)
-        'can_use_expenses': request.user.is_superuser or ((organization.can_use_expenses if organization else True) and request.user.has_perm('users.can_access_expenses')),
-        'can_use_ticketing': request.user.is_superuser or ((organization.can_use_ticketing if organization else True) and request.user.has_perm('users.can_access_ticketing')),
-        'can_use_attendance': request.user.is_superuser or ((organization.can_use_attendance if organization else True) and request.user.has_perm('users.can_access_attendance')),
-        'can_use_personnel': request.user.is_superuser or ((getattr(organization, 'can_use_personnel', True) if organization else True) and request.user.has_perm('users.can_access_personnel')),
-        'can_use_projects': request.user.is_superuser or ((organization.can_use_projects if organization else True) and request.user.has_perm('users.can_access_projects')),
-        'can_use_dms': request.user.is_superuser or ((organization.can_use_dms if organization else True) and request.user.has_perm('users.can_access_dms')),
-        'can_use_ai': request.user.is_superuser or ((organization.can_use_ai if organization else True) and request.user.has_perm('users.can_access_ai')),
-        'can_use_menu': request.user.is_superuser or ((organization.can_use_menu if organization else True) and request.user.has_perm('users.can_access_menu')),
-        'can_use_club': request.user.is_superuser or ((organization.can_use_club if organization else True) and request.user.has_perm('users.can_access_club')),
-        'is_superuser': request.user.is_superuser
-    }
-    
-    return render(request, 'main_dashboard.html', context)
+    # Rely on context processor (user_settings) for can_use_* flags
+    # to respect both organization activation and per-user permissions.
+    return render(request, 'main_dashboard.html', {})
 
     
-
-def home_redirect(request):
-    """
-    Root path handler:
-    - If user is authenticated -> go to dashboard
-    - Else -> go to login page
-    """
-    if request.user.is_authenticated:
-        return redirect('main_dashboard')
-    return redirect('/accounts/login/')
 
 def run_migrations_view(request):
     """
@@ -260,3 +233,33 @@ def restore_data_view(request):
         output.append(f"❌ CRITICAL ERROR: {str(e)}")
         output.append("<pre>" + error_trace + "</pre>")
         return HttpResponse("<br>".join(output), status=500)
+
+
+def login_flow_diag_view(request):
+    lines = []
+    lines.append("=== LOGIN FLOW DIAG ===")
+    lines.append(f"path={request.path}")
+    lines.append(f"full_path={request.get_full_path()}")
+    lines.append(f"query_next={request.GET.get('next', '')}")
+    lines.append(f"session_post_login_redirect={request.session.get('post_login_redirect', '')}")
+    lines.append(f"session_force_quick_after_login={request.session.get('force_quick_after_login', False)}")
+    lines.append(f"session_last_login_redirect_debug={request.session.get('last_login_redirect_debug', {})}")
+
+    try:
+        match = resolve('/accounts/login/')
+        lines.append(f"resolved_login_module={getattr(match.func, '__module__', '')}")
+        lines.append(f"resolved_login_view_class={getattr(getattr(match.func, 'view_class', None), '__name__', '')}")
+    except Exception as exc:
+        lines.append(f"resolve_error={exc}")
+
+    try:
+        tpl = get_template('registration/login.html')
+        origin_name = getattr(getattr(tpl, 'origin', None), 'name', '')
+        lines.append(f"login_template_origin={origin_name}")
+    except Exception as exc:
+        lines.append(f"template_error={exc}")
+
+    lines.append(f"python={sys.version.splitlines()[0]}")
+    lines.append(f"cwd={os.getcwd()}")
+    lines.append(f"pid={os.getpid()}")
+    return HttpResponse("\n".join(lines), content_type='text/plain; charset=utf-8')

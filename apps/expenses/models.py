@@ -5,6 +5,30 @@ import uuid
 
 User = get_user_model()
 
+
+class ExpenseCategory(models.Model):
+    name = models.CharField(_("Category Name"), max_length=100)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='expense_categories',
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField(_("Is Active"), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Expense Category")
+        verbose_name_plural = _("Expense Categories")
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['created_by', 'name'], name='uniq_expense_category_per_user')
+        ]
+
+    def __str__(self):
+        return self.name
+
 class Trip(models.Model):
     TRAVEL_TYPES = [
         ('domestic', _('Domestic')),

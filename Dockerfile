@@ -24,11 +24,14 @@ RUN pip install --no-cache-dir Pillow
 # کپی کردن کل پروژه به داخل کانتینر
 COPY . .
 
-# اجرای دستورات از محل فایل manage.py
-WORKDIR /app/pc_software
+# آماده‌سازی اسکریپت استارت
+RUN chmod +x /app/entrypoint.sh
+
+# جمع‌آوری فایل‌های استاتیک
+RUN python manage.py collectstatic --noinput
 
 # باز کردن پورت ۸۰۰۰
 EXPOSE 8000
 
-# اجرای مهاجرت‌ها و جمع‌آوری استاتیک در استارت، سپس اجرای گانیکورن روی پورت محیطی Render
-CMD ["sh", "-c", "if [ -n \"$DB_CA\" ]; then echo \"$DB_CA\" > /tmp/db_ca.pem && export DB_CA_PATH=/tmp/db_ca.pem; fi; python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application"]
+# اجرای migrate و سپس شروع به کار با Gunicorn
+CMD ["/app/entrypoint.sh"]

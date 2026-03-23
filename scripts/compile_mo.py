@@ -101,22 +101,16 @@ def compile_po(po_file, mo_file):
 
 if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidate_locale_dirs = [
-        os.path.join(base_dir, 'locale'),
-        os.path.join(base_dir, 'pc_software', 'locale'),
-    ]
-    for locale_dir in candidate_locale_dirs:
-        if not os.path.isdir(locale_dir):
-            continue
-        print(f"Scanning: {locale_dir}")
-        for lang in os.listdir(locale_dir):
-            lc_messages = os.path.join(locale_dir, lang, 'LC_MESSAGES')
-            if os.path.isdir(lc_messages):
-                po_file = os.path.join(lc_messages, 'django.po')
-                mo_file = os.path.join(lc_messages, 'django.mo')
-                if os.path.exists(po_file):
-                    try:
-                        compile_po(po_file, mo_file)
-                        print(f"Successfully compiled {lang} in {locale_dir}")
-                    except Exception as e:
-                        print(f"Error compiling {lang} in {locale_dir}: {e}")
+    locale_dir = os.path.join(base_dir, 'locale')
+    
+    for lang in os.listdir(locale_dir):
+        lc_messages = os.path.join(locale_dir, lang, 'LC_MESSAGES')
+        if os.path.isdir(lc_messages):
+            po_file = os.path.join(lc_messages, 'django.po')
+            mo_file = os.path.join(lc_messages, 'django.mo')
+            if os.path.exists(po_file):
+                try:
+                    compile_po(po_file, mo_file)
+                    print(f"Successfully compiled {lang}")
+                except Exception as e:
+                    print(f"Error compiling {lang}: {e}")

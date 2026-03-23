@@ -1,12 +1,12 @@
-{% load i18n %}
+{% load i18n static %}
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% trans "New Expense" %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
     <style>
         body { background-color: #000; color: #fff; padding-bottom: 80px; }
         .form-control, .form-select {
@@ -61,7 +61,7 @@
         }
         .currency-label {
             color: #3498db;
-            margin-right: 10px;
+            margin-inline-end: 10px;
             font-weight: bold;
         }
         .amount-input-group input {
@@ -73,9 +73,35 @@
             width: 3em;
             height: 1.5em;
         }
+        .global-loading {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+        .global-loading .card {
+            background: #111;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
+
+    <div id="globalLoading" class="global-loading" aria-live="polite" aria-busy="true">
+        <div class="card">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span>{% trans "Loading..." %}</span>
+        </div>
+    </div>
 
     <!-- Loading Overlay -->
     <div class="scan-overlay" id="scanOverlay">
@@ -87,10 +113,14 @@
     <div class="container mt-3">
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <a href="{% url 'expenses:dashboard' %}" class="text-white"><i class="fas fa-times fa-lg"></i></a>
+            <button type="button" id="page-back-btn" class="btn btn-sm btn-outline-light rounded-pill" data-no-loading>
+                <i class="fas fa-arrow-left me-1"></i>{% trans "Back" %}
+            </button>
             <h5 class="m-0">{% trans "New Expense" %}</h5>
             <div style="width: 20px;"></div>
         </div>
+
+        <div id="scanFeedback" class="alert alert-warning d-none" role="alert"></div>
 
         <form method="post" enctype="multipart/form-data" id="expenseForm">
             {% csrf_token %}
@@ -108,7 +138,7 @@
             </div>
 
             <div class="d-flex justify-content-between">
-                <div style="flex-grow: 1; margin-right: 15px;">
+                <div style="flex-grow: 1; margin-inline-end: 15px;">
                     <div class="mb-3">
                         <label class="form-label">{% trans "Expense Date" %}</label>
                         {{ form.date }}
@@ -117,6 +147,11 @@
                     <div class="mb-3">
                         <label class="form-label">{% trans "Merchant" %}</label>
                         {{ form.merchant }}
+                        <datalist id="merchant-list">
+                            {% for merchant in merchant_suggestions %}
+                                <option value="{{ merchant }}"></option>
+                            {% endfor %}
+                        </datalist>
                         {{ form.merchant.errors }}
                     </div>
                 </div>
@@ -137,13 +172,9 @@
                 <label class="form-label">{% trans "Category *" %}</label>
                 {{ form.category }}
                 {{ form.category.errors }}
-                <datalist id="category-list">
-                    <option value="Fuel/Mileage Expenses">
-                    <option value="Meals and Entertainment">
-                    <option value="Furniture and Equipment">
-                    <option value="Travel">
-                    <option value="Office Supplies">
-                </datalist>
+                <div class="mt-2">
+                    <a href="{% url 'expenses:category_list' %}" class="text-info small">{% trans "Manage categories" %}</a>
+                </div>
             </div>
 
             <div class="mb-3">
@@ -195,11 +226,98 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const navStackKey = 'akaf_nav_stack_v1';
+            const pageBackBtn = document.getElementById('page-back-btn');
             const reimbursementCheck = document.getElementById('id_claim_reimbursement');
             const paymentModeDiv = document.getElementById('paymentModeDiv');
             const fileInput = document.getElementById('id_receipt_image_trigger');
             const overlay = document.getElementById('scanOverlay');
             const receiptPreview = document.getElementById('receiptPreview');
+            const feedback = document.getElementById('scanFeedback');
+            const globalLoading = document.getElementById('globalLoading');
+
+            function showGlobalLoading() {
+                globalLoading.style.display = 'flex';
+            }
+
+            function hideGlobalLoading() {
+                globalLoading.style.display = 'none';
+            }
+
+            function showScanFeedback(message, level) {
+                feedback.classList.remove('d-none', 'alert-warning', 'alert-danger', 'alert-info');
+                feedback.classList.add(level || 'alert-warning');
+                feedback.textContent = message;
+            }
+
+            function clearScanFeedback() {
+                feedback.classList.add('d-none');
+                feedback.textContent = '';
+            }
+
+            const readNavStack = () => {
+                try {
+                    const parsed = JSON.parse(sessionStorage.getItem(navStackKey) || '[]');
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (err) {
+                    return [];
+                }
+            };
+
+            const writeNavStack = (stack) => {
+                try {
+                    sessionStorage.setItem(navStackKey, JSON.stringify(stack.slice(-40)));
+                } catch (err) {}
+            };
+
+            const normalizeUrl = (urlValue) => {
+                try {
+                    const url = new URL(urlValue, window.location.origin);
+                    return `${url.pathname}${url.search}`;
+                } catch (err) {
+                    return urlValue || '';
+                }
+            };
+
+            const navStack = readNavStack();
+            const normalizedCurrent = normalizeUrl(window.location.href);
+            if (!navStack.length || normalizeUrl(navStack[navStack.length - 1]) !== normalizedCurrent) {
+                navStack.push(window.location.href);
+                writeNavStack(navStack);
+            }
+
+            pageBackBtn?.addEventListener('click', () => {
+                const stack = readNavStack();
+                const currentNormalized = normalizeUrl(window.location.href);
+                while (stack.length && normalizeUrl(stack[stack.length - 1]) === currentNormalized) {
+                    stack.pop();
+                }
+
+                if (stack.length) {
+                    const target = stack.pop();
+                    writeNavStack(stack);
+                    window.location.href = target;
+                    return;
+                }
+
+                if (window.history.length > 1) {
+                    window.history.back();
+                    return;
+                }
+                window.location.href = "{% url 'expenses:dashboard' %}";
+            });
+
+            document.querySelectorAll('a[href]:not([data-no-loading])').forEach((link) => {
+                link.addEventListener('click', function() {
+                    showGlobalLoading();
+                });
+            });
+
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', function() {
+                    showGlobalLoading();
+                });
+            });
             
             function togglePaymentMode() {
                 // If claim reimbursement is checked (true), hide payment mode (user paid personally)
@@ -214,6 +332,7 @@
             
             fileInput.addEventListener('change', function(e) {
                 if (fileInput.files.length > 0) {
+                    clearScanFeedback();
                     const file = fileInput.files[0];
                     
                     // Show preview
@@ -231,31 +350,49 @@
                     const formData = new FormData();
                     formData.append('image', file);
                     
-                    fetch('/api/scan-receipt/', {
+                    fetch('{% url "expenses:scan_receipt_api" %}', {
                         method: 'POST',
                         body: formData
                     })
-                    .then(response => response.json())
+                    .then(async (response) => {
+                        const data = await response.json();
+                        return { ok: response.ok, data };
+                    })
                     .then(data => {
                         overlay.style.display = 'none';
-                        if (data.status === 'success') {
-                            if (data.data.amount) document.getElementById('id_amount').value = data.data.amount;
-                            if (data.data.merchant) document.getElementById('id_merchant').value = data.data.merchant;
+                        if (data.ok && data.data.status === 'success') {
+                            if (data.data.data.amount) document.getElementById('id_amount').value = data.data.data.amount;
+                            if (data.data.data.merchant) document.getElementById('id_merchant').value = data.data.data.merchant;
                             // Also try description if merchant is empty
-                            if (!data.data.merchant && data.data.description) document.getElementById('id_merchant').value = data.data.description;
-                            if (data.data.category) document.getElementById('id_category').value = data.data.category;
-                            if (data.data.date) document.getElementById('id_date').value = data.data.date;
+                            if (!data.data.data.merchant && data.data.data.description) document.getElementById('id_merchant').value = data.data.data.description;
+                            if (data.data.data.category) document.getElementById('id_category').value = data.data.data.category;
+                            if (data.data.data.date) document.getElementById('id_date').value = data.data.data.date;
+                            if (data.data.data.description && document.getElementById('id_description')) {
+                                document.getElementById('id_description').value = data.data.data.description;
+                            }
+                            if (data.data.data.reference_number && document.getElementById('id_reference_number')) {
+                                document.getElementById('id_reference_number').value = data.data.data.reference_number;
+                            }
+                            if (data.data.data.currency && document.getElementById('id_currency')) {
+                                document.getElementById('id_currency').value = data.data.data.currency;
+                            }
+                            if (data.data.data.confidence && data.data.data.confidence < 0.5) {
+                                showScanFeedback('{% trans "Scan completed with low confidence. Please verify extracted fields." %}', 'alert-info');
+                            }
                         } else {
-                            // alert('Scan failed: ' + data.message);
-                            console.error('Scan error:', data.message);
+                            const message = (data.data && data.data.message) ? data.data.message : '{% trans "Scan failed. Please enter details manually." %}';
+                            showScanFeedback(message, 'alert-warning');
                         }
                     })
                     .catch(error => {
                         overlay.style.display = 'none';
+                        showScanFeedback('{% trans "Error scanning receipt. Please enter details manually." %}', 'alert-danger');
                         console.error('Error scanning receipt:', error);
                     });
                 }
             });
+
+            hideGlobalLoading();
         });
     </script>
 </body>
