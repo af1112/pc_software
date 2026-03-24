@@ -889,3 +889,125 @@ h1, h2, h3, h4, h5, h6 {
     }
 }
 
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    /* Sidebar adjustments */
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    
+    /* Main content adjustments */
+    .main-content {
+        margin-left: 0;
+        padding: 10px;
+    }
+    
+    /* Cards adjustments */
+    .card {
+        margin-bottom: 15px;
+        border-radius: var(--border-radius-md);
+    }
+    
+    /* Navbar adjustments */
+    .top-navbar {
+        padding: 8px 10px;
+        margin: 5px;
+    }
+    
+    .current-page {
+        font-size: 14px;
+    }
+    
+    /* Tables adjustments */
+    .table {
+        font-size: 12px;
+    }
+    
+    .table th,
+    .table td {
+        padding: 8px 5px;
+    }
+    
+    /* Buttons adjustments */
+    .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    /* Form adjustments */
+    .form-control {
+        font-size: 14px;
+        padding: 10px;
+    }
+    
+    /* Container adjustments */
+    .container-fluid {
+        padding: 10px;
+    }
+    
+    /* Modal adjustments */
+    .modal-dialog {
+        margin: 10px;
+        max-width: calc(100% - 20px);
+    }
+    
+    /* Dashboard cards */
+    .dashboard-card {
+        margin-bottom: 15px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 15px;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 18px;
+    }
+    
+    .dashboard-card p {
+        font-size: 12px;
+    }
+}
+
+/* Extra Small Devices */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 5px;
+    }
+    
+    .card {
+        margin-bottom: 10px;
+    }
+    
+    .table {
+        font-size: 11px;
+    }
+    
+    .btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    
+    .form-control {
+        font-size: 13px;
+        padding: 8px;
+    }
+    
+    .current-page {
+        font-size: 12px;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 16px;
+    }
+    
+    .dashboard-card p {
+        font-size: 11px;
+    }
+}
+

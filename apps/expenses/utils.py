@@ -104,3 +104,84 @@ def render_to_pdf(template_src, context_dict={}):
     if not pdf.err:
         return HttpResponse(result.getvalue(), content_type='application/pdf')
     return None
+
+
+def extract_receipt_data(image_path):
+    """
+    Extract data from receipt image using OCR
+    """
+    try:
+        import pytesseract
+        from PIL import Image
+        import re
+    except ImportError:
+        return {
+            'error': 'OCR functionality is not available. Please install pytesseract and Pillow.',
+            'merchant': '',
+            'amount': '',
+            'date': '',
+            'description': ''
+        }
+    
+    try:
+        # Open image
+        image = Image.open(image_path)
+        
+        # Extract text using OCR
+        text = pytesseract.image_to_string(image)
+        
+        # Extract merchant (first line or company name pattern)
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        merchant = lines[0] if lines else ''
+        
+        # Extract amount (look for currency patterns)
+        amount_patterns = [
+            r'[\$£€]\s*\d+\.?\d*',  # $123.45
+            r'\d+\.?\d*\s*[\$£€]',  # 123.45$
+            r'OMR\s*\d+\.?\d*',      # OMR 123.45
+            r'\d+\.?\d*\s*OMR',      # 123.45 OMR
+            r'Total[:\s]*\d+\.?\d*', # Total: 123.45
+            r'Amount[:\s]*\d+\.?\d*' # Amount: 123.45
+        ]
+        
+        amount = ''
+        for pattern in amount_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                amount = match.group()
+                break
+        
+        # Extract date (common date patterns)
+        date_patterns = [
+            r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',  # 12/31/2023
+            r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',  # 2023/12/31
+            r'\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2,4}',  # 31 Dec 2023
+        ]
+        
+        date = ''
+        for pattern in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                date = match.group()
+                break
+        
+        # Generate description from first few lines
+        description = ' '.join(lines[:3]) if len(lines) >= 3 else ' '.join(lines)
+        
+        return {
+            'merchant': merchant,
+            'amount': amount,
+            'date': date,
+            'description': description,
+            'raw_text': text
+        }
+        
+    except Exception as e:
+        logger.error(f"OCR extraction failed: {e}")
+        return {
+            'error': f'OCR extraction failed: {str(e)}',
+            'merchant': '',
+            'amount': '',
+            'date': '',
+            'description': ''
+        }

@@ -346,14 +346,17 @@ def scan_receipt_api(request):
 
         data = extract_receipt_data(temp_path)
         if data.get('error'):
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'message': data['error'],
-                    'data': data,
-                },
-                status=422,
-            )
+            # Fallback: return basic template data
+            return JsonResponse({
+                'status': 'success',
+                'data': {
+                    'merchant': 'Unknown Merchant',
+                    'amount': '',
+                    'date': '',
+                    'description': 'Receipt image uploaded - please fill details manually',
+                    'raw_text': ''
+                }
+            })
 
         return JsonResponse({'status': 'success', 'data': data})
     except Exception as e:
