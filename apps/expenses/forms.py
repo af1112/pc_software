@@ -106,6 +106,17 @@ class ExpenseItemForm(forms.ModelForm):
         else:
             self.merchant_suggestions = []
 
+    def clean(self):
+        cleaned_data = super().clean()
+        claim_reimbursement = cleaned_data.get('claim_reimbursement')
+        payment_mode = cleaned_data.get('payment_mode')
+        
+        # Only require payment_mode if claim_reimbursement is False
+        if not claim_reimbursement and not payment_mode:
+            self.add_error('payment_mode', _('Payment mode is required when reimbursement claim is disabled.'))
+        
+        return cleaned_data
+
     class Meta:
         model = ExpenseItem
         fields = [
@@ -121,7 +132,7 @@ class ExpenseItemForm(forms.ModelForm):
             'currency': forms.HiddenInput(),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': _('Description')}),
             'payment_mode': forms.Select(attrs={'class': 'form-select'}),
-            'reference_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Tap to Enter')}),
+            'reference_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Optional: Reference number'), 'required': False}),
             'receipt_image': forms.ClearableFileInput(attrs={'class': 'd-none', 'accept': 'image/*'}),
             'claim_reimbursement': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
         }

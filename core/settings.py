@@ -14,7 +14,34 @@ ENVIRONMENT = os.environ.get('DJANGO_ENV', 'local')
 if ENVIRONMENT == 'production':
     from .settings_production import *
 elif ENVIRONMENT == 'local':
-    from .settings_local import *
+    try:
+        from .settings_local import *
+    except ImportError:
+        # Fallback settings if settings_local doesn't exist
+        SECRET_KEY = 'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv'
+        DEBUG = True
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+        CSRF_TRUSTED_ORIGINS = [
+            'http://localhost:8000',
+            'http://127.0.0.1:8000',
+            'http://localhost:8010',
+            'http://127.0.0.1:8010',
+        ]
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+        MEDIA_URL = '/media/'
+        MEDIA_ROOT = BASE_DIR / 'media'
+        STATIC_URL = '/static/'
+        STATIC_ROOT = BASE_DIR / 'staticfiles'
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        SECURE_SSL_REDIRECT = False
+        SECURE_HSTS_SECONDS = 0
+        SESSION_COOKIE_SECURE = False
+        CSRF_COOKIE_SECURE = False
 else:
     # Default fallback to local settings
     try:
@@ -27,6 +54,8 @@ else:
         CSRF_TRUSTED_ORIGINS = [
             'http://localhost:8000',
             'http://127.0.0.1:8000',
+            'http://localhost:8010',
+            'http://127.0.0.1:8010',
         ]
         DATABASES = {
             'default': {
@@ -97,17 +126,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'pc_software_db',
-        'USER': 'pc_user',
-        'PASSWORD': 'pc_password_123',
-        'HOST': 'db',
-        'PORT': '3306',
-    }
-}
+# Database configuration is loaded from environment-specific settings files
+# (settings_local.py for local development, settings_production.py for production)
+# Do not add DATABASES configuration here as it will override environment settings.
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

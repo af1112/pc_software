@@ -24,9 +24,16 @@ def add_employee_id_unique_index(apps, schema_editor):
     index_name = schema_editor.quote_name('hr_personnel_employee_employee_id_uniq')
     column_name = schema_editor.quote_name('employee_id')
     try:
-        schema_editor.execute(
-            f"ALTER TABLE {table_name} ADD UNIQUE INDEX {index_name} ({column_name})"
-        )
+        # Check if using SQLite
+        if schema_editor.connection.vendor == 'sqlite':
+            schema_editor.execute(
+                f"CREATE UNIQUE INDEX {index_name} ON {table_name} ({column_name})"
+            )
+        else:
+            # MySQL syntax
+            schema_editor.execute(
+                f"ALTER TABLE {table_name} ADD UNIQUE INDEX {index_name} ({column_name})"
+            )
     except OperationalError as exc:
         message = str(exc).lower()
         if (

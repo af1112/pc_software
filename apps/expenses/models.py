@@ -134,7 +134,7 @@ class ExpenseItem(models.Model):
     ai_confidence = models.FloatField(default=0.0, help_text="AI Confidence Score (0-1)")
     raw_ocr_text = models.TextField(blank=True, null=True, help_text="Raw text extracted from receipt")
 
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses', null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
