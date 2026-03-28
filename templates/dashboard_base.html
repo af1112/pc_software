@@ -4,7 +4,7 @@
 <html lang="{{ request.LANGUAGE_CODE }}" {% if request.LANGUAGE_CODE in 'ar,fa,ur' %}dir="rtl"{% endif %}>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>{% block title %}AKAF{% endblock %}</title>
     <link rel="icon" type="image/png" href="{% static 'img/logo-192.png' %}">
     
@@ -858,6 +858,30 @@
         });
     });
     </script>
+    <!-- Mobile Bottom Navigation -->
+    <div class="mobile-bottom-nav d-lg-none">
+        <a href="{% url 'main_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
+            <i class="fas fa-home"></i>
+            <span>{% trans "Dashboard" %}</span>
+        </a>
+        <a href="{% url 'expenses:expense_list' %}" class="nav-item {% if 'expenses' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="fas fa-receipt"></i>
+            <span>{% trans "Expenses" %}</span>
+        </a>
+        <a href="{% url 'ticketing:ticket_list' %}" class="nav-item {% if 'ticketing' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="fas fa-ticket"></i>
+            <span>{% trans "Tickets" %}</span>
+        </a>
+        <a href="{% url 'hr_personnel:dashboard' %}" class="nav-item {% if 'hr_personnel' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="fas fa-users"></i>
+            <span>{% trans "HR" %}</span>
+        </a>
+        <a href="{% url 'settings:index' %}" class="nav-item {% if 'settings' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="fas fa-cog"></i>
+            <span>{% trans "Settings" %}</span>
+        </a>
+    </div>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -890,6 +890,89 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Mobile Responsive Design */
+/* Mobile Bottom Navigation */
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    z-index: 1030;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.mobile-bottom-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.mobile-bottom-nav .nav-item i {
+    font-size: 18px;
+    margin-bottom: 2px;
+    line-height: 1;
+}
+
+.mobile-bottom-nav .nav-item span {
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.mobile-bottom-nav .nav-item.active {
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+.mobile-bottom-nav .nav-item:hover {
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+/* iPhone 13 Pro Max specific adjustments */
+@media screen and (max-width: 430px) {
+    .mobile-bottom-nav {
+        padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+    }
+    
+    .mobile-bottom-nav .nav-item {
+        font-size: 10px;
+        padding: 3px 6px;
+        min-width: 40px;
+        min-height: 40px;
+    }
+    
+    .mobile-bottom-nav .nav-item i {
+        font-size: 16px;
+    }
+}
+
+/* Adjust main content for mobile bottom nav */
+@media screen and (max-width: 991px) {
+    .main-content {
+        padding-bottom: 80px;
+    }
+}
+
+@media screen and (max-width: 430px) {
+    .main-content {
+        padding-bottom: 70px;
+    }
+}
 @media (max-width: 768px) {
     /* Sidebar adjustments */
     .sidebar {
