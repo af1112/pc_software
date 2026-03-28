@@ -864,7 +864,7 @@
             <i class="fas fa-home"></i>
             <span>{% trans "Dashboard" %}</span>
         </a>
-        <a href="{% url 'expenses:expense_list' %}" class="nav-item {% if 'expenses' in request.resolver_match.app_name %}active{% endif %}">
+        <a href="{% url 'expenses:dashboard' %}" class="nav-item {% if 'expenses' in request.resolver_match.app_name %}active{% endif %}">
             <i class="fas fa-receipt"></i>
             <span>{% trans "Expenses" %}</span>
         </a>
@@ -872,11 +872,11 @@
             <i class="fas fa-ticket"></i>
             <span>{% trans "Tickets" %}</span>
         </a>
-        <a href="{% url 'hr_personnel:dashboard' %}" class="nav-item {% if 'hr_personnel' in request.resolver_match.app_name %}active{% endif %}">
+        <a href="{% url 'hr_personnel:personnel_hub' %}" class="nav-item {% if 'hr_personnel' in request.resolver_match.app_name %}active{% endif %}">
             <i class="fas fa-users"></i>
             <span>{% trans "HR" %}</span>
         </a>
-        <a href="{% url 'settings:index' %}" class="nav-item {% if 'settings' in request.resolver_match.app_name %}active{% endif %}">
+        <a href="{% url 'users:settings' %}" class="nav-item {% if request.resolver_match.app_name == 'users' and request.resolver_match.url_name == 'settings' %}active{% endif %}">
             <i class="fas fa-cog"></i>
             <span>{% trans "Settings" %}</span>
         </a>
