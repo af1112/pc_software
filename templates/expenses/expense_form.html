@@ -54,6 +54,18 @@
         .receipt-preview {
             width: 100%; height: 100%; object-fit: cover; display: none;
         }
+        .pdf-preview {
+            width: 100%; height: 100%; display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #ff6b6b;
+            color: white;
+            font-size: 0.7rem;
+            text-align: center;
+            padding: 5px;
+        }
+        .pdf-preview i { font-size: 2rem; }
         .amount-input-group {
             display: flex;
             align-items: center;
@@ -168,8 +180,12 @@
                         <i class="fas fa-paperclip"></i>
                         <span>{% trans "Attach Receipt" %}</span>
                         <img id="receiptPreview" class="receipt-preview">
+                        <div id="pdfPreview" class="pdf-preview">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>PDF</span>
+                        </div>
                     </label>
-                    <input type="file" name="receipt_image" accept="image/*" capture="environment" class="d-none" id="id_receipt_image_trigger">
+                    <input type="file" name="receipt_image" accept="image/*,.pdf" class="d-none" id="id_receipt_image_trigger">
                     <!-- Also hidden input from form -->
                     <!-- <div class="d-none">{{ form.receipt_image }}</div> -->
                 </div>
@@ -240,6 +256,7 @@
             const fileInput = document.getElementById('id_receipt_image_trigger');
             const overlay = document.getElementById('scanOverlay');
             const receiptPreview = document.getElementById('receiptPreview');
+            const pdfPreview = document.getElementById('pdfPreview');
             const feedback = document.getElementById('scanFeedback');
             const globalLoading = document.getElementById('globalLoading');
 
@@ -324,16 +341,25 @@
                 if (fileInput.files.length > 0) {
                     clearScanFeedback();
                     const file = fileInput.files[0];
+                    const fileType = file.type;
                     
-                    // Show preview
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        receiptPreview.src = e.target.result;
-                        receiptPreview.style.display = 'block';
-                        document.querySelector('.receipt-upload-box span').style.display = 'none';
-                        document.querySelector('.receipt-upload-box i').style.display = 'none';
+                    // Hide both previews first
+                    receiptPreview.style.display = 'none';
+                    pdfPreview.style.display = 'none';
+                    document.querySelector('.receipt-upload-box span').style.display = 'none';
+                    document.querySelector('.receipt-upload-box i').style.display = 'none';
+                    
+                    // Show appropriate preview based on file type
+                    if (fileType.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            receiptPreview.src = e.target.result;
+                            receiptPreview.style.display = 'block';
+                        }
+                        reader.readAsDataURL(file);
+                    } else if (fileType === 'application/pdf') {
+                        pdfPreview.style.display = 'flex';
                     }
-                    reader.readAsDataURL(file);
 
                     // Upload and Scan
                     overlay.style.display = 'flex';

@@ -5,124 +5,397 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% trans "My Attendance Card" %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     :root {
-      --bg: #f4f7fb;
+      --bg: #f8fafc;
       --surface: #ffffff;
-      --text: #1f2a44;
-      --muted: #6b7280;
-      --accent: #275efe;
-      --line: #e6ecff;
-      --shadow: 0 18px 44px rgba(24, 36, 56, 0.14);
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #4f46e5;
+      --accent-light: #eef2ff;
+      --accent-border: #c7d2fe;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --line: #e2e8f0;
+      --shadow: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08);
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; }
     body {
-      margin: 0;
       font-family: "IRANYekan", "IRANYekanX", Tahoma, sans-serif;
-      background: radial-gradient(circle at 20% 10%, #e9f0ff 0%, transparent 45%), var(--bg);
+      background: var(--bg);
       color: var(--text);
-      padding: 18px;
+      padding: 16px;
+      min-height: 100vh;
     }
-    .card {
-      max-width: 920px;
+
+    .page-wrapper {
+      max-width: 960px;
       margin: 0 auto;
-      background: var(--surface);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      padding: 18px;
     }
-    h1 { margin: 0; font-size: 1.3rem; }
-    .top { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
-    .form { display: flex; gap: 8px; align-items: center; }
-    input, button, a.btn { font: inherit; }
-    input[type="month"] { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
-    button, a.btn {
-      border: 0;
+
+    /* ── Back button ── */
+    .back-row {
+      margin-bottom: 12px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
       border-radius: 10px;
-      padding: 9px 12px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: .85rem;
+      font-weight: 600;
       cursor: pointer;
       text-decoration: none;
-      display: inline-block;
-      font-weight: 700;
+      transition: all .2s;
     }
-    .btn-primary { background: linear-gradient(120deg, #275efe, #1743c6); color: #fff; }
-    .btn-light { background: #f7f9ff; color: var(--accent); border: 1px solid #c7d3f9; }
-    .summary { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .box { background: #f7f9ff; border-radius: 12px; padding: 10px; text-align: center; }
-    .label { color: var(--muted); font-size: .8rem; }
-    .value { margin-top: 4px; font-size: 1.05rem; font-weight: 800; }
-    .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: start; font-size: .9rem; }
-    th { background: #f8faff; }
+    .back-btn:hover {
+      background: var(--accent-light);
+      border-color: var(--accent-border);
+      color: var(--accent);
+    }
+    .back-btn i { font-size: .8rem; }
+
+    /* ── Card container ── */
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      padding: 24px;
+    }
+
+    /* ── Header info ── */
+    .card-header-info {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-header-left h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: .82rem;
+      color: var(--muted);
+    }
+    .card-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .card-meta i { color: var(--accent); font-size: .75rem; }
+
+    /* ── Month picker row ── */
+    .month-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .month-row form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    input[type="month"] {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: .9rem;
+      color: var(--text);
+      background: var(--surface);
+    }
+    input[type="month"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+    }
+    .btn-load {
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font: inherit;
+      font-weight: 700;
+      font-size: .9rem;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: all .2s;
+    }
+    .btn-load:hover { background: #4338ca; }
+
+    /* ── Summary boxes ── */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .box {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .box .label {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 500;
+    }
+    .box .value {
+      margin-top: 4px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .box.box-present .value { color: var(--green); }
+    .box.box-absent .value { color: var(--red); }
+    .box.box-hours .value { color: var(--accent); }
+
+    /* ── Toggle buttons ── */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .toggle-group {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .toggle-btn {
+      padding: 9px 16px;
+      font: inherit;
+      font-size: .85rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toggle-btn:hover {
+      color: var(--text);
+      background: rgba(79,70,229,.04);
+    }
+    .toggle-btn.active {
+      color: #fff;
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(79,70,229,.25);
+    }
+    .toggle-btn i { font-size: .8rem; }
+
+    /* ── Export buttons ── */
+    .export-group {
+      display: inline-flex;
+      gap: 6px;
+      margin-inline-start: auto;
+    }
+    .btn-export {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all .2s;
+    }
+    .btn-export:hover {
+      border-color: var(--accent-border);
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .btn-export.pdf-btn i { color: var(--red); }
+    .btn-export.excel-btn i { color: var(--green); }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: start;
+      font-size: .88rem;
+      white-space: nowrap;
+    }
+    th {
+      background: var(--bg);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      border-bottom: 2px solid var(--line);
+    }
+    td { border-bottom: 1px solid var(--line); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(79,70,229,.02); }
+
+    /* ── Responsive ── */
     @media (max-width: 760px) {
       .summary { grid-template-columns: 1fr; }
-      .form { width: 100%; }
-      input[type="month"] { flex: 1; }
+      .card { padding: 16px; }
+      .card-header-info { flex-direction: column; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .export-group { margin-inline-start: 0; }
       table { font-size: .82rem; }
+      th, td { padding: 8px; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="top">
-      <h1>{% if request.LANGUAGE_CODE == 'fa' %}کارت ساعت من{% else %}{% trans "My Attendance Card" %}{% endif %}</h1>
-      <form method="get" class="form">
-        <input type="month" name="month" value="{{ month_value }}">
-        <button type="submit" class="btn-primary">{% trans "Load" %}</button>
-      </form>
+  <div class="page-wrapper">
+
+    <!-- Back button -->
+    <div class="back-row">
+      <a href="javascript:history.back()" class="back-btn">
+        {% if request.LANGUAGE_CODE == 'fa' %}
+          <i class="fas fa-arrow-right"></i> بازگشت
+        {% else %}
+          <i class="fas fa-arrow-left"></i> {% trans "Back" %}
+        {% endif %}
+      </a>
     </div>
 
-    <div class="summary">
-      <div class="box">
-        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present days" %}{% endif %}</div>
-        <div class="value">{{ summary.days_present|unlocalize }}</div>
-      </div>
-      <div class="box">
-        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent days" %}{% endif %}</div>
-        <div class="value">{{ summary.days_absent|unlocalize }}</div>
-      </div>
-      <div class="box">
-        <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}جمع ساعات کار{% else %}{% trans "Total worked hours" %}{% endif %}</div>
-        <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
-      </div>
-    </div>
+    <div class="card">
 
-    <div class="actions">
-      <a class="btn btn-light" href="?month={{ month_value }}">{% if request.LANGUAGE_CODE == 'fa' %}فقط خلاصه{% else %}{% trans "Summary only" %}{% endif %}</a>
-      <a class="btn btn-primary" href="?month={{ month_value }}&details=1">{% if request.LANGUAGE_CODE == 'fa' %}نمایش ریز ورود/خروج{% else %}{% trans "Show in/out details" %}{% endif %}</a>
-    </div>
+      <!-- Header: user info + month picker -->
+      <div class="card-header-info">
+        <div class="card-header-left">
+          <h1>{% if request.LANGUAGE_CODE == 'fa' %}کارت ساعت من{% else %}{% trans "My Attendance Card" %}{% endif %}</h1>
+          <div class="card-meta">
+            {% if user_full_name %}
+            <span><i class="fas fa-user"></i> {{ user_full_name }}</span>
+            {% endif %}
+            {% if org_name %}
+            <span><i class="fas fa-building"></i> {{ org_name }}</span>
+            {% endif %}
+            <span><i class="fas fa-calendar-alt"></i> {{ month_value }}</span>
+          </div>
+        </div>
+        <form method="get" class="month-row">
+          <input type="month" name="month" value="{{ month_value }}">
+          <button type="submit" class="btn-load">{% trans "Load" %}</button>
+        </form>
+      </div>
 
-    {% if show_details %}
-    <table>
-      <thead>
-        <tr>
-          <th>{% trans "Date" %}</th>
-          <th>{% trans "Clock In" %}</th>
-          <th>{% trans "Lunch Out" %}</th>
-          <th>{% trans "Lunch In" %}</th>
-          <th>{% trans "Clock Out" %}</th>
-          <th>{% trans "Worked Hours" %}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in rows %}
-        <tr>
-          <td>{% localized_date row.date "Y/m/d" %}</td>
-          <td>{% if row.attendance and row.attendance.clock_in %}{{ row.attendance.clock_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
-          <td>{% if row.attendance and row.attendance.lunch_out %}{{ row.attendance.lunch_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
-          <td>{% if row.attendance and row.attendance.lunch_in %}{{ row.attendance.lunch_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
-          <td>{% if row.attendance and row.attendance.clock_out %}{{ row.attendance.clock_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
-          <td>{{ row.worked_hours|unlocalize }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="6" style="text-align:center;color:#6b7280;">{% trans "No records for selected month." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
+      <!-- Summary boxes -->
+      <div class="summary">
+        <div class="box box-present">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present days" %}{% endif %}</div>
+          <div class="value">{{ summary.days_present|unlocalize }}</div>
+        </div>
+        <div class="box box-absent">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent days" %}{% endif %}</div>
+          <div class="value">{{ summary.days_absent|unlocalize }}</div>
+        </div>
+        <div class="box box-hours">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}جمع ساعات کار{% else %}{% trans "Total worked hours" %}{% endif %}</div>
+          <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
+        </div>
+      </div>
+
+      <!-- Toolbar: toggle + export -->
+      <div class="toolbar">
+        <div class="toggle-group">
+          <a class="toggle-btn{% if not show_details %} active{% endif %}" href="?month={{ month_value }}">
+            <i class="fas fa-chart-pie"></i>
+            {% if request.LANGUAGE_CODE == 'fa' %}فقط خلاصه{% else %}{% trans "Summary only" %}{% endif %}
+          </a>
+          <a class="toggle-btn{% if show_details %} active{% endif %}" href="?month={{ month_value }}&details=1">
+            <i class="fas fa-list"></i>
+            {% if request.LANGUAGE_CODE == 'fa' %}نمایش ریز ورود/خروج{% else %}{% trans "Show in/out details" %}{% endif %}
+          </a>
+        </div>
+
+        <div class="export-group">
+          <a href="{{ pdf_url }}" class="btn-export pdf-btn">
+            <i class="fas fa-file-pdf"></i>
+            PDF
+          </a>
+          <a href="{{ excel_url }}" class="btn-export excel-btn">
+            <i class="fas fa-file-excel"></i>
+            Excel
+          </a>
+        </div>
+      </div>
+
+      <!-- Detail table -->
+      {% if show_details %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{% trans "Date" %}</th>
+              <th>{% trans "Clock In" %}</th>
+              <th>{% trans "Lunch Out" %}</th>
+              <th>{% trans "Lunch In" %}</th>
+              <th>{% trans "Clock Out" %}</th>
+              <th>{% trans "Worked Hours" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td>{% localized_date row.date "Y/m/d" %}</td>
+              <td>{% if row.attendance and row.attendance.clock_in %}{{ row.attendance.clock_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+              <td>{% if row.attendance and row.attendance.lunch_out %}{{ row.attendance.lunch_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+              <td>{% if row.attendance and row.attendance.lunch_in %}{{ row.attendance.lunch_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+              <td>{% if row.attendance and row.attendance.clock_out %}{{ row.attendance.clock_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
+              <td>{{ row.worked_hours|unlocalize }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">{% trans "No records for selected month." %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div>
   </div>
 </body>
 </html>

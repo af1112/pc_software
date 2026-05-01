@@ -127,7 +127,7 @@ class ExpenseItem(models.Model):
     claim_reimbursement = models.BooleanField(_("Claim Reimbursement"), default=True)
     payment_mode = models.CharField(_("Payment Mode"), max_length=50, choices=PAYMENT_MODES, blank=True, null=True, help_text=_("Required if Reimbursement is OFF"))
 
-    receipt_image = models.ImageField(_("Receipt Image"), upload_to='receipts/%Y/%m/', blank=True, null=True)
+    receipt_image = models.FileField(_("Receipt File"), upload_to='receipts/%Y/%m/', blank=True, null=True)
     
     # AI Fields
     is_ai_scanned = models.BooleanField(default=False)

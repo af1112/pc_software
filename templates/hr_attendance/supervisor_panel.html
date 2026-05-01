@@ -9,7 +9,12 @@
 <div class="card shadow-sm border-0">
   <div class="card-body">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <h5 class="fw-bold mb-0">{% trans "Daily In/Out Register" %} — {% localized_date today "Y/m/d" %}</h5>
+      <div>
+        <h5 class="fw-bold mb-0">{% trans "Daily In/Out Register" %} — {% localized_date today "Y/m/d" %}</h5>
+        <div class="small text-muted mt-1">
+          <i class="fas fa-user-shield me-1"></i> {% trans "Supervisor" %}: {{ supervisor_name }}
+        </div>
+      </div>
     </div>
 
     <div class="row g-2 align-items-end mb-3">
@@ -39,6 +44,9 @@
         <a href="{% url 'hr_attendance:supervisor_bulk_range_entry' %}" class="btn btn-sm btn-outline-primary">
           <i class="fas fa-layer-group me-1"></i> {% trans "Bulk Range Entry" %}
         </a>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="bulkSetBtn">
+          <i class="fas fa-users me-1"></i> {% trans "Bulk Set Times" %}
+        </button>
         <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="btn btn-sm btn-outline-danger" data-no-loading="1">
           <i class="fas fa-file-pdf me-1"></i> {% trans "Export PDF" %}
         </a>
@@ -53,6 +61,9 @@
       <table class="table table-hover align-middle supervisor-table">
         <thead class="bg-light">
           <tr>
+            <th style="width: 28px;">
+              <input class="form-check-input" type="checkbox" id="selectAllUsers">
+            </th>
             <th>#</th>
             <th>{% trans "Name" %}</th>
             <th>{% trans "Clock In" %}</th>
@@ -66,6 +77,15 @@
           {% for row in records %}
           {% with u=row.user e=row.employee a=row.attendance %}
           <tr>
+            <td>
+              {% if u %}
+                <input class="form-check-input bulk-select" type="checkbox" value="u:{{ u.id }}">
+              {% elif e %}
+                <input class="form-check-input bulk-select" type="checkbox" value="e:{{ e.id }}">
+              {% else %}
+                <input class="form-check-input" type="checkbox" disabled>
+              {% endif %}
+            </td>
             <td>{{ forloop.counter }}</td>
             <td>
               {% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:"-" }}{% endif %}
@@ -83,78 +103,13 @@
               {% if a and a.clock_out %}<span class="badge bg-danger-subtle text-danger-emphasis">{{ a.clock_out|time:"H:i" }}</span>{% else %}<span class="text-muted">--:--</span>{% endif %}
             </td>
             <td>
-              {% if u %}
-              {% url 'hr_attendance:supervisor_attendance_action' u.id as row_action_url %}
-              {% else %}
-              {% url 'hr_attendance:supervisor_attendance_action_employee' e.id as row_action_url %}
-              {% endif %}
               <div class="action-wrap d-flex flex-wrap gap-1">
-                {% if not a or not a.clock_in %}
-                <button type="button" class="btn btn-xs btn-outline-success action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="set_in" data-title="{% trans 'Set Clock In' %}" data-time="">
-                  <i class="fas fa-sign-in-alt"></i>
-                </button>
-                {% else %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="edit_in" data-title="{% trans 'Edit Clock In' %}" data-time="{{ a.clock_in|time:'H:i' }}">
-                  <i class="fas fa-pen"></i>
-                </button>
-                <form method="post" action="{{ row_action_url }}" class="d-inline" data-confirm="{% trans 'Delete clock-in time?' %}" onsubmit="return confirm(this.dataset.confirm);">
-                  {% csrf_token %}
-                  <input type="hidden" name="date" value="{{ date_str }}">
-                  <input type="hidden" name="action" value="delete_in">
-                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
-                </form>
-                {% endif %}
-
-                {% if not a or not a.lunch_out %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="set_lunch_out" data-title="{% trans 'Set Lunch Out' %}" data-time="">
-                  <i class="fas fa-mug-hot"></i>
-                </button>
-                {% else %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="edit_lunch_out" data-title="{% trans 'Edit Lunch Out' %}" data-time="{{ a.lunch_out|time:'H:i' }}">
-                  <i class="fas fa-pen"></i>
-                </button>
-                <form method="post" action="{{ row_action_url }}" class="d-inline" data-confirm="{% trans 'Delete lunch-out time?' %}" onsubmit="return confirm(this.dataset.confirm);">
-                  {% csrf_token %}
-                  <input type="hidden" name="date" value="{{ date_str }}">
-                  <input type="hidden" name="action" value="delete_lunch_out">
-                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
-                </form>
-                {% endif %}
-
-                {% if not a or not a.lunch_in %}
-                <button type="button" class="btn btn-xs btn-outline-info action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="set_lunch_in" data-title="{% trans 'Set Lunch In' %}" data-time="">
-                  <i class="fas fa-sign-in-alt"></i>
-                </button>
-                {% else %}
-                <button type="button" class="btn btn-xs btn-outline-info action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="edit_lunch_in" data-title="{% trans 'Edit Lunch In' %}" data-time="{{ a.lunch_in|time:'H:i' }}">
-                  <i class="fas fa-pen"></i>
-                </button>
-                <form method="post" action="{{ row_action_url }}" class="d-inline" data-confirm="{% trans 'Delete lunch-in time?' %}" onsubmit="return confirm(this.dataset.confirm);">
-                  {% csrf_token %}
-                  <input type="hidden" name="date" value="{{ date_str }}">
-                  <input type="hidden" name="action" value="delete_lunch_in">
-                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
-                </form>
-                {% endif %}
-
-                {% if not a or not a.clock_out %}
-                <button type="button" class="btn btn-xs btn-outline-primary action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="set_out" data-title="{% trans 'Set Clock Out' %}" data-time="">
-                  <i class="fas fa-sign-out-alt"></i>
-                </button>
-                {% else %}
-                <button type="button" class="btn btn-xs btn-outline-warning action-btn action-time-btn" data-action-url="{{ row_action_url }}" data-action="edit_out" data-title="{% trans 'Edit Clock Out' %}" data-time="{{ a.clock_out|time:'H:i' }}">
-                  <i class="fas fa-pen"></i>
-                </button>
-                <form method="post" action="{{ row_action_url }}" class="d-inline" data-confirm="{% trans 'Delete clock-out time?' %}" onsubmit="return confirm(this.dataset.confirm);">
-                  {% csrf_token %}
-                  <input type="hidden" name="date" value="{{ date_str }}">
-                  <input type="hidden" name="action" value="delete_out">
-                  <button type="submit" class="btn btn-xs btn-outline-danger action-btn"><i class="fas fa-trash"></i></button>
-                </form>
-                {% endif %}
-
-                <button type="button" class="btn btn-xs btn-outline-secondary action-btn history-btn" data-history='{{ row.history_json|escapejs }}' data-name="{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:'-' }}{% endif %}" data-count="{{ row.history_count }}">
-                  <i class="fas fa-history"></i> <span class="d-none d-md-inline">{{ row.history_count }}</span>
+                <button type="button" class="btn btn-xs btn-success supervisor-action-btn action-time-btn" data-action-url="{{ row.action_url }}" data-action="set_in" data-title="{% trans 'Set Clock In' %}" data-time="">{% trans "In" %}</button>
+                <button type="button" class="btn btn-xs btn-warning supervisor-action-btn action-time-btn" data-action-url="{{ row.action_url }}" data-action="set_lunch_out" data-title="{% trans 'Set Lunch Out' %}" data-time="">{% trans "Lunch Out" %}</button>
+                <button type="button" class="btn btn-xs btn-info supervisor-action-btn action-time-btn" data-action-url="{{ row.action_url }}" data-action="set_lunch_in" data-title="{% trans 'Set Lunch In' %}" data-time="">{% trans "Lunch In" %}</button>
+                <button type="button" class="btn btn-xs btn-primary supervisor-action-btn action-time-btn" data-action-url="{{ row.action_url }}" data-action="set_out" data-title="{% trans 'Set Clock Out' %}" data-time="">{% trans "Out" %}</button>
+                <button type="button" class="btn btn-xs btn-secondary supervisor-action-btn history-btn" data-history='{{ row.history_json|escapejs }}' data-name="{% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:'-' }}{% endif %}" data-count="{{ row.history_count }}">
+                  {% trans "History" %} ({{ row.history_count }})
                 </button>
               </div>
             </td>
@@ -162,7 +117,18 @@
           {% endwith %}
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-4">{% trans "No users found for your organization." %}</td>
+            <td colspan="7" class="text-center py-4">
+              <div class="text-muted mb-2"><i class="fas fa-users-slash fa-2x mb-2 d-block opacity-50"></i>{% trans "No users found for your organization." %}</div>
+              <div class="small text-secondary">
+                {% if request.LANGUAGE_CODE == 'fa' %}
+                  دلایل احتمالی: پرسنل به سازمان شما اختصاص داده نشده، یا حساب کاربری به پرسنل لینک نشده است.<br>
+                  لطفاً مطمئن شوید پرسنل در بخش «پرسنل» ثبت شده و سازمان آنها با سازمان شما یکسان باشد.
+                {% else %}
+                  Possible reasons: employees are not assigned to your organization, or user accounts are not linked to employee records.<br>
+                  Please ensure employees are registered in Personnel module with matching organization.
+                {% endif %}
+              </div>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -170,6 +136,50 @@
     </div>
   </div>
   </div>
+
+<div class="modal fade" id="bulkSetModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="bulkSetForm" method="post" action="{% url 'hr_attendance:supervisor_bulk_set_times' %}">
+        {% csrf_token %}
+        <div class="modal-header py-2">
+          <h6 class="modal-title">{% trans "Bulk Set Times" %}</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="date" value="{{ date_str }}">
+          <input type="hidden" name="target_ids" id="bulkTargetIds">
+
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small mb-1">{% trans "Clock In" %}</label>
+              <input type="time" class="form-control" name="clock_in">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">{% trans "Lunch Out" %}</label>
+              <input type="time" class="form-control" name="lunch_out">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">{% trans "Lunch In" %}</label>
+              <input type="time" class="form-control" name="lunch_in">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">{% trans "Clock Out" %}</label>
+              <input type="time" class="form-control" name="clock_out">
+            </div>
+          </div>
+          <div class="small text-muted mt-2">
+            {% trans "Leave any field empty to skip it." %}
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-sm btn-primary">{% trans "Apply" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <div class="modal fade" id="timeActionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -211,15 +221,25 @@
 
 <style>
   .btn-xs {
-    --bs-btn-padding-y: .28rem;
-    --bs-btn-padding-x: .55rem;
-    --bs-btn-font-size: .84rem;
+    --bs-btn-padding-y: .25rem;
+    --bs-btn-padding-x: .5rem;
+    --bs-btn-font-size: .75rem;
     line-height: 1.2;
+    border-radius: .2rem;
   }
 
-  .action-btn {
-    min-width: 2rem;
-    min-height: 2rem;
+  .supervisor-action-btn {
+    min-width: 2.2rem;
+    min-height: 2.2rem;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
   }
 
   .supervisor-table td,
@@ -230,7 +250,10 @@
   }
 
   .action-wrap {
-    min-width: 182px;
+    min-width: 200px;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 
   @media (max-width: 768px) {
@@ -241,12 +264,13 @@
     }
 
     .action-wrap {
-      min-width: 168px;
+      min-width: 180px;
+      gap: 3px;
     }
 
-    .action-btn {
-      min-width: 2.15rem;
-      min-height: 2.15rem;
+    .supervisor-action-btn {
+      min-width: 2rem;
+      min-height: 2rem;
     }
   }
 </style>
@@ -268,6 +292,12 @@
       const titleEl = document.getElementById('timeActionTitle');
       const historyTitle = document.getElementById('historyTitle');
       const historyList = document.getElementById('historyList');
+
+      timeModalEl.addEventListener('shown.bs.modal', () => {
+        if (!timeField) return;
+        timeField.focus();
+        if (typeof timeField.select === 'function') timeField.select();
+      });
 
       document.querySelectorAll('.action-time-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -306,6 +336,36 @@
           historyModal.show();
         });
       });
+
+      const selectAll = document.getElementById('selectAllUsers');
+      if (selectAll) {
+        selectAll.addEventListener('change', () => {
+          const checked = !!selectAll.checked;
+          document.querySelectorAll('input.bulk-select').forEach((cb) => {
+            cb.checked = checked;
+          });
+        });
+      }
+
+      const bulkBtn = document.getElementById('bulkSetBtn');
+      const bulkModalEl = document.getElementById('bulkSetModal');
+      const bulkTargetIds = document.getElementById('bulkTargetIds');
+      const bulkForm = document.getElementById('bulkSetForm');
+      if (bulkBtn && bulkModalEl && bulkTargetIds && bulkForm) {
+        const bulkModal = new bootstrap.Modal(bulkModalEl);
+
+        bulkBtn.addEventListener('click', () => {
+          const ids = Array.from(document.querySelectorAll('input.bulk-select:checked'))
+            .map((cb) => cb.value)
+            .filter(Boolean);
+          if (!ids.length) {
+            alert('{% trans "Please select at least one user." %}');
+            return;
+          }
+          bulkTargetIds.value = ids.join(',');
+          bulkModal.show();
+        });
+      }
     });
   })();
 </script>

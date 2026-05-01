@@ -20,7 +20,7 @@ elif ENVIRONMENT == 'local':
         # Fallback settings if settings_local doesn't exist
         SECRET_KEY = 'django-insecure-24^fn&q)8!c3q!jv*pf&mu!r5k9a2+_%b25*pmdao_og6v0#pv'
         DEBUG = True
-        ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+        ALLOWED_HOSTS = ['*']
         CSRF_TRUSTED_ORIGINS = [
             'http://localhost:8000',
             'http://127.0.0.1:8000',

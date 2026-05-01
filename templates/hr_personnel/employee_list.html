@@ -86,6 +86,9 @@
                                 <a href="{% url 'hr_personnel:employee_edit' e.id %}" class="btn btn-sm btn-outline-secondary">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ e.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                                 {% endif %}
                             </div>
                         </td>
@@ -100,4 +103,30 @@
         </div>
     </div>
 </div>
+
+{% if is_manager %}
+{% for e in employees %}
+<div class="modal fade" id="deleteModal-{{ e.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white py-3">
+                <h6 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> {% if request.LANGUAGE_CODE == 'fa' %}تایید حذف{% else %}{% trans "Confirm Delete" %}{% endif %}</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-1 fw-bold">{{ e.first_name }} {{ e.last_name }}</p>
+                <p class="small text-danger mb-0">{% if request.LANGUAGE_CODE == 'fa' %}این عملیات غیرقابل بازگشت است.{% else %}{% trans "This action cannot be undone." %}{% endif %}</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-3">
+                <button type="button" class="btn btn-sm btn-light rounded-pill px-3" data-bs-dismiss="modal">{% if request.LANGUAGE_CODE == 'fa' %}انصراف{% else %}{% trans "Cancel" %}{% endif %}</button>
+                <form action="{% url 'hr_personnel:employee_delete' e.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3">{% if request.LANGUAGE_CODE == 'fa' %}حذف{% else %}{% trans "Delete" %}{% endif %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
 {% endblock %}

@@ -479,6 +479,8 @@ def _redirect_supervisor_by_date(date_value):
 def _is_target_in_scope(request, target):
     if request.user.is_superuser:
         return True
+    if getattr(target, 'id', None) == getattr(request.user, 'id', None):
+        return True
     try:
         if request.user.profile.organization_id != target.profile.organization_id:
             return False
@@ -507,6 +509,9 @@ def _is_employee_in_scope(request, employee):
     if not current_employee:
         return False
 
+    if getattr(employee, 'user_id', None) == getattr(request.user, 'id', None):
+        return True
+
     if employee.user_id:
         target_user = employee.user
         target_role = getattr(getattr(target_user, 'profile', None), 'role', 'user')
@@ -526,6 +531,8 @@ def _is_employee_in_scope(request, employee):
 
 
 def _clock_redirect(request):
+    if request.POST.get('next') == 'main_dashboard':
+        return redirect('main_dashboard')
     if request.POST.get('next') == 'quick_success':
         return redirect('hr_attendance:quick_clock_success')
     if request.POST.get('next') == 'clock_center':
@@ -605,6 +612,12 @@ def _attendance_users_for_manager(request):
     except Exception:
         current_employee = None
 
+    if current_employee is None:
+        try:
+            current_employee = _employee_for_user(request.user)
+        except Exception:
+            current_employee = None
+
     users_qs = User.objects.filter(employee__isnull=False).select_related('profile', 'employee').order_by('username')
     if not request.user.is_superuser and org:
         users_qs = users_qs.filter(employee__organization=org)
@@ -620,6 +633,7 @@ def _attendance_users_for_manager(request):
             scope_filter = Q(profile__supervisor=request.user)
             if current_employee:
                 scope_filter |= Q(employee__work_unit__supervisor=current_employee)
+            scope_filter |= Q(id=request.user.id)
             users_qs = users_qs.filter(scope_filter).exclude(profile__role='admin').exclude(is_superuser=True).distinct()
 
     return users_qs
@@ -1101,8 +1115,15 @@ def my_attendance_card(request):
             }
         )
 
+    # User / org info for header
+    profile = getattr(request.user, 'profile', None)
+    org = getattr(profile, 'organization', None) if profile else None
+    user_full_name = request.user.get_full_name() or request.user.username
+    org_name = getattr(org, 'name', '') if org else ''
+
+    month_str = month_start.strftime('%Y-%m')
     context = {
-        'month_value': month_start.strftime('%Y-%m'),
+        'month_value': month_str,
         'rows': rows,
         'show_details': show_details,
         'summary': {
@@ -1110,8 +1131,184 @@ def my_attendance_card(request):
             'days_absent': summary['days_absent'],
             'total_worked_hours': round(summary['total_worked_hours'], 2),
         },
+        'user_full_name': user_full_name,
+        'org_name': org_name,
+        'pdf_url': f"{reverse('hr_attendance:my_attendance_card_pdf')}?month={month_str}",
+        'excel_url': f"{reverse('hr_attendance:my_attendance_card_excel')}?month={month_str}",
     }
     return render(request, 'hr_attendance/my_attendance_card.html', context)
+
+
+@login_required
+def my_attendance_card_pdf(request):
+    """Generate PDF export of the user's own monthly attendance card."""
+    today = timezone.localtime(timezone.now()).date()
+    month_start = _parse_month_start(request.GET.get('month'), today)
+    month_days = calendar.monthrange(month_start.year, month_start.month)[1]
+    month_end = month_start.replace(day=month_days)
+
+    profile = getattr(request.user, 'profile', None)
+    org = getattr(profile, 'organization', None) if profile else None
+
+    attendances = Attendance.objects.filter(
+        user=request.user,
+        date__range=(month_start, month_end),
+    ).order_by('date')
+    attendance_by_date = {item.date: item for item in attendances}
+
+    rows = []
+    summary = {'days_present': 0, 'days_absent': 0, 'total_worked_hours': 0.0}
+    for day in range(1, month_days + 1):
+        current_date = month_start.replace(day=day)
+        attendance = attendance_by_date.get(current_date)
+        worked_hours = 0.0
+        if attendance and attendance.clock_in and attendance.clock_out:
+            worked_hours = _worked_hours_from_attendance(attendance)
+        if attendance and attendance.clock_in:
+            summary['days_present'] += 1
+        else:
+            summary['days_absent'] += 1
+        summary['total_worked_hours'] += worked_hours
+        rows.append({
+            'date': current_date,
+            'attendance': attendance,
+            'worked_hours': round(worked_hours, 2),
+            'worked_hours_display': _format_hours_hhmm(worked_hours),
+        })
+
+    employee = _employee_for_user(request.user)
+    response = render_to_pdf(
+        'hr_attendance/my_attendance_card_pdf.html',
+        {
+            'user': request.user,
+            'employee': employee,
+            'month_start': month_start,
+            'month_end': month_end,
+            'rows': rows,
+            'summary': {
+                'days_present': summary['days_present'],
+                'days_absent': summary['days_absent'],
+                'total_worked_hours': round(summary['total_worked_hours'], 2),
+                'total_worked_hours_display': _format_hours_hhmm(summary['total_worked_hours']),
+            },
+            'org': org,
+        },
+    )
+    if hasattr(response, 'status_code') and response.status_code == 503:
+        return response
+    if response is None:
+        return HttpResponse("Error Rendering PDF", status=400)
+
+    user_label = request.user.username
+    filename = f"MyAttendanceCard_{user_label}_{month_start.strftime('%Y-%m')}.pdf"
+    response['Content-Disposition'] = f"attachment; filename={filename}"
+    return response
+
+
+@login_required
+def my_attendance_card_excel(request):
+    """Generate Excel export of the user's own monthly attendance card."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    today = timezone.localtime(timezone.now()).date()
+    month_start = _parse_month_start(request.GET.get('month'), today)
+    month_days = calendar.monthrange(month_start.year, month_start.month)[1]
+    month_end = month_start.replace(day=month_days)
+
+    profile = getattr(request.user, 'profile', None)
+    org = getattr(profile, 'organization', None) if profile else None
+    org_name = getattr(org, 'name', '') if org else ''
+    user_full_name = request.user.get_full_name() or request.user.username
+
+    attendances = Attendance.objects.filter(
+        user=request.user,
+        date__range=(month_start, month_end),
+    ).order_by('date')
+    attendance_by_date = {item.date: item for item in attendances}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Attendance Card"
+
+    # Header
+    header_font = Font(bold=True, size=13)
+    ws.merge_cells('A1:F1')
+    ws['A1'] = f"Monthly Attendance Card - {month_start.strftime('%Y-%m')}"
+    ws['A1'].font = header_font
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"Employee: {user_full_name}    |    Organization: {org_name or '-'}"
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    # Column headers
+    col_headers = ['Date', 'Clock In', 'Lunch Out', 'Lunch In', 'Clock Out', 'Worked Hours']
+    header_fill = PatternFill(start_color='4f46e5', end_color='4f46e5', fill_type='solid')
+    header_font_w = Font(bold=True, color='FFFFFF', size=10)
+    thin_border = Border(
+        left=Side(style='thin', color='D0D0D0'),
+        right=Side(style='thin', color='D0D0D0'),
+        top=Side(style='thin', color='D0D0D0'),
+        bottom=Side(style='thin', color='D0D0D0'),
+    )
+
+    for col_idx, header in enumerate(col_headers, 1):
+        cell = ws.cell(row=4, column=col_idx, value=header)
+        cell.font = header_font_w
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+
+    # Data rows
+    total_worked = 0.0
+    days_present = 0
+    days_absent = 0
+    for day in range(1, month_days + 1):
+        current_date = month_start.replace(day=day)
+        att = attendance_by_date.get(current_date)
+        worked_hours = 0.0
+        if att and att.clock_in and att.clock_out:
+            worked_hours = _worked_hours_from_attendance(att)
+        if att and att.clock_in:
+            days_present += 1
+        else:
+            days_absent += 1
+        total_worked += worked_hours
+
+        row_num = 4 + day
+        ws.cell(row=row_num, column=1, value=current_date.strftime('%Y/%m/%d')).border = thin_border
+        ws.cell(row=row_num, column=2, value=att.clock_in.strftime('%H:%M') if att and att.clock_in else '-').border = thin_border
+        ws.cell(row=row_num, column=3, value=att.lunch_out.strftime('%H:%M') if att and att.lunch_out else '-').border = thin_border
+        ws.cell(row=row_num, column=4, value=att.lunch_in.strftime('%H:%M') if att and att.lunch_in else '-').border = thin_border
+        ws.cell(row=row_num, column=5, value=att.clock_out.strftime('%H:%M') if att and att.clock_out else '-').border = thin_border
+        ws.cell(row=row_num, column=6, value=round(worked_hours, 2)).border = thin_border
+
+    # Summary row
+    summary_row = 5 + month_days
+    ws.merge_cells(f'A{summary_row}:C{summary_row}')
+    ws.cell(row=summary_row, column=1, value=f"Present: {days_present}  |  Absent: {days_absent}").font = Font(bold=True)
+    ws.merge_cells(f'D{summary_row}:F{summary_row}')
+    ws.cell(row=summary_row, column=4, value=f"Total Worked: {round(total_worked, 2)} hrs").font = Font(bold=True)
+
+    # Column widths
+    ws.column_dimensions['A'].width = 14
+    for col_letter in ['B', 'C', 'D', 'E']:
+        ws.column_dimensions[col_letter].width = 12
+    ws.column_dimensions['F'].width = 14
+
+    from io import BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    filename = f"MyAttendanceCard_{request.user.username}_{month_start.strftime('%Y-%m')}.xlsx"
+    response['Content-Disposition'] = f"attachment; filename={filename}"
+    return response
 
 @login_required
 def clock_in(request):
@@ -1254,6 +1451,7 @@ def supervisor_panel(request):
     Supervisor dashboard to record clock-in/out for users in the same organization.
     """
     view_started = time.perf_counter()
+
     users_qs = _attendance_users_for_manager(request)
 
     date_str = request.GET.get('date')
@@ -1270,6 +1468,8 @@ def supervisor_panel(request):
     role = getattr(getattr(request.user, 'profile', None), 'role', 'user')
 
     users = list(users_qs)
+    if request.user.is_authenticated and request.user.id and all(u.id != request.user.id for u in users):
+        users.append(request.user)
     records = []
 
     linked_employee_ids = {
@@ -1278,11 +1478,54 @@ def supervisor_panel(request):
         if getattr(u, 'employee_id', None)
     }
 
-    unlinked_employees = list(
-        _scoped_unlinked_employees(request, org, current_employee, role).exclude(id__in=linked_employee_ids)
-    )
-
     linked_employees = [getattr(u, 'employee', None) for u in users if getattr(u, 'employee', None) is not None]
+
+    linked_identity_keys = set()
+    for emp in linked_employees:
+        try:
+            if getattr(emp, 'national_id', None):
+                linked_identity_keys.add(('national_id', str(emp.national_id).strip().lower()))
+            if getattr(emp, 'employee_id', None):
+                linked_identity_keys.add(('employee_id', str(emp.employee_id).strip().lower()))
+            if getattr(emp, 'email', None):
+                linked_identity_keys.add(('email', str(emp.email).strip().lower()))
+            if getattr(emp, 'phone', None):
+                linked_identity_keys.add(('phone', str(emp.phone).strip().lower()))
+        except Exception:
+            continue
+
+    unlinked_employees_qs = _scoped_unlinked_employees(request, org, current_employee, role).exclude(id__in=linked_employee_ids)
+    unlinked_employees = list(unlinked_employees_qs)
+
+    if linked_identity_keys:
+        filtered_unlinked = []
+        for emp in unlinked_employees:
+            try:
+                candidate_keys = []
+                if getattr(emp, 'national_id', None):
+                    candidate_keys.append(('national_id', str(emp.national_id).strip().lower()))
+                if getattr(emp, 'employee_id', None):
+                    candidate_keys.append(('employee_id', str(emp.employee_id).strip().lower()))
+                if getattr(emp, 'email', None):
+                    candidate_keys.append(('email', str(emp.email).strip().lower()))
+                if getattr(emp, 'phone', None):
+                    candidate_keys.append(('phone', str(emp.phone).strip().lower()))
+
+                if candidate_keys and any(k in linked_identity_keys for k in candidate_keys):
+                    continue
+            except Exception:
+                pass
+            filtered_unlinked.append(emp)
+        unlinked_employees = filtered_unlinked
+    if current_employee and all(e.id != current_employee.id for e in unlinked_employees):
+        try:
+            # Only append the supervisor's employee record if it's truly unlinked.
+            # If the employee is linked to a user, it will already be represented via `users_qs`.
+            if getattr(current_employee, 'user_id', None) is None:
+                unlinked_employees.append(current_employee)
+        except Exception:
+            pass
+
     attendance_by_user_id, attendance_by_employee_id = _attendance_maps_for_targets(
         selected_date,
         users,
@@ -1302,11 +1545,16 @@ def supervisor_panel(request):
         if att is None:
             att = attendance_by_user_id.get(u.id)
         history_payload = history_payloads_by_attendance.get(att.id, []) if att else []
+        try:
+            action_url = reverse('hr_attendance:supervisor_attendance_action', args=[u.id])
+        except Exception:
+            action_url = ''
         records.append(
             {
                 'user': u,
                 'employee': employee,
                 'attendance': att,
+                'action_url': action_url,
                 'history_count': len(history_payload),
                 'history_json': json.dumps(history_payload, ensure_ascii=False),
             }
@@ -1315,11 +1563,16 @@ def supervisor_panel(request):
     for employee in unlinked_employees:
         att = attendance_by_employee_id.get(employee.id)
         history_payload = history_payloads_by_attendance.get(att.id, []) if att else []
+        try:
+            action_url = reverse('hr_attendance:supervisor_attendance_action_employee', args=[employee.id])
+        except Exception:
+            action_url = ''
         records.append(
             {
                 'user': None,
                 'employee': employee,
                 'attendance': att,
+                'action_url': action_url,
                 'history_count': len(history_payload),
                 'history_json': json.dumps(history_payload, ensure_ascii=False),
             }
@@ -1353,6 +1606,12 @@ def supervisor_panel(request):
     prev_month = _shift_month(selected_date, -1)
     next_month = _shift_month(selected_date, 1)
 
+    # Current supervisor info for header display
+    supervisor_name = request.user.get_full_name() or request.user.username
+    supervisor_employee = current_employee
+    if supervisor_employee:
+        supervisor_name = f"{supervisor_employee.first_name} {supervisor_employee.last_name}".strip() or supervisor_name
+
     return render(request, 'hr_attendance/supervisor_panel.html', {
         'records': records,
         'today': selected_date,
@@ -1363,6 +1622,8 @@ def supervisor_panel(request):
         'next_day_str': next_day.isoformat(),
         'prev_month_str': prev_month.isoformat(),
         'next_month_str': next_month.isoformat(),
+        'supervisor_name': supervisor_name,
+        'supervisor_employee': supervisor_employee,
     })
 
 
@@ -2021,12 +2282,10 @@ def _supervisor_attendance_action_core(request, target_user=None, target_employe
         if not parsed_dt:
             messages.error(request, _("Please select a valid time."))
             return _redirect_supervisor_by_date(selected_date.isoformat())
-        if action.startswith('set') and old_value:
-            messages.warning(request, _("Time already exists. Use edit instead."))
-            return _redirect_supervisor_by_date(selected_date.isoformat())
-        if action.startswith('edit') and not old_value:
-            messages.warning(request, _("No existing time to edit. Use set instead."))
-            return _redirect_supervisor_by_date(selected_date.isoformat())
+
+        # UX improvement: allow supervisors to overwrite an existing time using the same set_* buttons.
+        # If a value already exists, treat this as an edit instead of blocking the action.
+        action_type = 'edit' if old_value else 'set'
 
         setattr(attendance, field_name, parsed_dt)
         setattr(attendance, supervisor_field, parsed_dt)
@@ -2044,7 +2303,7 @@ def _supervisor_attendance_action_core(request, target_user=None, target_employe
             attendance=attendance,
             actor=request.user,
             field_name=field_name,
-            action_type='set' if action.startswith('set') else 'edit',
+            action_type=action_type,
             old_value=old_value,
             new_value=parsed_dt,
             note='Supervisor panel',
@@ -2070,6 +2329,120 @@ def _supervisor_attendance_action_core(request, target_user=None, target_employe
             )
         messages.success(request, _("Attendance time saved."))
         return _redirect_supervisor_by_date(selected_date.isoformat())
+
+
+@login_required
+@user_passes_test(is_supervisor_or_admin)
+def supervisor_bulk_set_times(request):
+    if request.method != 'POST':
+        return redirect('hr_attendance:supervisor_panel')
+
+    date_str = request.POST.get('date')
+    try:
+        selected_date = datetime.date.fromisoformat(date_str) if date_str else timezone.localtime(timezone.now()).date()
+    except Exception:
+        selected_date = timezone.localtime(timezone.now()).date()
+
+    target_ids_raw = str(request.POST.get('target_ids') or '').strip()
+    target_tokens = [tok.strip() for tok in target_ids_raw.split(',') if tok.strip()]
+
+    user_ids = []
+    employee_ids = []
+    for tok in target_tokens:
+        if tok.startswith('u:') and tok[2:].strip().isdigit():
+            user_ids.append(int(tok[2:].strip()))
+        elif tok.startswith('e:') and tok[2:].strip().isdigit():
+            employee_ids.append(int(tok[2:].strip()))
+
+    if not user_ids and not employee_ids:
+        messages.error(request, _("Please select at least one user."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+
+    time_clock_in = request.POST.get('clock_in')
+    time_lunch_out = request.POST.get('lunch_out')
+    time_lunch_in = request.POST.get('lunch_in')
+    time_clock_out = request.POST.get('clock_out')
+
+    any_time_provided = any([time_clock_in, time_lunch_out, time_lunch_in, time_clock_out])
+    if not any_time_provided:
+        messages.error(request, _("Please provide at least one time."))
+        return _redirect_supervisor_by_date(selected_date.isoformat())
+
+    action_map = {
+        'clock_in': ('clock_in', 'supervisor_clock_in', 'clock_in_by', 'in', time_clock_in),
+        'lunch_out': ('lunch_out', 'supervisor_lunch_out', 'lunch_out_by', 'lunch_out', time_lunch_out),
+        'lunch_in': ('lunch_in', 'supervisor_lunch_in', 'lunch_in_by', 'lunch_in', time_lunch_in),
+        'clock_out': ('clock_out', 'supervisor_clock_out', 'clock_out_by', 'out', time_clock_out),
+    }
+
+    updated = 0
+    skipped = 0
+
+    targets_users = User.objects.filter(id__in=user_ids).select_related('profile') if user_ids else User.objects.none()
+    targets_employees = Employee.objects.filter(id__in=employee_ids).select_related('user') if employee_ids else Employee.objects.none()
+
+    def apply_times(attendance):
+        source, capture_mode, device_id = _resolve_capture_fields(request, default_source='manual', default_mode='manual')
+        attendance.source = source
+        attendance.capture_mode = capture_mode
+        attendance.device_id = device_id
+        attendance.status = Attendance.Status.PRESENT
+
+        lat, lng = _parse_location_from_request(request)
+        changed_any = False
+
+        for field_name, supervisor_field, actor_field, location_key, time_value in action_map.values():
+            if not time_value:
+                continue
+            parsed_dt = _parse_supervisor_action_datetime(selected_date, time_value)
+            if not parsed_dt:
+                continue
+
+            old_value = getattr(attendance, field_name)
+
+            setattr(attendance, field_name, parsed_dt)
+            setattr(attendance, supervisor_field, parsed_dt)
+            setattr(attendance, actor_field, request.user)
+            _save_location(attendance, lat, lng, location_key)
+
+            _log_attendance_change(
+                attendance=attendance,
+                actor=request.user,
+                field_name=field_name,
+                action_type='edit' if old_value else 'set',
+                old_value=old_value,
+                new_value=parsed_dt,
+                note='Supervisor bulk set',
+            )
+            changed_any = True
+
+        if changed_any:
+            attendance.save()
+            _upsert_timesheet_from_attendance(attendance)
+        return changed_any
+
+    for target in targets_users:
+        if not _is_target_in_scope(request, target):
+            skipped += 1
+            continue
+        target_employee = _employee_for_user(target)
+        attendance, _created = _get_or_create_attendance(selected_date, user=target, employee=target_employee)
+        if apply_times(attendance):
+            updated += 1
+
+    for employee in targets_employees:
+        if not _is_employee_in_scope(request, employee):
+            skipped += 1
+            continue
+        target_user = getattr(employee, 'user', None)
+        attendance, _created = _get_or_create_attendance(selected_date, user=target_user, employee=employee)
+        if apply_times(attendance):
+            updated += 1
+
+    if skipped:
+        messages.warning(request, _("Some users were skipped due to scope restrictions."))
+    messages.success(request, _("Bulk update completed."))
+    return _redirect_supervisor_by_date(selected_date.isoformat())
 
     if not old_value:
         messages.warning(request, _("No saved time to delete."))

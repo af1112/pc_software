@@ -74,6 +74,11 @@ class AttendanceFlowTests(TestCase):
         self.assertEqual(str(attendance.clock_in_longitude), '51.400000')
         self.assertEqual(attendance.clock_in_by, self.user)
 
+    def test_clock_in_can_redirect_to_main_dashboard(self):
+        self.client.login(username='employee', password='pass1234')
+        resp = self.client.post(reverse('hr_attendance:clock_in'), {'next': 'main_dashboard'})
+        self.assertRedirects(resp, reverse('main_dashboard'))
+
     def test_supervisor_clock_in_marks_actor(self):
         supervisor = User.objects.create_user(username='supervisor', password='pass1234')
         supervisor_profile = supervisor.profile if hasattr(supervisor, 'profile') else UserProfile(user=supervisor)

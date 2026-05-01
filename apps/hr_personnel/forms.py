@@ -22,6 +22,60 @@ User = get_user_model()
 
 
 class EmployeeForm(forms.ModelForm):
+    ATTENDANCE_CARD_EXAMPLE = 'CARD-0001'
+    ATTENDANCE_TAG_EXAMPLE = '04AABBCC1122'
+    MAIN_FIELD_GROUPS = [
+        (
+            'basic',
+            ['organization', 'first_name', 'last_name', 'employee_id', 'user', 'phone', 'email'],
+        ),
+        (
+            'employment',
+            [
+                'employment_type',
+                'hire_date',
+                'department',
+                'position_title',
+                'reporting_manager',
+                'work_unit',
+                'supply_company',
+                'is_active',
+            ],
+        ),
+        (
+            'payroll',
+            ['payment_method', 'currency', 'basic_salary', 'bank_name', 'iban'],
+        ),
+    ]
+    OPTIONAL_FIELD_GROUPS = [
+        (
+            'personal',
+            [
+                'national_id',
+                'passport_no',
+                'nationality',
+                'gender',
+                'date_of_birth',
+                'marital_status',
+                'omani_or_expat',
+                'pasi_registered',
+                'wps_required',
+            ],
+        ),
+        (
+            'organizational',
+            ['company_id', 'branch_id', 'department_id', 'position_id'],
+        ),
+        (
+            'contract',
+            ['probation_end_date', 'contract_start', 'contract_end'],
+        ),
+        (
+            'attendance_testing',
+            ['attendance_card_number', 'attendance_tag_uid'],
+        ),
+    ]
+
     CURRENCY_CHOICES = [
         ('OMR', 'OMR - Omani Rial'),
         ('USD', 'USD - US Dollar'),
@@ -41,7 +95,19 @@ class EmployeeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         organization = kwargs.pop('organization', None)
         user_profile = kwargs.pop('user_profile', None)
+        is_superuser = kwargs.pop('is_superuser', False)
         super().__init__(*args, **kwargs)
+        self.organization = organization
+
+        # Organization field: only visible for superusers without an org
+        if 'organization' in self.fields:
+            if is_superuser and organization is None:
+                from apps.organizations.models import Organization
+                self.fields['organization'].queryset = Organization.objects.order_by('name')
+                self.fields['organization'].widget.attrs.update({'class': 'form-select'})
+                self.fields['organization'].required = True
+            else:
+                del self.fields['organization']
 
         required_fields = [
             'first_name',
@@ -147,6 +213,22 @@ class EmployeeForm(forms.ModelForm):
             self.fields['work_unit'].queryset = units
             self.fields['work_unit'].widget.attrs.update({'class': 'form-select'})
 
+        if 'attendance_card_number' in self.fields:
+            self.fields['attendance_card_number'].widget.attrs.update(
+                {
+                    'placeholder': self.ATTENDANCE_CARD_EXAMPLE,
+                    'autocomplete': 'off',
+                }
+            )
+
+        if 'attendance_tag_uid' in self.fields:
+            self.fields['attendance_tag_uid'].widget.attrs.update(
+                {
+                    'placeholder': self.ATTENDANCE_TAG_EXAMPLE,
+                    'autocomplete': 'off',
+                }
+            )
+
         if str(get_language() or '').lower().startswith('fa'):
             _localize_choice_labels(
                 'gender',
@@ -180,6 +262,8 @@ class EmployeeForm(forms.ModelForm):
                     'expat': 'مهاجر',
                 },
             )
+            if 'organization' in self.fields:
+                self.fields['organization'].label = 'سازمان'
             self.fields['user'].label = 'حساب کاربری'
             self.fields['employee_id'].label = 'کد پرسنلی'
             self.fields['company_id'].label = 'کد شرکت'
@@ -218,8 +302,64 @@ class EmployeeForm(forms.ModelForm):
             self.fields['wps_required'].label = 'نیازمند WPS'
             self.fields['is_active'].label = 'فعال'
 
+    def _clean_optional_example_value(self, field_name, example_value):
+        value = self.cleaned_data.get(field_name)
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value or value == example_value:
+                value = None
+        self.cleaned_data[field_name] = value
+        return value
+
+    def _validate_unique_optional_field(self, field_name, value):
+        if not value:
+            return
+
+        queryset = Employee.objects.filter(**{f'{field_name}__iexact': value})
+        if self.organization is not None:
+            queryset = queryset.filter(organization=self.organization)
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            if field_name == 'attendance_card_number':
+                message = (
+                    'شماره کارت حضور و غیاب قبلاً برای یک پرسنل دیگر ثبت شده است.'
+                    if str(get_language() or '').lower().startswith('fa')
+                    else 'This attendance card number is already assigned to another employee.'
+                )
+            else:
+                message = (
+                    'شناسه تگ حضور و غیاب قبلاً برای یک پرسنل دیگر ثبت شده است.'
+                    if str(get_language() or '').lower().startswith('fa')
+                    else 'This attendance tag UID is already assigned to another employee.'
+                )
+            self.add_error(field_name, message)
+
+    def get_main_sections(self):
+        return self._build_sections(self.MAIN_FIELD_GROUPS)
+
+    def get_optional_sections(self):
+        return self._build_sections(self.OPTIONAL_FIELD_GROUPS)
+
+    def _build_sections(self, groups):
+        sections = []
+        for section_name, field_names in groups:
+            section_fields = [self[field_name] for field_name in field_names if field_name in self.fields]
+            if section_fields:
+                sections.append({'name': section_name, 'fields': section_fields})
+        return sections
+
     def clean(self):
         cleaned_data = super().clean()
+        card_number = self._clean_optional_example_value('attendance_card_number', self.ATTENDANCE_CARD_EXAMPLE)
+        tag_uid = self._clean_optional_example_value('attendance_tag_uid', self.ATTENDANCE_TAG_EXAMPLE)
+
+        self._validate_unique_optional_field('attendance_card_number', card_number)
+        self._validate_unique_optional_field('attendance_tag_uid', tag_uid)
+
         missing_required = []
 
         for field_name, field in self.fields.items():
@@ -240,6 +380,7 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employee
         fields = [
+            'organization',
             'user',
             'employee_id',
             'company_id',
@@ -279,6 +420,7 @@ class EmployeeForm(forms.ModelForm):
             'is_active',
         ]
         widgets = {
+            'organization': forms.Select(attrs={'class': 'form-select'}),
             'user': forms.Select(attrs={'class': 'form-select'}),
             'employee_id': forms.TextInput(attrs={'class': 'form-control'}),
             'company_id': forms.TextInput(attrs={'class': 'form-control'}),
@@ -307,8 +449,8 @@ class EmployeeForm(forms.ModelForm):
             'reporting_manager': forms.Select(attrs={'class': 'form-select'}),
             'bank_name': forms.TextInput(attrs={'class': 'form-control'}),
             'iban': forms.TextInput(attrs={'class': 'form-control'}),
-            'attendance_card_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CARD-0001'}),
-            'attendance_tag_uid': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '04AABBCC1122'}),
+            'attendance_card_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'attendance_tag_uid': forms.TextInput(attrs={'class': 'form-control'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
             'basic_salary': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
             'currency': forms.Select(attrs={'class': 'form-select'}),

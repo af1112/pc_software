@@ -3,138 +3,392 @@
 
 {% block title %}{% trans "Main Dashboard" %}{% endblock %}
 {% block page_title %}{% trans "Dashboard" %}{% endblock %}
-{% block content_title %}{% trans "Main Dashboard" %}{% endblock %}
+{% block content_title %}{% trans "Dashboard" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Hero greeting ── */
+.dash-hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    border-radius: 24px;
+    padding: 36px 32px 32px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+}
+.dash-hero::before {
+    content: '';
+    position: absolute;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(99,102,241,.25) 0%, transparent 70%);
+    border-radius: 50%;
+    top: -120px; right: -60px;
+    pointer-events: none;
+}
+.dash-hero::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(14,165,233,.15) 0%, transparent 70%);
+    border-radius: 50%;
+    bottom: -80px; left: 40px;
+    pointer-events: none;
+}
+.dash-hero-text { position: relative; z-index: 1; flex: 1; }
+.dash-hero h2 { font-size: 1.55rem; font-weight: 800; margin: 0 0 8px; line-height: 1.3; }
+.dash-hero p { font-size: .92rem; opacity: .75; margin: 0 0 12px; line-height: 1.5; }
+.dash-hero .hero-date { font-size: .82rem; opacity: .55; }
+.dash-hero-actions { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.hero-clock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff !important;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: .95rem;
+    text-decoration: none !important;
+    box-shadow: 0 8px 24px rgba(16,185,129,.35);
+    transition: all .25s ease;
+    white-space: nowrap;
+}
+.hero-clock-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(16,185,129,.45);
+}
+.hero-clock-btn i { font-size: 1.1rem; animation: pulse-icon 2s ease-in-out infinite; }
+@keyframes pulse-icon { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+/* ── Quick stats row ── */
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all .25s ease;
+    text-decoration: none !important;
+    color: inherit !important;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.stat-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.stat-info { flex: 1; min-width: 0; }
+.stat-info .stat-label { font-size: .78rem; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
+.stat-info .stat-value { font-size: 1.05rem; font-weight: 800; color: var(--text-main); }
+.stat-icon.si-clock { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+.stat-icon.si-users { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #4f46e5; }
+.stat-icon.si-check { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669; }
+.stat-icon.si-cal { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #db2777; }
+
+/* ── Section label ── */
+.dash-section-label {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    padding-left: 2px;
+}
+
+/* ── Module cards ── */
+.mod-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 22px;
+    text-decoration: none !important;
+    color: inherit !important;
+    transition: all .3s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+.mod-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(99,102,241,.3), transparent);
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+.mod-card:hover::before { opacity: 1; }
+.mod-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0,0,0,.08);
+    border-color: rgba(99,102,241,.25);
+}
+.mod-card.disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.mod-card .mod-icon {
+    width: 54px; height: 54px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    transition: transform .3s ease;
+}
+.mod-card:hover .mod-icon { transform: scale(1.08) rotate(3deg); }
+.mod-card .mod-body { flex: 1; min-width: 0; }
+.mod-card .mod-body h3 { font-size: .95rem; font-weight: 700; margin: 0 0 4px; color: var(--text-main); }
+.mod-card .mod-body p { font-size: .8rem; margin: 0; color: var(--text-muted); line-height: 1.4; }
+.mod-card .mod-arrow { color: var(--text-muted); font-size: .85rem; transition: all .2s; opacity: .5; }
+.mod-card:hover .mod-arrow { opacity: 1; color: #6366f1; transform: translateX(3px); }
+[dir="rtl"] .mod-card:hover .mod-arrow { transform: translateX(-3px); }
+.mod-card.disabled .mod-arrow { display: none; }
+.mod-card.disabled::after {
+    content: 'Coming Soon';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: .65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .8px;
+    color: var(--text-muted);
+    background: var(--bg-body);
+    padding: 3px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+/* icon colors */
+.icon-expenses   { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+.icon-ticketing  { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
+.icon-attendance { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+.icon-personnel  { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #4f46e5; }
+.icon-projects   { background: linear-gradient(135deg, #cffafe, #a5f3fc); color: #0891b2; }
+.icon-dms        { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #db2777; }
+.icon-ai         { background: linear-gradient(135deg, #f5f3ff, #ddd6fe); color: #7c3aed; }
+.icon-menu       { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626; }
+.icon-club       { background: linear-gradient(135deg, #fef9c3, #fde68a); color: #ca8a04; }
+
+[data-theme="dark"] .dash-hero { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%); }
+
+@media (max-width: 768px) {
+    .dash-hero { flex-direction: column; align-items: flex-start; padding: 24px 20px; }
+    .dash-hero-actions { width: 100%; }
+    .hero-clock-btn { width: 100%; justify-content: center; }
+    .quick-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .quick-stats { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="dashboard-section-title text-main">{% trans "Business Modules" %}</h2>
+<div class="dash-hero">
+    <div class="dash-hero-text">
+        <h2>
+            {% if request.LANGUAGE_CODE == 'fa' %}
+                {% trans "Welcome" %}{% if user.first_name %}، {{ user.first_name }}{% endif %}
+            {% else %}
+                {% trans "Welcome" %}{% if user.first_name %}, {{ user.first_name }}{% endif %}
+            {% endif %}
+        </h2>
+        <p>
+            {% if request.LANGUAGE_CODE == 'fa' %}
+                از پنل مدیریت کسب‌وکار خود استفاده کنید. ماژول مورد نظر را انتخاب نمایید.
+            {% else %}
+                {% trans "Manage your business from one place. Select a module below to get started." %}
+            {% endif %}
+        </p>
+        <div class="hero-date"><i class="far fa-calendar-alt me-1"></i> {% now "l, j F Y" %}</div>
+    </div>
+    <div class="dash-hero-actions">
+        {% if can_use_attendance or user.is_superuser %}
+        <a href="{% url 'hr_attendance:quick_clock' %}" class="hero-clock-btn" data-no-loading>
+            <i class="fas fa-stopwatch"></i>
+            {% if request.LANGUAGE_CODE == 'fa' %}ثبت ورود / خروج{% else %}{% trans "Clock In / Out" %}{% endif %}
+        </a>
+        {% endif %}
+    </div>
+</div>
 
-<div class="row g-4">
-    <!-- Expense Manager -->
+{% if can_use_attendance or user.is_superuser %}
+<div class="quick-stats">
+    <a href="{% url 'hr_attendance:quick_clock' %}" class="stat-card" data-no-loading>
+        <div class="stat-icon si-clock"><i class="fas fa-stopwatch"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{% if request.LANGUAGE_CODE == 'fa' %}ثبت سریع{% else %}{% trans "Quick Clock" %}{% endif %}</div>
+            <div class="stat-value">{% if request.LANGUAGE_CODE == 'fa' %}ورود / خروج{% else %}{% trans "In / Out" %}{% endif %}</div>
+        </div>
+    </a>
+    {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
+    <a href="{% url 'hr_attendance:supervisor_panel' %}" class="stat-card">
+        <div class="stat-icon si-users"><i class="fas fa-user-clock"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{% if request.LANGUAGE_CODE == 'fa' %}پنل سرپرست{% else %}{% trans "Supervisor Panel" %}{% endif %}</div>
+            <div class="stat-value">{% if request.LANGUAGE_CODE == 'fa' %}مدیریت تیم{% else %}{% trans "Team" %}{% endif %}</div>
+        </div>
+    </a>
+    <a href="{% url 'hr_attendance:dashboard' %}" class="stat-card">
+        <div class="stat-icon si-check"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{% if request.LANGUAGE_CODE == 'fa' %}داشبورد حضور{% else %}{% trans "Attendance Dashboard" %}{% endif %}</div>
+            <div class="stat-value">{% if request.LANGUAGE_CODE == 'fa' %}گزارش‌ها{% else %}{% trans "Reports" %}{% endif %}</div>
+        </div>
+    </a>
+    {% endif %}
+    <a href="{% url 'hr_attendance:my_attendance_card' %}" class="stat-card">
+        <div class="stat-icon si-cal"><i class="fas fa-id-card"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{% if request.LANGUAGE_CODE == 'fa' %}کارت ساعت{% else %}{% trans "My Card" %}{% endif %}</div>
+            <div class="stat-value">{% if request.LANGUAGE_CODE == 'fa' %}کارت ماهانه{% else %}{% trans "Monthly" %}{% endif %}</div>
+        </div>
+    </a>
+</div>
+{% endif %}
+
+<div class="dash-section-label">
+    {% if request.LANGUAGE_CODE == 'fa' %}ماژول‌های فعال{% else %}{% trans "Active Modules" %}{% endif %}
+</div>
+
+<div class="row g-3 mb-4">
     {% if can_use_expenses or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'expenses:dashboard' %}" class="text-decoration-none">
-            <div class="dashboard-card">
-                <div class="card-icon-wrapper bg-light-primary">
-                    <i class="fas fa-wallet"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Expense Manager" %}</h3>
-                    <p class="card-desc">{% trans "Track daily expenses." %}</p>
-                </div>
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="{% url 'expenses:dashboard' %}" class="mod-card">
+            <div class="mod-icon icon-expenses"><i class="fas fa-wallet"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Expense Manager" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}مدیریت و پیگیری هزینه‌های روزانه{% else %}{% trans "Track and manage daily expenses" %}{% endif %}</p>
             </div>
+            <i class="fas fa-chevron-right mod-arrow"></i>
         </a>
     </div>
     {% endif %}
 
-    <!-- Ticketing System -->
     {% if can_use_ticketing or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'ticketing:ticket_list' %}" class="text-decoration-none">
-            <div class="dashboard-card">
-                <div class="card-icon-wrapper bg-light-success">
-                    <i class="fas fa-ticket-alt"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Ticketing System" %}</h3>
-                    <p class="card-desc">{% trans "Manage support tickets." %}</p>
-                </div>
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="{% url 'ticketing:ticket_list' %}" class="mod-card">
+            <div class="mod-icon icon-ticketing"><i class="fas fa-ticket-alt"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Ticketing System" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}ایجاد و مدیریت تیکت‌های پشتیبانی{% else %}{% trans "Create and manage support tickets" %}{% endif %}</p>
             </div>
+            <i class="fas fa-chevron-right mod-arrow"></i>
         </a>
     </div>
     {% endif %}
 
-    <!-- Attendance System -->
     {% if can_use_attendance or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="{% url 'hr_attendance:hub' %}" class="text-decoration-none">
-            <div class="dashboard-card">
-                <div class="card-icon-wrapper bg-light-warning">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Attendance" %}</h3>
-                    <p class="card-desc">{% trans "Clock in/out and track." %}</p>
-                </div>
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="{% url 'hr_attendance:hub' %}" class="mod-card">
+            <div class="mod-icon icon-attendance"><i class="fas fa-fingerprint"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Attendance" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}ثبت ورود و خروج و مدیریت حضور{% else %}{% trans "Clock in/out and track attendance" %}{% endif %}</p>
             </div>
+            <i class="fas fa-chevron-right mod-arrow"></i>
         </a>
     </div>
     {% endif %}
 
-    <!-- Project Control -->
-    {% if can_use_projects or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <div class="dashboard-card opacity-75" style="cursor: not-allowed">
-            <div class="card-icon-wrapper bg-light-info">
-                <i class="fas fa-project-diagram"></i>
+    {% if can_use_personnel or user.is_superuser %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="{% url 'hr_personnel:employee_list' %}" class="mod-card">
+            <div class="mod-icon icon-personnel"><i class="fas fa-users-cog"></i></div>
+            <div class="mod-body">
+                <h3>{% if request.LANGUAGE_CODE == 'fa' %}مدیریت پرسنل{% else %}{% trans "HR & Personnel" %}{% endif %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}مدیریت کارکنان و حقوق و دستمزد{% else %}{% trans "Manage employees and payroll" %}{% endif %}</p>
             </div>
-            <div class="card-content">
-                <h3 class="card-title-lg">{% trans "Project Control" %}</h3>
-                <p class="card-desc">{% trans "Manage tasks and timelines." %}</p>
-            </div>
-        </div>
+            <i class="fas fa-chevron-right mod-arrow"></i>
+        </a>
     </div>
     {% endif %}
 
-    <!-- Document Management -->
-    {% if can_use_dms or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <div class="dashboard-card opacity-75" style="cursor: not-allowed">
-            <div class="card-icon-wrapper bg-light-danger">
-                <i class="fas fa-folder-open"></i>
-            </div>
-            <div class="card-content">
-                <h3 class="card-title-lg">{% trans "Document DMS" %}</h3>
-                <p class="card-desc">{% trans "Secure document storage." %}</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- AI Engine -->
-    {% if can_use_ai or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <div class="dashboard-card opacity-75" style="cursor: not-allowed">
-            <div class="card-icon-wrapper bg-light-warning">
-                <i class="fas fa-brain"></i>
-            </div>
-            <div class="card-content">
-                <h3 class="card-title-lg">{% trans "AI Engine" %}</h3>
-                <p class="card-desc">{% trans "Intelligent data analysis." %}</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Digital Menu Advertising -->
     {% if can_use_menu or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <a href="https://digitalmenu.akafbusiness.com/" target="_blank" class="text-decoration-none">
-            <div class="dashboard-card border-0">
-                <div class="card-icon-wrapper bg-light-primary">
-                    <i class="fas fa-ad"></i>
-                </div>
-                <div class="card-content">
-                    <h3 class="card-title-lg">{% trans "Digital Ads" %}</h3>
-                    <p class="card-desc">{% trans "Akaf Digital Sales Advertising System." %}</p>
-                </div>
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href="https://digitalmenu.akafbusiness.com/" target="_blank" class="mod-card">
+            <div class="mod-icon icon-menu"><i class="fas fa-utensils"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Digital Menu" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}سیستم تبلیغات و منوی دیجیتال{% else %}{% trans "Digital advertising and menu system" %}{% endif %}</p>
             </div>
+            <i class="fas fa-chevron-right mod-arrow"></i>
         </a>
     </div>
     {% endif %}
-    
-    <!-- Customer Club -->
-    {% if can_use_club or user.is_superuser %}
-    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-        <div class="dashboard-card opacity-75" style="cursor: not-allowed">
-            <div class="card-icon-wrapper bg-light-warning">
-                <i class="fas fa-users"></i>
+</div>
+
+{% if can_use_projects or can_use_dms or can_use_ai or can_use_club or user.is_superuser %}
+<div class="dash-section-label mt-2">
+    {% if request.LANGUAGE_CODE == 'fa' %}به‌زودی{% else %}{% trans "Coming Soon" %}{% endif %}
+</div>
+<div class="row g-3 mb-4">
+    {% if can_use_projects or user.is_superuser %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="mod-card disabled">
+            <div class="mod-icon icon-projects"><i class="fas fa-project-diagram"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Project Control" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}مدیریت پروژه‌ها و تایم‌لاین{% else %}{% trans "Manage tasks and timelines" %}{% endif %}</p>
             </div>
-            <div class="card-content">
-                <h3 class="card-title-lg">{% trans "Customer Club" %}</h3>
-                <p class="card-desc">{% trans "Loyalty and CRM." %}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_use_dms or user.is_superuser %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="mod-card disabled">
+            <div class="mod-icon icon-dms"><i class="fas fa-folder-open"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Document DMS" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}ذخیره‌سازی امن اسناد{% else %}{% trans "Secure document storage" %}{% endif %}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_use_ai or user.is_superuser %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="mod-card disabled">
+            <div class="mod-icon icon-ai"><i class="fas fa-brain"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "AI Engine" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}تحلیل هوشمند داده‌ها{% else %}{% trans "Intelligent data analysis" %}{% endif %}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_use_club or user.is_superuser %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="mod-card disabled">
+            <div class="mod-icon icon-club"><i class="fas fa-crown"></i></div>
+            <div class="mod-body">
+                <h3>{% trans "Customer Club" %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'fa' %}باشگاه مشتریان و وفاداری{% else %}{% trans "Loyalty and CRM" %}{% endif %}</p>
             </div>
         </div>
     </div>
     {% endif %}
 </div>
+{% endif %}
 {% endblock %}

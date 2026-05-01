@@ -15,12 +15,13 @@ class TripForm(forms.ModelForm):
 class ExpenseReportForm(forms.ModelForm):
     class Meta:
         model = ExpenseReport
-        fields = ['title', 'business_purpose', 'start_date', 'end_date']
+        fields = ['title', 'business_purpose', 'start_date', 'end_date', 'notes']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Statement Name')}),
             'business_purpose': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': _('Describe the business purpose...')}),
             'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': _('Additional notes...')}),
         }
 
 class AdvanceForm(forms.ModelForm):

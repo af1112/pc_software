@@ -1085,18 +1085,25 @@ def employee_create(request):
             request.POST,
             organization=getattr(request, 'organization', None),
             user_profile=user_profile,
+            is_superuser=request.user.is_superuser,
         )
         if form.is_valid():
             employee = form.save(commit=False)
-            employee.organization = getattr(request, 'organization', None)
+            # Use form-selected org for superusers, otherwise middleware org
+            if request.user.is_superuser and 'organization' in form.fields:
+                employee.organization = form.cleaned_data.get('organization')
+            else:
+                employee.organization = getattr(request, 'organization', None)
             employee.save()
             messages.success(request, _tr(request, 'Employee created successfully.', 'پرسنل با موفقیت ایجاد شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
-        messages.error(request, _tr(request, 'Please complete all required fields marked with *.', 'تمامی موارد ستاره‌دار باید تکمیل شوند.'))
+        if form.non_field_errors():
+            messages.error(request, _tr(request, 'Please review the form and fix the highlighted errors.', 'لطفاً فرم را بررسی کرده و خطاهای مشخص‌شده را اصلاح کنید.'))
     else:
         form = EmployeeForm(
             organization=getattr(request, 'organization', None),
             user_profile=user_profile,
+            is_superuser=request.user.is_superuser,
         )
 
     return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _tr(request, 'Create Employee', 'ایجاد پرسنل')})
@@ -1114,17 +1121,23 @@ def employee_edit(request, employee_id):
             instance=employee,
             organization=getattr(request, 'organization', None),
             user_profile=user_profile,
+            is_superuser=request.user.is_superuser,
         )
         if form.is_valid():
-            form.save()
+            emp = form.save(commit=False)
+            if request.user.is_superuser and 'organization' in form.fields:
+                emp.organization = form.cleaned_data.get('organization')
+            emp.save()
             messages.success(request, _tr(request, 'Employee updated successfully.', 'اطلاعات پرسنل با موفقیت بروزرسانی شد.'))
             return redirect('hr_personnel:employee_detail', employee_id=employee.id)
-        messages.error(request, _tr(request, 'Please complete all required fields marked with *.', 'تمامی موارد ستاره‌دار باید تکمیل شوند.'))
+        if form.non_field_errors():
+            messages.error(request, _tr(request, 'Please review the form and fix the highlighted errors.', 'لطفاً فرم را بررسی کرده و خطاهای مشخص‌شده را اصلاح کنید.'))
     else:
         form = EmployeeForm(
             instance=employee,
             organization=getattr(request, 'organization', None),
             user_profile=user_profile,
+            is_superuser=request.user.is_superuser,
         )
 
     return render(request, 'hr_personnel/employee_form.html', {'form': form, 'title': _tr(request, 'Edit Employee', 'ویرایش پرسنل')})
@@ -1151,9 +1164,24 @@ def employee_detail(request, employee_id):
         messages.error(request, _tr(request, 'You do not have access to this personnel profile.', 'شما دسترسی مشاهده این پروفایل پرسنلی را ندارید.'))
         return redirect('hr_personnel:employee_me')
 
-    salary_profiles = employee.salary_structures.prefetch_related('components').all()
+    try:
+        salary_profiles = list(employee.salary_structures.prefetch_related('components').all())
+    except (OperationalError, ProgrammingError):
+        salary_profiles = []
+
     bank_accounts = employee.bank_accounts.all()
-    payroll_slips = employee.payroll_slips.prefetch_related('items').all()
+
+    try:
+        payroll_slips = list(employee.payroll_slips.prefetch_related('items').all())
+    except (OperationalError, ProgrammingError):
+        payroll_slips = []
+
+    schema_ok = bool(salary_profiles is not None)
+    if not salary_profiles and not payroll_slips:
+        try:
+            employee.salary_structures.values_list('id', flat=True)[:1]
+        except (OperationalError, ProgrammingError):
+            schema_ok = False
 
     return render(
         request,
@@ -1164,6 +1192,7 @@ def employee_detail(request, employee_id):
             'bank_accounts': bank_accounts,
             'payroll_slips': payroll_slips,
             'is_manager': is_manager,
+            'schema_ok': schema_ok,
         },
     )
 

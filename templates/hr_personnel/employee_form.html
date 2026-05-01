@@ -5,46 +5,129 @@
 {% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Personnel" %}{% endif %}{% endblock %}
 {% block content_title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+.emp-form-section { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.06); padding: 28px 24px 20px; margin-bottom: 20px; }
+.emp-form-section .section-title { font-size: .95rem; font-weight: 700; color: #1f2a44; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.emp-form-section .section-title i { color: #275efe; font-size: .85rem; }
+.emp-field-label { font-size: .82rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+.emp-field-label .req { color: #ef4444; }
+.emp-field-error { font-size: .78rem; color: #ef4444; margin-top: 2px; }
+.optional-toggle { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 20px; cursor: pointer; user-select: none; transition: all .2s; }
+.optional-toggle:hover { background: #f1f5f9; }
+.optional-toggle .toggle-icon { transition: transform .3s; }
+.optional-toggle[aria-expanded="true"] .toggle-icon { transform: rotate(180deg); }
+.optional-section-inner { background: #fafbfd; border: 1px solid #e8ecf2; border-top: 0; border-radius: 0 0 14px 14px; padding: 20px; }
+.optional-group-title { font-size: .88rem; font-weight: 600; color: #6b7280; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px dashed #e5e7eb; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-9">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white border-0 py-4 px-4 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark">{{ title }}</h5>
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger py-2 rounded-3 mb-3" role="alert">
+                {% for err in form.non_field_errors %}
+                    <div>{{ err }}</div>
+                {% endfor %}
             </div>
-            <div class="card-body p-4">
-                <form method="post">
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger py-2" role="alert">
-                        {% for err in form.non_field_errors %}
-                            <div>{{ err }}</div>
-                        {% endfor %}
-                    </div>
+            {% endif %}
+
+            {% for section in form.get_main_sections %}
+            <div class="emp-form-section">
+                <div class="section-title">
+                    <i class="fas {% if section.name == 'basic' %}fa-user{% elif section.name == 'employment' %}fa-briefcase{% elif section.name == 'payroll' %}fa-money-bill-wave{% else %}fa-info-circle{% endif %}"></i>
+                    {% if section.name == 'basic' %}
+                        {% if request.LANGUAGE_CODE == 'fa' %}اطلاعات اصلی{% else %}{% trans "Basic Information" %}{% endif %}
+                    {% elif section.name == 'employment' %}
+                        {% if request.LANGUAGE_CODE == 'fa' %}اطلاعات استخدامی{% else %}{% trans "Employment" %}{% endif %}
+                    {% elif section.name == 'payroll' %}
+                        {% if request.LANGUAGE_CODE == 'fa' %}اطلاعات پرداخت{% else %}{% trans "Payment" %}{% endif %}
+                    {% else %}
+                        {{ section.name }}
                     {% endif %}
-                    <div class="row g-3">
-                        {% for field in form %}
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark small">
-                                {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
-                            </label>
-                            {{ field }}
-                            {% if field.errors %}
-                                <div class="text-danger x-small mt-1">{{ field.errors|first }}</div>
-                            {% endif %}
+                </div>
+                <div class="row g-3">
+                    {% for field in section.fields %}
+                    <div class="col-md-6">
+                        <label class="emp-field-label">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="emp-field-error">{{ field.errors|first }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="mb-3">
+                <div class="optional-toggle d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#optionalFieldsCollapse" aria-expanded="false" aria-controls="optionalFieldsCollapse">
+                    <div>
+                        <i class="fas fa-sliders-h me-2 text-secondary"></i>
+                        <span class="fw-bold text-dark" style="font-size:.92rem;">
+                            {% if request.LANGUAGE_CODE == 'fa' %}فیلدهای اختیاری و تکمیلی{% else %}{% trans "Optional & Supplementary Fields" %}{% endif %}
+                        </span>
+                        <span class="text-muted small ms-2">
+                            {% if request.LANGUAGE_CODE == 'fa' %}(کلیک کنید برای نمایش){% else %}(click to expand){% endif %}
+                        </span>
+                    </div>
+                    <i class="fas fa-chevron-down toggle-icon text-secondary"></i>
+                </div>
+                <div class="collapse" id="optionalFieldsCollapse">
+                    <div class="optional-section-inner">
+                        {% for section in form.get_optional_sections %}
+                        <div class="{% if not forloop.last %}mb-4{% endif %}">
+                            <div class="optional-group-title">
+                                <i class="fas {% if section.name == 'personal' %}fa-id-card{% elif section.name == 'organizational' %}fa-building{% elif section.name == 'contract' %}fa-file-contract{% elif section.name == 'attendance_testing' %}fa-fingerprint{% else %}fa-ellipsis-h{% endif %} me-1"></i>
+                                {% if section.name == 'personal' %}
+                                    {% if request.LANGUAGE_CODE == 'fa' %}اطلاعات شخصی{% else %}{% trans "Personal Information" %}{% endif %}
+                                {% elif section.name == 'organizational' %}
+                                    {% if request.LANGUAGE_CODE == 'fa' %}شناسه‌های سازمانی{% else %}{% trans "Organizational IDs" %}{% endif %}
+                                {% elif section.name == 'contract' %}
+                                    {% if request.LANGUAGE_CODE == 'fa' %}اطلاعات قرارداد{% else %}{% trans "Contract Information" %}{% endif %}
+                                {% elif section.name == 'attendance_testing' %}
+                                    {% if request.LANGUAGE_CODE == 'fa' %}حضور و غیاب (اختیاری){% else %}{% trans "Attendance (Optional)" %}{% endif %}
+                                {% else %}
+                                    {{ section.name }}
+                                {% endif %}
+                            </div>
+                            <div class="row g-3">
+                                {% for field in section.fields %}
+                                <div class="col-md-6">
+                                    <label class="emp-field-label">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>
+                                    {{ field }}
+                                    {% if field.errors %}<div class="emp-field-error">{{ field.errors|first }}</div>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
-
-                    <div class="mt-4 d-flex justify-content-end gap-2">
-                        <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-light px-4 py-2 rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}انصراف{% else %}{% trans "Cancel" %}{% endif %}</a>
-                        <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-sm">
-                            <i class="fas fa-save me-2"></i> {% if request.LANGUAGE_CODE == 'fa' %}ذخیره{% else %}{% trans "Save" %}{% endif %}
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
-        </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-2 mb-4">
+                <a href="{% url 'hr_personnel:employee_list' %}" class="btn btn-light px-4 py-2 rounded-pill">{% if request.LANGUAGE_CODE == 'fa' %}انصراف{% else %}{% trans "Cancel" %}{% endif %}</a>
+                <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-sm">
+                    <i class="fas fa-save me-2"></i> {% if request.LANGUAGE_CODE == 'fa' %}ذخیره{% else %}{% trans "Save" %}{% endif %}
+                </button>
+            </div>
+        </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var hasOptionalErrors = false;
+    document.querySelectorAll('#optionalFieldsCollapse .emp-field-error').forEach(function(el) {
+        if (el.textContent.trim()) hasOptionalErrors = true;
+    });
+    if (hasOptionalErrors) {
+        var collapseEl = document.getElementById('optionalFieldsCollapse');
+        if (collapseEl) new bootstrap.Collapse(collapseEl, {show: true});
+    }
+});
+</script>
 {% endblock %}

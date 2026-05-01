@@ -1,0 +1,74 @@
+{% load i18n local_dates %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #111; }
+    h2 { margin: 0 0 6px 0; }
+    .meta { margin-bottom: 10px; color: #444; font-size: 11px; }
+    .summary { margin-bottom: 10px; }
+    .summary span { display: inline-block; margin-right: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d8d8d8; padding: 5px; }
+    th { background: #f4f7fe; text-align: left; }
+    .muted { color: #666; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+  <h2>{% trans "My Monthly Attendance Card" %}</h2>
+  <div class="meta">
+    <div><strong>{% trans "Organization" %}:</strong> {{ org.name|default:"-" }}</div>
+    <div><strong>{% trans "Employee" %}:</strong>
+      {% if employee %}
+        {{ employee.first_name }} {{ employee.last_name }}
+        {% if employee.employee_id %} ({{ employee.employee_id }}){% endif %}
+      {% elif user %}
+        {{ user.get_full_name|default:user.username }}
+      {% else %}
+        -
+      {% endif %}
+    </div>
+    <div><strong>{% trans "Period" %}:</strong> {% localized_date month_start "Y-m" %}</div>
+  </div>
+
+  <div class="summary">
+    <span><strong>{% trans "Present Days" %}:</strong> {{ summary.days_present }}</span>
+    <span><strong>{% trans "Absent Days" %}:</strong> {{ summary.days_absent }}</span>
+    <span><strong>{% trans "Total Worked Hours" %}:</strong> {{ summary.total_worked_hours_display|default:"00:00" }}</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{% trans "Date" %}</th>
+        <th>{% trans "Clock In" %}</th>
+        <th>{% trans "Lunch Out" %}</th>
+        <th>{% trans "Lunch In" %}</th>
+        <th>{% trans "Clock Out" %}</th>
+        <th>{% trans "Worked Hours" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{% localized_date row.date "Y-m-d" %}</td>
+        <td>{{ row.attendance.clock_in|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.lunch_out|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.lunch_in|time:"H:i"|default:"-" }}</td>
+        <td>{{ row.attendance.clock_out|time:"H:i"|default:"-" }}</td>
+        <td class="right">{{ row.worked_hours_display|default:"0.0" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="muted">{% trans "No attendance rows available for the selected period." %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

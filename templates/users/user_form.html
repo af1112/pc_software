@@ -6,6 +6,7 @@
 {% block content_title %}{{ title }}{% endblock %}
 
 {% block content %}
+{{ organization_modules|json_script:"organization_modules_data" }}
 <div class="row justify-content-center">
     <div class="col-xl-9">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -265,9 +266,52 @@
             });
         };
 
+        // Filter modules based on selected organization
+        const syncModulesByOrganization = () => {
+            if (!organizationSelect) return;
+            
+            const selectedOrgId = organizationSelect.value || '';
+            const moduleCards = document.querySelectorAll('.permission-card');
+            const moduleSwitches = document.querySelectorAll('.permission-card input[type="checkbox"]');
+            
+            // Get organization modules data from json_script
+            const orgModulesData = JSON.parse(document.getElementById('organization_modules_data').textContent || '{}');
+            const currentOrgModules = orgModulesData[selectedOrgId] || {};
+            
+            // Hide all modules if no organization is selected
+            if (!selectedOrgId) {
+                moduleCards.forEach((card) => {
+                    card.style.display = 'none';
+                    card.style.opacity = '0.3';
+                });
+                return;
+            }
+            
+            moduleCards.forEach((card, index) => {
+                const switchEl = moduleSwitches[index];
+                if (!switchEl) return;
+                
+                const fieldName = switchEl.name.replace('CAN_ACCESS_', '').toLowerCase();
+                const isEnabled = currentOrgModules[fieldName] || false;
+                
+                // Hide/disable modules not enabled for this organization
+                card.style.display = isEnabled ? 'block' : 'none';
+                card.style.opacity = isEnabled ? '1' : '0.3';
+                
+                // Clear selections when organization changes
+                if (!isEnabled) {
+                    switchEl.checked = false;
+                }
+            });
+        };
+
         if (organizationSelect) {
-            organizationSelect.addEventListener('change', syncSupervisorsByOrganization);
+            organizationSelect.addEventListener('change', () => {
+                syncSupervisorsByOrganization();
+                syncModulesByOrganization();
+            });
             syncSupervisorsByOrganization();
+            syncModulesByOrganization();
         }
     });
 </script>

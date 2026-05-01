@@ -345,19 +345,6 @@ def scan_receipt_api(request):
             temp_path = temp_file.name
 
         data = extract_receipt_data(temp_path)
-        if data.get('error'):
-            # Fallback: return basic template data
-            return JsonResponse({
-                'status': 'success',
-                'data': {
-                    'merchant': 'Unknown Merchant',
-                    'amount': '',
-                    'date': '',
-                    'description': 'Receipt image uploaded - please fill details manually',
-                    'raw_text': ''
-                }
-            })
-
         return JsonResponse({'status': 'success', 'data': data})
     except Exception as e:
         logger.exception('scan_receipt_api failed')
@@ -387,6 +374,7 @@ def export_report_pdf(request, report_id):
             'submitter_name': submitter_name,
             'is_rtl': is_rtl,
         },
+        landscape=True,
     )
     if pdf and isinstance(pdf, HttpResponse):
         filename = f"Expense_Report_{report.title}_{report.created_at.strftime('%Y%m%d')}.pdf"

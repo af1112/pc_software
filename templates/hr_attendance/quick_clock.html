@@ -193,7 +193,7 @@
     {% if not attendance.clock_in %}
       <form class="quickAttendanceForm quick-attendance-form" method="post" action="{% url 'hr_attendance:clock_in' %}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="quick_success">
+        <input type="hidden" name="next" value="main_dashboard">
         <input type="hidden" name="latitude" class="js-latitude">
         <input type="hidden" name="longitude" class="js-longitude">
         <input type="hidden" name="source" value="mobile">
@@ -289,8 +289,10 @@
     <div class="helper" id="geoStatusText"></div>
 
     <div class="link-row">
+      <a href="{% url 'main_dashboard' %}">{% if request.LANGUAGE_CODE == 'fa' %}ورود به داشبورد{% else %}{% trans "Go to Dashboard" %}{% endif %}</a>
       {% if can_open_dashboard %}
-      <a href="{% url 'hr_attendance:hub' %}">{% if request.LANGUAGE_CODE == 'fa' %}بازگشت به مرکز حضور و غیاب{% else %}{% trans "Open Attendance Hub" %}{% endif %}</a>
+      &nbsp;|&nbsp;
+      <a href="{% url 'hr_attendance:hub' %}">{% if request.LANGUAGE_CODE == 'fa' %}مرکز حضور و غیاب{% else %}{% trans "Attendance Hub" %}{% endif %}</a>
       {% endif %}
     </div>
   </div>

@@ -50,21 +50,57 @@ class OrganizationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['name'].widget.attrs.update({'class': 'form-control', 'placeholder': 'e.g. AKAF Gulf'})
+        self.fields['slug'].required = False
+        self.fields['slug'].widget.attrs.update({
+            'class': 'form-control',
+            'readonly': 'readonly',
+            'aria-readonly': 'true',
+            'placeholder': 'auto-generated',
+        })
+        self.fields['company_email'].widget.attrs.update({'class': 'form-control', 'placeholder': 'company@example.com'})
+        self.fields['representative_name'].widget.attrs.update({'class': 'form-control'})
+        self.fields['representative_phone'].widget.attrs.update({'class': 'form-control'})
+        self.fields['subscription_end_date'].widget.attrs.update({'class': 'form-control'})
+        self.fields['logo'].widget.attrs.update({'class': 'form-control', 'accept': '.jpg,.jpeg,.png,.webp,.svg'})
+        self.fields['is_active'].widget.attrs.update({'class': 'form-check-input'})
+        for module_field in [
+            'can_use_expenses',
+            'can_use_ticketing',
+            'can_use_attendance',
+            'can_use_personnel',
+            'can_use_projects',
+            'can_use_dms',
+            'can_use_ai',
+            'can_use_menu',
+            'can_use_club',
+        ]:
+            self.fields[module_field].widget.attrs.update({'class': 'form-check-input module-checkbox'})
         self.fields['logo'].help_text = 'Allowed: JPG, JPEG, PNG, WEBP, SVG | Max size: 2MB | Recommended: 240x80 px'
-        self.fields['logo'].widget.attrs.update({'accept': '.jpg,.jpeg,.png,.webp,.svg'})
+
+        if self.instance and self.instance.pk and self.instance.slug:
+            self.initial.setdefault('slug', self.instance.slug)
+
+    def _build_unique_slug(self, name):
+        base = slugify(name) or 'org'
+        candidate = base
+        i = 1
+        qs = Organization.objects.all()
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        while qs.filter(slug=candidate).exists():
+            i += 1
+            candidate = f"{base}-{i}"
+        return candidate
 
     def clean(self):
         cleaned = super().clean()
         name = cleaned.get('name') or ''
-        slug = cleaned.get('slug') or ''
-        # Auto-generate slug from name if empty
-        if not slug and name:
-            base = slugify(name)
-            candidate = base or 'org'
-            i = 1
-            while Organization.objects.filter(slug=candidate).exists():
-                i += 1
-                candidate = f"{base}-{i}"
+        if self.instance and self.instance.pk and self.instance.slug:
+            cleaned['slug'] = self.instance.slug
+            self.cleaned_data['slug'] = self.instance.slug
+        elif name:
+            candidate = self._build_unique_slug(name)
             cleaned['slug'] = candidate
             self.cleaned_data['slug'] = candidate
         return cleaned

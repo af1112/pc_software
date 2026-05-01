@@ -24,7 +24,7 @@
     
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
-    <meta name="theme-color" content="#764ba2">
+    <meta name="theme-color" content="#4f46e5">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="AKAF">
@@ -53,7 +53,7 @@
         .sidebar-collapsed .sidebar .nav { padding-inline: 0 !important; }
         .sidebar-collapsed .sidebar .brand-row { padding-inline: 8px !important; }
         .sidebar-collapsed .sidebar .nav-link { padding: 8px; width: 56px; margin-inline: auto; justify-content: center; gap: 0; }
-        .sidebar-collapsed .sidebar .nav-link i { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 12px; background: rgba(67,24,255,.12); border: 1px solid rgba(67,24,255,.18); }
+        .sidebar-collapsed .sidebar .nav-link i { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px; background: transparent; border: none; }
         .sidebar-collapsed .sidebar .mt-auto { display: flex; justify-content: center; padding-inline: 0 !important; }
 
         .sidebar-backdrop {
@@ -112,6 +112,116 @@
                 height: 28px;
                 object-fit: contain;
                 border-radius: 6px;
+            }
+
+            .sidebar {
+                display: flex !important;
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(84vw, 320px);
+                transform: translateX(-105%);
+                transition: transform 0.28s ease;
+                z-index: 1001;
+            }
+
+            [dir="rtl"] .sidebar {
+                left: auto;
+                right: 0;
+                transform: translateX(105%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0) !important;
+            }
+
+            #sidebar-backdrop {
+                display: block !important;
+            }
+
+            .main-content {
+                padding-bottom: 108px !important;
+            }
+        }
+
+        .mobile-action-bar {
+            display: none;
+        }
+
+        @media (max-width: 991.98px) {
+            .mobile-action-bar {
+                position: fixed;
+                left: 12px;
+                right: 12px;
+                bottom: calc(10px + env(safe-area-inset-bottom));
+                z-index: 1035;
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+                align-items: center;
+                gap: 10px;
+                padding: 10px;
+                border-radius: 16px;
+                background: var(--bg-card);
+                border: 1px solid var(--border-color);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+            }
+
+            [data-theme="dark"] .mobile-action-bar {
+                background: var(--bg-card);
+                border-color: var(--border-color);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            }
+
+            .mobile-action-link,
+            .mobile-action-menu,
+            .mobile-action-create {
+                border: 0;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1;
+                border-radius: 14px;
+            }
+
+            .mobile-action-link,
+            .mobile-action-menu {
+                min-height: 42px;
+                color: var(--text-main);
+                background: var(--sidebar-nav-hover-bg);
+            }
+
+            [data-theme="dark"] .mobile-action-link,
+            [data-theme="dark"] .mobile-action-menu {
+                color: #e2e8f0;
+                background: rgba(99, 102, 241, 0.12);
+            }
+
+            .mobile-action-create {
+                min-width: 116px;
+                min-height: 54px;
+                padding-inline: 20px;
+                border-radius: 18px;
+                color: #fff;
+                background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+                box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+                transform: translateY(-12px);
+            }
+
+            .mobile-action-create i {
+                font-size: 15px;
+            }
+
+            .mobile-action-link:hover,
+            .mobile-action-menu:hover,
+            .mobile-action-create:hover {
+                color: inherit;
             }
         }
     </style>
@@ -226,6 +336,10 @@
                     <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
                         <i class="fas fa-mobile-alt"></i>
                         <span>{% trans "Clock In / Clock Out" %}</span>
+                    </a>
+                    <a href="{% url 'hr_attendance:my_attendance_card' %}" class="nav-link {% if request.resolver_match.url_name == 'my_attendance_card' %}active{% endif %}">
+                        <i class="fas fa-id-card"></i>
+                        <span>{% trans "My Monthly Card" %}</span>
                     </a>
                     <a href="{% url 'hr_attendance:hub' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'hub' %}active{% endif %}">
                         <i class="fas fa-sitemap"></i>
@@ -676,6 +790,14 @@
         });
         syncMobileSidebarState();
 
+        const mobileModulesMenuBtn = document.getElementById('mobile-modules-menu-btn');
+        mobileModulesMenuBtn?.addEventListener('click', () => {
+            if (window.innerWidth <= 992) {
+                sidebarEl?.classList.toggle('show');
+                syncMobileSidebarState();
+            }
+        });
+
         // Submenu toggle with persistence
         document.querySelectorAll('.nav-group').forEach(group => {
             const key = 'submenu_' + group.getAttribute('data-group');
@@ -858,29 +980,46 @@
         });
     });
     </script>
-    <!-- Mobile Bottom Navigation -->
-    <div class="mobile-bottom-nav d-lg-none">
-        <a href="{% url 'main_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'main_dashboard' %}active{% endif %}">
-            <i class="fas fa-home"></i>
-            <span>{% trans "Dashboard" %}</span>
+    {% if request.resolver_match.url_name != 'main_dashboard' %}
+    <div class="mobile-action-bar d-lg-none" aria-label="Mobile quick actions">
+        <a href="{% url 'main_dashboard' %}" class="mobile-action-link">
+            <i class="fas fa-house"></i>
+            <span>{% trans "Home" %}</span>
         </a>
-        <a href="{% url 'expenses:dashboard' %}" class="nav-item {% if 'expenses' in request.resolver_match.app_name %}active{% endif %}">
-            <i class="fas fa-receipt"></i>
-            <span>{% trans "Expenses" %}</span>
+
+        {% if request.resolver_match.namespace == 'expenses' %}
+        <a href="{% url 'expenses:create_expense' %}" class="mobile-action-create">
+            <i class="fas fa-plus"></i>
+            <span>{% trans "Create" %}</span>
         </a>
-        <a href="{% url 'ticketing:ticket_list' %}" class="nav-item {% if 'ticketing' in request.resolver_match.app_name %}active{% endif %}">
-            <i class="fas fa-ticket"></i>
-            <span>{% trans "Tickets" %}</span>
+        {% elif request.resolver_match.namespace == 'ticketing' %}
+        <a href="{% url 'ticketing:ticket_create' %}" class="mobile-action-create">
+            <i class="fas fa-plus"></i>
+            <span>{% trans "Create" %}</span>
         </a>
-        <a href="{% url 'hr_personnel:personnel_hub' %}" class="nav-item {% if 'hr_personnel' in request.resolver_match.app_name %}active{% endif %}">
-            <i class="fas fa-users"></i>
-            <span>{% trans "HR" %}</span>
+        {% elif request.resolver_match.namespace == 'hr_personnel' %}
+        <a href="{% url 'hr_personnel:employee_create' %}" class="mobile-action-create">
+            <i class="fas fa-user-plus"></i>
+            <span>{% trans "Create" %}</span>
         </a>
-        <a href="{% url 'users:settings' %}" class="nav-item {% if request.resolver_match.app_name == 'users' and request.resolver_match.url_name == 'settings' %}active{% endif %}">
-            <i class="fas fa-cog"></i>
-            <span>{% trans "Settings" %}</span>
+        {% elif request.resolver_match.namespace == 'hr_attendance' %}
+        <a href="{% url 'hr_attendance:quick_clock' %}" class="mobile-action-create">
+            <i class="fas fa-stopwatch"></i>
+            <span>{% trans "Clock" %}</span>
         </a>
+        {% else %}
+        <a href="{% url 'main_dashboard' %}" class="mobile-action-create">
+            <i class="fas fa-layer-group"></i>
+            <span>{% trans "Create" %}</span>
+        </a>
+        {% endif %}
+
+        <button type="button" id="mobile-modules-menu-btn" class="mobile-action-menu" aria-label="{% trans 'Open modules menu' %}">
+            <i class="fas fa-bars"></i>
+            <span>{% trans "Menu" %}</span>
+        </button>
     </div>
+    {% endif %}
 
     {% block extra_js %}{% endblock %}
 </body>

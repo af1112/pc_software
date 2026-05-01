@@ -10,11 +10,69 @@ from django.utils.translation import gettext as _
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.models import User, Permission
 from django.shortcuts import resolve_url
+from django.db import connection, transaction
+from django.db.models.deletion import SET_NULL
 from apps.organizations.models import Organization
 from urllib.parse import urlparse
 
 
 DEFAULT_RESET_PASSWORD = 'Aa@123456'
+
+
+def _existing_table_names():
+    return set(connection.introspection.table_names())
+
+
+def _safe_clear_user_m2m_relations(user, table_names):
+    with connection.cursor() as cursor:
+        for field in User._meta.local_many_to_many:
+            through_model = field.remote_field.through
+            through_table = through_model._meta.db_table
+            if through_table not in table_names:
+                continue
+
+            source_field = through_model._meta.get_field(field.m2m_field_name())
+            cursor.execute(
+                f'DELETE FROM {connection.ops.quote_name(through_table)} WHERE {connection.ops.quote_name(source_field.column)} = %s',
+                [user.pk],
+            )
+
+
+def _safe_delete_user_record(user):
+    table_names = _existing_table_names()
+
+    with transaction.atomic():
+        _safe_clear_user_m2m_relations(user, table_names)
+
+        with connection.cursor() as cursor:
+            for relation in User._meta.related_objects:
+                related_model = relation.related_model
+                related_table = related_model._meta.db_table
+                if related_table not in table_names:
+                    continue
+
+                related_field = relation.field
+                related_column = related_field.column
+                quoted_table = connection.ops.quote_name(related_table)
+                quoted_column = connection.ops.quote_name(related_column)
+
+                if related_field.null or related_field.remote_field.on_delete is SET_NULL:
+                    cursor.execute(
+                        f'UPDATE {quoted_table} SET {quoted_column} = NULL WHERE {quoted_column} = %s',
+                        [user.pk],
+                    )
+                else:
+                    cursor.execute(
+                        f'DELETE FROM {quoted_table} WHERE {quoted_column} = %s',
+                        [user.pk],
+                    )
+
+            user_table = connection.ops.quote_name(User._meta.db_table)
+            user_pk_column = connection.ops.quote_name(User._meta.pk.column)
+            cursor.execute(
+                f'DELETE FROM {user_table} WHERE {user_pk_column} = %s',
+                [user.pk],
+            )
 
 
 class CustomLoginView(auth_views.LoginView):
@@ -129,6 +187,22 @@ class CustomLoginView(auth_views.LoginView):
             }
             self.request.session.pop('post_login_redirect', None)
             return redirect_to
+        # Regular users (not admin/supervisor/superuser) go straight to quick clock
+        user = self.request.user
+        if not user.is_superuser and not user.is_staff:
+            try:
+                role = getattr(user.profile, 'role', 'user')
+            except Exception:
+                role = 'user'
+            if role not in ('admin', 'supervisor'):
+                self.request.session['last_login_redirect_debug'] = {
+                    'reason': 'regular_user_quick_clock',
+                    'role': role,
+                    'final_redirect': '/attendance/quick/',
+                }
+                self.request.session.pop('post_login_redirect', None)
+                return resolve_url('hr_attendance:quick_clock')
+
         self.request.session['last_login_redirect_debug'] = {
             'reason': 'fallback_login_redirect_url',
             'post_next': self.request.POST.get(self.redirect_field_name, ''),
@@ -361,16 +435,16 @@ def user_create(request):
             
             # Get organization's enabled modules
             org_modules = {}
-            if selected_org:
+            if profile.organization:
                 org_modules = {
-                    'expenses': selected_org.can_use_expenses,
-                    'ticketing': selected_org.can_use_ticketing,
-                    'attendance': selected_org.can_use_attendance,
-                    'personnel': selected_org.can_use_personnel,
-                    'projects': selected_org.can_use_projects,
-                    'dms': selected_org.can_use_dms,
-                    'ai': selected_org.can_use_ai,
-                    'club': selected_org.can_use_club,
+                    'expenses': profile.organization.can_use_expenses,
+                    'ticketing': profile.organization.can_use_ticketing,
+                    'attendance': profile.organization.can_use_attendance,
+                    'personnel': profile.organization.can_use_personnel,
+                    'projects': profile.organization.can_use_projects,
+                    'dms': profile.organization.can_use_dms,
+                    'ai': profile.organization.can_use_ai,
+                    'club': profile.organization.can_use_club,
                 }
             
             # Map form fields to permission codenames
@@ -449,6 +523,20 @@ def user_create(request):
     can_assign_organization = request.user.is_superuser
     can_assign_supervisor = request.user.is_superuser or current_role == 'admin'
 
+    # Prepare organization modules data for JavaScript
+    organization_modules = {}
+    for org in organizations:
+        organization_modules[str(org.id)] = {
+            'expenses': org.can_use_expenses,
+            'ticketing': org.can_use_ticketing,
+            'attendance': org.can_use_attendance,
+            'personnel': org.can_use_personnel,
+            'projects': org.can_use_projects,
+            'dms': org.can_use_dms,
+            'ai': org.can_use_ai,
+            'club': org.can_use_club,
+        }
+
     return render(request, 'users/user_form.html', {
         'user_form': user_form,
         'perm_form': perm_form,
@@ -460,6 +548,7 @@ def user_create(request):
         'selected_org_id': selected_org_id,
         'can_assign_organization': can_assign_organization,
         'can_assign_supervisor': can_assign_supervisor,
+        'organization_modules': organization_modules,
     })
 
 @login_required
@@ -621,6 +710,20 @@ def user_edit(request, pk):
     can_assign_organization = request.user.is_superuser
     can_assign_supervisor = request.user.is_superuser or current_role == 'admin'
 
+    # Prepare organization modules data for JavaScript
+    organization_modules = {}
+    for org in organizations:
+        organization_modules[str(org.id)] = {
+            'expenses': org.can_use_expenses,
+            'ticketing': org.can_use_ticketing,
+            'attendance': org.can_use_attendance,
+            'personnel': org.can_use_personnel,
+            'projects': org.can_use_projects,
+            'dms': org.can_use_dms,
+            'ai': org.can_use_ai,
+            'club': org.can_use_club,
+        }
+
     return render(request, 'users/user_form.html', {
         'edit_user': user,
         'perm_form': perm_form,
@@ -633,6 +736,7 @@ def user_edit(request, pk):
         'selected_supervisor': profile.supervisor_id,
         'can_assign_organization': can_assign_organization,
         'can_assign_supervisor': can_assign_supervisor,
+        'organization_modules': organization_modules,
     })
 
 @login_required
@@ -640,25 +744,64 @@ def user_edit(request, pk):
 def user_delete(request, pk):
     if request.method == 'POST':
         user = get_object_or_404(User, pk=pk)
+        
         try:
             target_profile = user.profile
         except UserProfile.DoesNotExist:
             target_profile = None
+        except Exception as e:
+            messages.error(request, _('Error accessing user profile: %(error)s') % {'error': str(e)})
+            return redirect('users:user_list')
 
+        # Check permissions
         if not request.user.is_superuser:
             try:
                 current_org = request.user.profile.organization
-            except UserProfile.DoesNotExist:
+            except (UserProfile.DoesNotExist, AttributeError) as e:
                 current_org = None
+            
             if not current_org or not target_profile or target_profile.organization_id != current_org.id:
                 messages.error(request, _('You do not have permission to delete this user.'))
                 return redirect('users:user_list')
 
+        # Prevent self-deletion
         if user == request.user:
             messages.error(request, _('You cannot delete yourself.'))
         else:
-            user.delete()
-            messages.success(request, _('User deleted successfully.'))
+            try:
+                username = user.username
+                
+                # Check if user is supervisor for other users
+                supervised_count = UserProfile.objects.filter(supervisor=user).count()
+                if supervised_count > 0:
+                    messages.error(
+                        request, 
+                        _('Cannot delete user "%(username)s" because they are supervisor for %(count)d other user(s). Please reassign their supervised users first.') % 
+                        {'username': username, 'count': supervised_count}
+                    )
+                    return redirect('users:user_list')
+
+                _safe_delete_user_record(user)
+                messages.success(request, _('User "%(username)s" deleted successfully.') % {'username': username})
+            except Exception as e:
+                # Handle specific database constraint errors
+                error_msg = str(e)
+                if 'constraint' in error_msg.lower() or 'foreign key' in error_msg.lower():
+                    messages.error(
+                        request, 
+                        _('Cannot delete user "%(username)s" because they are referenced by other records. Please reassign or delete related records first.') % 
+                        {'username': username}
+                    )
+                elif 'no such table' in error_msg.lower():
+                    # Handle missing table errors (migration issues)
+                    messages.error(
+                        request, 
+                        _('Cannot delete user "%(username)s" due to database schema issues. Please contact system administrator to run migrations.') % 
+                        {'username': username}
+                    )
+                else:
+                    messages.error(request, _('Error deleting user: %(error)s') % {'error': str(e)})
+    
     return redirect('users:user_list')
 
 
