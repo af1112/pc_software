@@ -11,6 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.models import User, Permission
 from django.shortcuts import resolve_url
 from django.db import connection, transaction
+from django.db.models import Q
 from django.db.models.deletion import SET_NULL
 from apps.organizations.models import Organization
 from urllib.parse import urlparse
@@ -353,7 +354,18 @@ def user_list(request):
             role = 'user'
 
         if role == 'supervisor':
-            users = users.filter(profile__supervisor=request.user).exclude(is_superuser=True).exclude(profile__role='admin')
+            # Show users whose profile.supervisor is this supervisor.
+            # Plus legacy/extra Employee-hierarchy fallbacks if current user has an Employee.
+            try:
+                current_employee = getattr(request.user, 'employee', None)
+            except Exception:
+                current_employee = None
+
+            scope_filter = Q(profile__supervisor=request.user)
+            if current_employee is not None:
+                scope_filter |= Q(employee__reporting_manager=current_employee)
+                scope_filter |= Q(employee__work_unit__supervisor=current_employee)
+            users = users.filter(scope_filter).exclude(id=request.user.id).exclude(is_superuser=True).exclude(profile__role='admin').distinct()
 
     return render(
         request,

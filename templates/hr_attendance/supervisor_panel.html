@@ -6,60 +6,75 @@
 {% block content_title %}{% trans "Supervisor Panel" %}{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm border-0">
-  <div class="card-body">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <div>
-        <h5 class="fw-bold mb-0">{% trans "Daily In/Out Register" %} — {% localized_date today "Y/m/d" %}</h5>
-        <div class="small text-muted mt-1">
-          <i class="fas fa-user-shield me-1"></i> {% trans "Supervisor" %}: {{ supervisor_name }}
+<div class="sup-panel">
+  <div class="sup-hero">
+    <div class="sup-hero-main">
+      <div class="sup-hero-icon"><i class="fas fa-clipboard-user"></i></div>
+      <div class="sup-hero-text">
+        <div class="sup-hero-title">{% trans "Daily In/Out Register" %}</div>
+        <div class="sup-hero-meta">
+          <i class="fas fa-user-shield"></i>
+          <span>{% trans "Supervisor" %}: <b>{{ supervisor_name }}</b></span>
         </div>
       </div>
     </div>
+    <div class="sup-hero-date">
+      <span class="sup-weekday-badge">
+        <i class="far fa-calendar-day"></i>
+        {% if request.LANGUAGE_CODE == 'fa' %}{{ weekday_fa }}{% else %}{{ weekday_en }}{% endif %}
+      </span>
+      <span class="sup-date-value">{% localized_date today "Y/m/d" %}</span>
+    </div>
+  </div>
 
-    <div class="row g-2 align-items-end mb-3">
-      <div class="col-12 col-md-4">
-        <label class="form-label small fw-bold mb-1">{% trans "Date" %}</label>
-        <form method="get" class="d-flex gap-2">
-          <input type="date" name="date" class="form-control form-control-sm" value="{{ date_str }}">
-          <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Go" %}</button>
-        </form>
+  <div class="sup-toolbar">
+    <form method="get" class="sup-date-form">
+      <label class="sup-label">{% trans "Date" %}</label>
+      <div class="sup-date-input-wrap">
+        <input type="date" name="date" class="form-control sup-date-input" value="{{ date_str }}">
+        <button type="submit" class="btn sup-btn-go">{% trans "Go" %}</button>
+      </div>
+    </form>
+
+    <div class="sup-toolbar-actions">
+      <div class="sup-nav-group">
+        <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ prev_day_str }}" class="sup-nav-btn">
+          <i class="fas fa-angle-left"></i><span>{% trans "Previous Day" %}</span>
+        </a>
+        <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ next_day_str }}" class="sup-nav-btn">
+          <span>{% trans "Next Day" %}</span><i class="fas fa-angle-right"></i>
+        </a>
+        <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ prev_month_str }}" class="sup-nav-btn">
+          <i class="fas fa-angle-double-left"></i><span>{% trans "Previous Month" %}</span>
+        </a>
+        <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ next_month_str }}" class="sup-nav-btn">
+          <span>{% trans "Next Month" %}</span><i class="fas fa-angle-double-right"></i>
+        </a>
       </div>
 
-      <div class="col-12 col-md-8 text-end">
-        <div class="d-inline-flex flex-wrap gap-2 me-2 mb-2 mb-md-0">
-          <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ prev_day_str }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-angle-left me-1"></i>{% trans "Previous Day" %}
-          </a>
-          <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ next_day_str }}" class="btn btn-sm btn-outline-secondary">
-            {% trans "Next Day" %}<i class="fas fa-angle-right ms-1"></i>
-          </a>
-          <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ prev_month_str }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-angle-double-left me-1"></i>{% trans "Previous Month" %}
-          </a>
-          <a href="{% url 'hr_attendance:supervisor_panel' %}?date={{ next_month_str }}" class="btn btn-sm btn-outline-secondary">
-            {% trans "Next Month" %}<i class="fas fa-angle-double-right ms-1"></i>
-          </a>
-        </div>
-        <a href="{% url 'hr_attendance:supervisor_bulk_range_entry' %}" class="btn btn-sm btn-outline-primary">
-          <i class="fas fa-layer-group me-1"></i> {% trans "Bulk Range Entry" %}
+      <div class="sup-action-group">
+        <a href="{% url 'hr_attendance:supervisor_bulk_range_entry' %}" class="sup-cta sup-cta-primary">
+          <i class="fas fa-layer-group"></i> {% trans "Bulk Range Entry" %}
         </a>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="bulkSetBtn">
-          <i class="fas fa-users me-1"></i> {% trans "Bulk Set Times" %}
+        <button type="button" class="sup-cta sup-cta-primary" id="bulkSetBtn">
+          <i class="fas fa-users"></i> {% trans "Bulk Set Times" %}
         </button>
-        <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="btn btn-sm btn-outline-danger" data-no-loading="1">
-          <i class="fas fa-file-pdf me-1"></i> {% trans "Export PDF" %}
+        <a href="{% url 'hr_attendance:supervisor_report_pdf' %}?date={{ date_str }}" class="sup-cta sup-cta-danger" data-no-loading="1">
+          <i class="fas fa-file-pdf"></i> {% trans "Export PDF" %}
         </a>
       </div>
     </div>
+  </div>
 
-    <div class="alert alert-light border small py-2 px-3 mb-3">
-      {% trans "Each row shows employee name, today's attendance events, and compact buttons to set, edit, delete, and review change history." %}
-    </div>
+  <div class="sup-info-banner">
+    <i class="fas fa-circle-info"></i>
+    <span>{% trans "Each row shows employee name, today's attendance events, and compact buttons to set, edit, delete, and review change history." %}</span>
+  </div>
 
+  <div class="sup-table-wrap">
     <div class="table-responsive">
-      <table class="table table-hover align-middle supervisor-table">
-        <thead class="bg-light">
+      <table class="table align-middle supervisor-table">
+        <thead>
           <tr>
             <th style="width: 28px;">
               <input class="form-check-input" type="checkbox" id="selectAllUsers">
@@ -91,16 +106,16 @@
               {% if e %}{{ e.first_name }} {{ e.last_name }}{% else %}{{ u.get_full_name|default:"-" }}{% endif %}
             </td>
             <td>
-              {% if a and a.clock_in %}<span class="badge bg-success-subtle text-success-emphasis">{{ a.clock_in|time:"H:i" }}</span>{% else %}<span class="text-muted">--:--</span>{% endif %}
+              {% if a and a.clock_in %}<span class="sup-time-pill sup-time-in">{{ a.clock_in|time:"H:i" }}</span>{% else %}<span class="sup-time-empty">--:--</span>{% endif %}
             </td>
             <td>
-              {% if a and a.lunch_out %}<span class="badge bg-warning-subtle text-warning-emphasis">{{ a.lunch_out|time:"H:i" }}</span>{% else %}<span class="text-muted">--:--</span>{% endif %}
+              {% if a and a.lunch_out %}<span class="sup-time-pill sup-time-lout">{{ a.lunch_out|time:"H:i" }}</span>{% else %}<span class="sup-time-empty">--:--</span>{% endif %}
             </td>
             <td>
-              {% if a and a.lunch_in %}<span class="badge bg-info-subtle text-info-emphasis">{{ a.lunch_in|time:"H:i" }}</span>{% else %}<span class="text-muted">--:--</span>{% endif %}
+              {% if a and a.lunch_in %}<span class="sup-time-pill sup-time-lin">{{ a.lunch_in|time:"H:i" }}</span>{% else %}<span class="sup-time-empty">--:--</span>{% endif %}
             </td>
             <td>
-              {% if a and a.clock_out %}<span class="badge bg-danger-subtle text-danger-emphasis">{{ a.clock_out|time:"H:i" }}</span>{% else %}<span class="text-muted">--:--</span>{% endif %}
+              {% if a and a.clock_out %}<span class="sup-time-pill sup-time-out">{{ a.clock_out|time:"H:i" }}</span>{% else %}<span class="sup-time-empty">--:--</span>{% endif %}
             </td>
             <td>
               <div class="action-wrap d-flex flex-wrap gap-1">
@@ -117,9 +132,10 @@
           {% endwith %}
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center py-4">
-              <div class="text-muted mb-2"><i class="fas fa-users-slash fa-2x mb-2 d-block opacity-50"></i>{% trans "No users found for your organization." %}</div>
-              <div class="small text-secondary">
+            <td colspan="8" class="text-center py-5 sup-empty">
+              <i class="fas fa-users-slash fa-2x mb-2 d-block opacity-50"></i>
+              <div class="fw-bold mb-2">{% trans "No users found for your organization." %}</div>
+              <div class="small">
                 {% if request.LANGUAGE_CODE == 'fa' %}
                   دلایل احتمالی: پرسنل به سازمان شما اختصاص داده نشده، یا حساب کاربری به پرسنل لینک نشده است.<br>
                   لطفاً مطمئن شوید پرسنل در بخش «پرسنل» ثبت شده و سازمان آنها با سازمان شما یکسان باشد.
@@ -135,7 +151,7 @@
       </table>
     </div>
   </div>
-  </div>
+</div>
 
 <div class="modal fade" id="bulkSetModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -220,58 +236,379 @@
 </div>
 
 <style>
+  /* ============================================================
+     Supervisor Panel — theme-aware redesign
+     Uses dashboard CSS variables: --bg-card, --bg-body, --text-main,
+     --text-muted, --border-color, --primary-color
+     ============================================================ */
+
+  .sup-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* ─── Hero header ─── */
+  .sup-hero {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 18px;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--primary-color, #6366f1) 12%, var(--bg-card)) 0%,
+      var(--bg-card) 60%);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, .04);
+    overflow: hidden;
+  }
+  .sup-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(420px 220px at 0% 0%, color-mix(in srgb, var(--primary-color, #6366f1) 14%, transparent), transparent 60%),
+      radial-gradient(360px 200px at 100% 100%, rgba(236,72,153,.08), transparent 60%);
+    pointer-events: none;
+  }
+  [data-theme="dark"] .sup-hero {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, .35);
+  }
+  .sup-hero-main { display: flex; align-items: center; gap: 1rem; position: relative; }
+  .sup-hero-icon {
+    width: 56px; height: 56px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 14px;
+    font-size: 1.5rem;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    box-shadow: 0 8px 22px rgba(99, 102, 241, .35);
+    flex-shrink: 0;
+  }
+  .sup-hero-text { display: flex; flex-direction: column; gap: 4px; }
+  .sup-hero-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    color: var(--text-main);
+  }
+  .sup-hero-meta {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .875rem;
+    color: var(--text-muted);
+  }
+  .sup-hero-meta b { color: var(--text-main); font-weight: 700; }
+
+  .sup-hero-date {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    position: relative;
+  }
+  [dir="rtl"] .sup-hero-date { align-items: flex-start; }
+  .sup-weekday-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, .3);
+  }
+  .sup-date-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+
+  /* ─── Toolbar ─── */
+  .sup-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+  }
+  .sup-date-form { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+  .sup-label {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .sup-date-input-wrap { display: flex; gap: 6px; }
+  .sup-date-input {
+    background: var(--bg-body);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: .9rem;
+    flex: 1;
+  }
+  .sup-date-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+    outline: none;
+  }
+  .sup-btn-go {
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    transition: transform .15s ease, box-shadow .2s ease;
+  }
+  .sup-btn-go:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,.4); color: #fff; }
+
+  .sup-toolbar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  .sup-nav-group { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 12px; }
+  .sup-nav-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    transition: background .15s ease, color .15s ease;
+  }
+  .sup-nav-btn:hover {
+    background: color-mix(in srgb, var(--primary-color, #6366f1) 14%, transparent);
+    color: var(--primary-color, #6366f1);
+  }
+  .sup-nav-btn i { font-size: .8rem; }
+
+  .sup-action-group { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+  .sup-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: .82rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: transform .15s ease, box-shadow .2s ease, background .15s ease;
+    cursor: pointer;
+  }
+  .sup-cta-primary {
+    color: var(--primary-color, #6366f1);
+    background: color-mix(in srgb, var(--primary-color, #6366f1) 10%, var(--bg-card));
+    border-color: color-mix(in srgb, var(--primary-color, #6366f1) 28%, transparent);
+  }
+  .sup-cta-primary:hover {
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: transparent;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(99,102,241,.35);
+  }
+  .sup-cta-danger {
+    color: #ef4444;
+    background: color-mix(in srgb, #ef4444 10%, var(--bg-card));
+    border-color: color-mix(in srgb, #ef4444 28%, transparent);
+  }
+  .sup-cta-danger:hover {
+    color: #fff;
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    border-color: transparent;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(239,68,68,.35);
+  }
+
+  /* ─── Info banner ─── */
+  .sup-info-banner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: .85rem;
+    color: var(--text-main);
+    background: color-mix(in srgb, var(--primary-color, #6366f1) 6%, var(--bg-card));
+    border: 1px solid color-mix(in srgb, var(--primary-color, #6366f1) 20%, var(--border-color));
+  }
+  .sup-info-banner i {
+    color: var(--primary-color, #6366f1);
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  /* ─── Table ─── */
+  .sup-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .supervisor-table { margin: 0; color: var(--text-main); }
+  .supervisor-table thead th {
+    background: var(--bg-body);
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 14px;
+    white-space: nowrap;
+  }
+  .supervisor-table {
+    --bs-table-color: var(--text-main);
+    --bs-table-bg: transparent;
+    --bs-table-hover-color: var(--text-main);
+    --bs-table-hover-bg: transparent;
+  }
+  .supervisor-table tbody td,
+  .supervisor-table tbody tr,
+  .supervisor-table tbody th {
+    padding: 14px;
+    border-color: var(--border-color);
+    color: var(--text-main) !important;
+    background-color: transparent !important;
+    font-size: .9rem;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  [data-theme="dark"] .supervisor-table {
+    --bs-table-color: #f1f5f9;
+    --bs-table-hover-color: #ffffff;
+  }
+  [data-theme="dark"] .supervisor-table tbody td,
+  [data-theme="dark"] .supervisor-table tbody tr,
+  [data-theme="dark"] .supervisor-table tbody th {
+    color: #f1f5f9 !important;
+  }
+  .supervisor-table tbody tr {
+    transition: background .15s ease;
+  }
+  .supervisor-table tbody tr:hover {
+    background: color-mix(in srgb, var(--primary-color, #6366f1) 4%, transparent);
+  }
+
+  /* ─── Time pills (badges) ─── */
+  .sup-time-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 56px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: .82rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid transparent;
+  }
+  .sup-time-in {
+    color: #16a34a;
+    background: color-mix(in srgb, #16a34a 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #16a34a 30%, transparent);
+  }
+  .sup-time-lout {
+    color: #d97706;
+    background: color-mix(in srgb, #d97706 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #d97706 30%, transparent);
+  }
+  .sup-time-lin {
+    color: #0891b2;
+    background: color-mix(in srgb, #0891b2 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #0891b2 30%, transparent);
+  }
+  .sup-time-out {
+    color: #dc2626;
+    background: color-mix(in srgb, #dc2626 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #dc2626 30%, transparent);
+  }
+  [data-theme="dark"] .sup-time-in    { color: #4ade80; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.3); }
+  [data-theme="dark"] .sup-time-lout  { color: #fbbf24; background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.3); }
+  [data-theme="dark"] .sup-time-lin   { color: #38bdf8; background: rgba(14,165,233,.14); border-color: rgba(14,165,233,.3); }
+  [data-theme="dark"] .sup-time-out   { color: #f87171; background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.3); }
+
+  .sup-time-empty {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    opacity: .7;
+  }
+
+  /* ─── Action buttons ─── */
   .btn-xs {
-    --bs-btn-padding-y: .25rem;
-    --bs-btn-padding-x: .5rem;
-    --bs-btn-font-size: .75rem;
+    --bs-btn-padding-y: .3rem;
+    --bs-btn-padding-x: .55rem;
+    --bs-btn-font-size: .72rem;
     line-height: 1.2;
-    border-radius: .2rem;
+    border-radius: 8px;
+    font-weight: 700;
   }
 
   .supervisor-action-btn {
-    min-width: 2.2rem;
-    min-height: 2.2rem;
+    min-height: 2rem;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     visibility: visible !important;
     opacity: 1 !important;
     position: static !important;
-    top: auto !important;
-    left: auto !important;
-    transform: none !important;
+    transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
   }
-
-  .supervisor-table td,
-  .supervisor-table th {
-    white-space: nowrap;
-    vertical-align: middle;
-    font-size: .9rem;
-  }
+  .supervisor-action-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  [data-theme="dark"] .supervisor-action-btn { box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
   .action-wrap {
-    min-width: 200px;
+    min-width: 220px;
     display: flex !important;
     flex-wrap: wrap;
     gap: 4px;
   }
 
+  /* ─── Empty state ─── */
+  .sup-empty {
+    color: var(--text-muted);
+  }
+  .sup-empty .fw-bold { color: var(--text-main); }
+
+  /* ─── Modals (theme-aware) ─── */
+  [data-theme="dark"] .modal-content {
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+  }
+  [data-theme="dark"] .modal-content .form-control,
+  [data-theme="dark"] .modal-content .form-label {
+    color: var(--text-main);
+  }
+  [data-theme="dark"] .modal-content .form-control {
+    background: var(--bg-body);
+    border-color: var(--border-color);
+  }
+  [data-theme="dark"] .modal-content .text-muted { color: var(--text-muted) !important; }
+
+  /* ─── Date input dark mode fix (calendar icon visibility) ─── */
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+    cursor: pointer;
+  }
+
+  /* ─── Responsive ─── */
   @media (max-width: 768px) {
-    .supervisor-table td,
-    .supervisor-table th {
+    .sup-hero { padding: 1rem; }
+    .sup-hero-icon { width: 44px; height: 44px; font-size: 1.2rem; }
+    .sup-hero-title { font-size: 1.05rem; }
+    .sup-date-value { font-size: 1.15rem; }
+    .sup-toolbar { padding: .85rem; }
+    .supervisor-table tbody td,
+    .supervisor-table thead th {
       font-size: .8rem;
-      padding: .42rem .35rem;
+      padding: 10px 8px;
     }
-
-    .action-wrap {
-      min-width: 180px;
-      gap: 3px;
-    }
-
-    .supervisor-action-btn {
-      min-width: 2rem;
-      min-height: 2rem;
-    }
+    .action-wrap { min-width: 180px; gap: 3px; }
+    .supervisor-action-btn { min-height: 1.85rem; }
+    .sup-cta { padding: 7px 11px; font-size: .78rem; }
   }
 </style>
 {% endblock %}

@@ -73,6 +73,13 @@ else:
         SESSION_COOKIE_SECURE = False
         CSRF_COOKIE_SECURE = False
 
+if 'CSRF_TRUSTED_ORIGINS' not in globals() or CSRF_TRUSTED_ORIGINS is None:
+    CSRF_TRUSTED_ORIGINS = []
+
+for _origin in ('https://akafbusiness.com', 'https://www.akafbusiness.com'):
+    if _origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_origin)
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

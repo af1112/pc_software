@@ -1,0 +1,131 @@
+{% extends 'dashboard_base.html' %}
+{% load i18n %}
+
+{% block title %}{% if request.LANGUAGE_CODE == 'fa' %}درخواست مرخصی{% else %}{% trans "Request Leave" %}{% endif %}{% endblock %}
+{% block page_title %}{% if request.LANGUAGE_CODE == 'fa' %}درخواست مرخصی{% else %}{% trans "Request Leave" %}{% endif %}{% endblock %}
+{% block content_title %}{% if request.LANGUAGE_CODE == 'fa' %}درخواست مرخصی{% else %}{% trans "Request Leave" %}{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+.lv-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+.lv-card .card-header { background: var(--bg-body); border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+.lv-card .card-body { color: var(--text-main); }
+.lv-card .form-label { color: var(--text-main); font-weight: 600; font-size: .85rem; }
+.lv-card .form-control, .lv-card .form-select { background: var(--bg-body); color: var(--text-main); border-color: var(--border-color); }
+[data-theme="dark"] .lv-card .form-control, [data-theme="dark"] .lv-card .form-select { background: #1e293b; color: #f1f5f9; }
+</style>
+
+<div class="lv-card shadow-sm" style="max-width: 820px;">
+  <div class="card-header py-3">
+    <h5 class="mb-0 fw-bold">
+      <i class="fas fa-plane-departure me-2"></i>
+      {% if request.LANGUAGE_CODE == 'fa' %}ثبت درخواست مرخصی{% else %}{% trans "Submit Leave Request" %}{% endif %}
+    </h5>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {% if can_pick_employee %}
+      <div class="mb-3">
+        <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Employee" %}{% endif %} <span class="text-danger">*</span></label>
+        <select name="employee" class="form-select" required>
+          <option value="">{% if request.LANGUAGE_CODE == 'fa' %}انتخاب کنید...{% else %}{% trans "Select..." %}{% endif %}</option>
+          {% for e in employees %}
+            <option value="{{ e.id }}" {% if current_employee and current_employee.id == e.id %}selected{% endif %}>{{ e.first_name }} {{ e.last_name }}{% if e.employee_code %} — {{ e.employee_code }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% elif current_employee %}
+      <div class="alert alert-info py-2">
+        <i class="fas fa-user me-1"></i>
+        {% if request.LANGUAGE_CODE == 'fa' %}پرسنل{% else %}{% trans "Employee" %}{% endif %}: <b>{{ current_employee.first_name }} {{ current_employee.last_name }}</b>
+      </div>
+      {% else %}
+      <div class="alert alert-warning">
+        {% if request.LANGUAGE_CODE == 'fa' %}حساب شما به یک رکورد پرسنلی متصل نیست. برای ثبت درخواست با مدیر تماس بگیرید.{% else %}{% trans "Your account is not linked to a personnel record. Please contact your manager." %}{% endif %}
+      </div>
+      {% endif %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}نوع مرخصی{% else %}{% trans "Leave Type" %}{% endif %} <span class="text-danger">*</span></label>
+          <select name="leave_type" class="form-select" required>
+            {% for code, label in leave_types %}
+              <option value="{{ code }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="isHourly" name="is_hourly" value="1">
+            <label class="form-check-label" for="isHourly">
+              {% if request.LANGUAGE_CODE == 'fa' %}مرخصی ساعتی{% else %}{% trans "Hourly leave" %}{% endif %}
+            </label>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}از تاریخ{% else %}{% trans "From Date" %}{% endif %} <span class="text-danger">*</span></label>
+          <input type="date" name="from_date" class="form-control" value="{{ today_iso }}" required id="fromDate">
+        </div>
+        <div class="col-md-6" id="toDateWrap">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}تا تاریخ{% else %}{% trans "To Date" %}{% endif %}</label>
+          <input type="date" name="to_date" class="form-control" value="{{ today_iso }}" id="toDate">
+        </div>
+
+        <div class="col-md-6 d-none" id="startTimeWrap">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}ساعت شروع{% else %}{% trans "Start Time" %}{% endif %}</label>
+          <input type="time" name="start_time" class="form-control">
+        </div>
+        <div class="col-md-6 d-none" id="endTimeWrap">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}ساعت پایان{% else %}{% trans "End Time" %}{% endif %}</label>
+          <input type="time" name="end_time" class="form-control">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}توضیحات / دلیل{% else %}{% trans "Reason / Notes" %}{% endif %}</label>
+          <textarea name="reason" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">{% if request.LANGUAGE_CODE == 'fa' %}پیوست (اختیاری){% else %}{% trans "Attachment (optional)" %}{% endif %}</label>
+          <input type="file" name="attachment" class="form-control">
+          <small class="text-muted">{% if request.LANGUAGE_CODE == 'fa' %}برای مرخصی استعلاجی، گواهی پزشکی را ضمیمه کنید.{% else %}{% trans "For sick leave, attach the medical certificate." %}{% endif %}</small>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2 justify-content-end">
+        <a href="{% url 'hr_personnel:leave_request_list' %}" class="btn btn-outline-secondary">
+          {% if request.LANGUAGE_CODE == 'fa' %}انصراف{% else %}{% trans "Cancel" %}{% endif %}
+        </a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-paper-plane me-1"></i>
+          {% if request.LANGUAGE_CODE == 'fa' %}ثبت درخواست{% else %}{% trans "Submit Request" %}{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  const chk = document.getElementById('isHourly');
+  const toWrap = document.getElementById('toDateWrap');
+  const stWrap = document.getElementById('startTimeWrap');
+  const enWrap = document.getElementById('endTimeWrap');
+  const toDate = document.getElementById('toDate');
+  const fromDate = document.getElementById('fromDate');
+  function sync(){
+    const hourly = chk.checked;
+    toWrap.classList.toggle('d-none', hourly);
+    stWrap.classList.toggle('d-none', !hourly);
+    enWrap.classList.toggle('d-none', !hourly);
+    if (hourly && fromDate.value) { toDate.value = fromDate.value; }
+  }
+  chk.addEventListener('change', sync);
+  fromDate.addEventListener('change', function(){ if(chk.checked) toDate.value = fromDate.value; });
+  sync();
+})();
+</script>
+{% endblock %}

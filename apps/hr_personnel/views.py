@@ -7,9 +7,10 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext as _
-from datetime import date
+from datetime import date, datetime, time as time_cls, timedelta
 from calendar import monthrange
 from decimal import Decimal
+from django.utils import timezone
 import json
 
 from .forms import (
@@ -24,7 +25,7 @@ from .forms import (
     SalaryProfileForm,
     WorkUnitForm,
 )
-from .models import Employee, LaborSupplyCompany, PayrollItem, PayrollPeriod, PayrollRun, PayrollSlip, SalaryComponent, SalaryStructure, WorkUnit
+from .models import Employee, LaborSupplyCompany, LeavePolicy, LeaveRequest, PayrollItem, PayrollPeriod, PayrollRun, PayrollSlip, SalaryComponent, SalaryStructure, WorkUnit
 from .services import (
     PayrollCalculator,
     PayrollProcessingService,
@@ -52,11 +53,33 @@ def is_supervisor_or_admin(user):
         return False
 
 
-def _employee_queryset_for_request(request):
+def _employee_queryset_for_request(request, apply_supervisor_scope=False):
     qs = Employee.objects.all()
     org = getattr(request, 'organization', None)
     if org:
         qs = qs.filter(organization=org)
+
+    if apply_supervisor_scope and not request.user.is_superuser:
+        try:
+            role = getattr(request.user.profile, 'role', 'user')
+        except Exception:
+            role = 'user'
+
+        if role == 'supervisor':
+            try:
+                current_employee = getattr(request.user, 'employee', None)
+            except Exception:
+                current_employee = None
+
+            scope = (
+                (Q(user__isnull=False) & Q(user__profile__supervisor=request.user))
+                | (Q(user__isnull=True) & Q(supervisor=request.user))
+            )
+            if current_employee is not None:
+                scope |= Q(reporting_manager=current_employee)
+                scope |= Q(work_unit__supervisor=current_employee)
+            qs = qs.filter(scope).distinct()
+
     return qs
 
 
@@ -1046,7 +1069,7 @@ def employee_list(request):
     if not is_supervisor_or_admin(request.user):
         return redirect('hr_personnel:employee_me')
 
-    employees = _employee_queryset_for_request(request)
+    employees = _employee_queryset_for_request(request, apply_supervisor_scope=True)
     selected_supply_company = str(request.GET.get('supply_company') or '').strip()
     selected_work_unit = str(request.GET.get('work_unit') or '').strip()
 
@@ -1112,7 +1135,7 @@ def employee_create(request):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def employee_edit(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     user_profile = getattr(request.user, 'profile', None)
 
     if request.method == 'POST':
@@ -1146,7 +1169,7 @@ def employee_edit(request, employee_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def employee_delete(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     if request.method == 'POST':
         employee.delete()
         messages.success(request, _tr(request, 'Employee deleted successfully.', 'پرسنل با موفقیت حذف شد.'))
@@ -1157,7 +1180,7 @@ def employee_delete(request, employee_id):
 
 @login_required
 def employee_detail(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
 
     is_manager = is_supervisor_or_admin(request.user)
     if not is_manager and employee.user_id != request.user.id:
@@ -1200,7 +1223,7 @@ def employee_detail(request, employee_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def salary_profile_create(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     user_profile = getattr(request.user, 'profile', None)
 
     if request.method == 'POST':
@@ -1244,7 +1267,7 @@ def salary_profile_create(request, employee_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def salary_profile_edit(request, employee_id, profile_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     profile = get_object_or_404(SalaryStructure, id=profile_id, employee=employee)
     user_profile = getattr(request.user, 'profile', None)
 
@@ -1284,7 +1307,7 @@ def salary_profile_edit(request, employee_id, profile_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def salary_profile_delete(request, employee_id, profile_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     profile = get_object_or_404(SalaryStructure, id=profile_id, employee=employee)
 
     if request.method == 'POST':
@@ -1296,7 +1319,7 @@ def salary_profile_delete(request, employee_id, profile_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def salary_component_create(request, employee_id, profile_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     profile = get_object_or_404(SalaryStructure, id=profile_id, employee=employee)
 
     if request.method == 'POST':
@@ -1326,7 +1349,7 @@ def salary_component_create(request, employee_id, profile_id):
 @login_required
 @user_passes_test(is_supervisor_or_admin)
 def bank_account_create(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
 
     if request.method == 'POST':
         form = BankAccountForm(request.POST)
@@ -1432,7 +1455,7 @@ def salary_structure_api_create(request):
         return JsonResponse({'detail': 'Invalid JSON payload.'}, status=400)
 
     employee_id = payload.get('employee_id')
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     components_payload = payload.get('components') or []
 
     form = SalaryProfileForm(payload, user_profile=getattr(request.user, 'profile', None))
@@ -1472,7 +1495,7 @@ def salary_structure_api_create(request):
 
 @login_required
 def salary_structure_api_get(request, employee_id):
-    employee = get_object_or_404(_employee_queryset_for_request(request), id=employee_id)
+    employee = get_object_or_404(_employee_queryset_for_request(request, apply_supervisor_scope=True), id=employee_id)
     is_manager = is_supervisor_or_admin(request.user)
     if not is_manager and employee.user_id != request.user.id:
         return JsonResponse({'detail': 'Forbidden.'}, status=403)
@@ -1558,3 +1581,315 @@ def salary_component_api_delete(request, component_id):
         return JsonResponse({'errors': {'non_field_errors': exc.messages}}, status=400)
 
     return JsonResponse({'message': 'Salary component deleted successfully.'}, status=200)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Leave Request Workflow
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _current_employee(request):
+    """Return the hr_personnel Employee bound to request.user (if any)."""
+    try:
+        return getattr(request.user, 'employee', None)
+    except Exception:
+        return None
+
+
+def _can_manage_leave(request, leave_request):
+    """True if request.user may approve/reject leave_request."""
+    if request.user.is_superuser:
+        return True
+    try:
+        role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        role = 'user'
+    if role == 'admin':
+        return True
+    if role != 'supervisor':
+        return False
+
+    emp = leave_request.employee
+    if emp is None:
+        return False
+
+    # Linked user → check profile.supervisor
+    if emp.user_id and getattr(getattr(emp.user, 'profile', None), 'supervisor_id', None) == request.user.id:
+        return True
+    # Unlinked (or explicit) → Employee.supervisor FK
+    if getattr(emp, 'supervisor_id', None) == request.user.id:
+        return True
+    # Legacy fallbacks via current supervisor's employee record
+    me = _current_employee(request)
+    if me is not None:
+        if getattr(emp, 'reporting_manager_id', None) == me.id:
+            return True
+        if getattr(getattr(emp, 'work_unit', None), 'supervisor_id', None) == me.id:
+            return True
+    return False
+
+
+def _leave_requests_for_request(request):
+    """All leave requests the current user is allowed to see."""
+    qs = LeaveRequest.objects.select_related('employee', 'employee__user', 'employee__work_unit', 'approved_by').all()
+    org = getattr(request, 'organization', None)
+    if org:
+        qs = qs.filter(employee__organization=org)
+    if request.user.is_superuser:
+        return qs
+    try:
+        role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        role = 'user'
+    if role == 'admin':
+        return qs
+
+    me = _current_employee(request)
+    own = Q(employee__user=request.user)
+    if me is not None:
+        own |= Q(employee=me)
+
+    if role == 'supervisor':
+        managed_emps = _employee_queryset_for_request(request, apply_supervisor_scope=True)
+        return qs.filter(own | Q(employee__in=managed_emps)).distinct()
+    return qs.filter(own).distinct()
+
+
+def _calc_leave_totals(is_hourly, from_date, to_date, start_time, end_time):
+    """Compute total_days / total_hours for a leave request."""
+    if is_hourly:
+        if not (start_time and end_time):
+            raise ValidationError(_('Start time and end time are required for hourly leave.'))
+        if from_date != to_date:
+            raise ValidationError(_('Hourly leave must be for a single day.'))
+        start_dt = datetime.combine(from_date, start_time)
+        end_dt = datetime.combine(from_date, end_time)
+        if end_dt <= start_dt:
+            raise ValidationError(_('End time must be after start time.'))
+        hours = Decimal((end_dt - start_dt).total_seconds()) / Decimal('3600')
+        hours = hours.quantize(Decimal('0.01'))
+        # Treat 8h workday as 1 day (0.125 per hour); clamp 0..1
+        days = (hours / Decimal('8')).quantize(Decimal('0.01'))
+        if days > Decimal('1.00'):
+            days = Decimal('1.00')
+        return days, hours
+    if to_date < from_date:
+        raise ValidationError(_('End date cannot be before start date.'))
+    days = Decimal((to_date - from_date).days + 1)
+    hours = (days * Decimal('8')).quantize(Decimal('0.01'))
+    return days.quantize(Decimal('0.01')), hours
+
+
+@login_required
+def leave_request_list(request):
+    qs = _leave_requests_for_request(request).order_by('-created_at')
+
+    status_filter = (request.GET.get('status') or '').strip()
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    mine_only = request.GET.get('mine') == '1'
+    if mine_only:
+        me = _current_employee(request)
+        own = Q(employee__user=request.user)
+        if me is not None:
+            own |= Q(employee=me)
+        qs = qs.filter(own)
+
+    try:
+        role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        role = 'user'
+    can_manage = request.user.is_superuser or role in ('admin', 'supervisor')
+
+    pending_count = qs.filter(status=LeaveRequest.Status.PENDING).count()
+
+    return render(request, 'hr_personnel/leave_request_list.html', {
+        'leave_requests': qs[:500],
+        'status_filter': status_filter,
+        'mine_only': mine_only,
+        'can_manage': can_manage,
+        'pending_count': pending_count,
+        'status_choices': LeaveRequest.Status.choices,
+    })
+
+
+@login_required
+def leave_request_create(request):
+    org = getattr(request, 'organization', None)
+    me = _current_employee(request)
+
+    try:
+        role = getattr(request.user.profile, 'role', 'user')
+    except Exception:
+        role = 'user'
+    can_pick_employee = request.user.is_superuser or role in ('admin', 'supervisor')
+
+    # Employees list for supervisor/admin selection
+    if can_pick_employee:
+        employees_qs = _employee_queryset_for_request(request, apply_supervisor_scope=True).order_by('first_name', 'last_name')
+    else:
+        employees_qs = Employee.objects.filter(id=me.id) if me else Employee.objects.none()
+
+    leave_types = LeaveRequest._meta.get_field('leave_type').choices
+
+    if request.method == 'POST':
+        target_employee = me
+        if can_pick_employee:
+            eid = request.POST.get('employee')
+            if eid:
+                target_employee = employees_qs.filter(id=eid).first()
+
+        if target_employee is None:
+            messages.error(request, _tr(request, 'No employee selected.', 'هیچ پرسنلی انتخاب نشد.'))
+            return redirect('hr_personnel:leave_request_create')
+
+        leave_type = (request.POST.get('leave_type') or '').strip()
+        is_hourly = request.POST.get('is_hourly') == '1'
+        from_date_raw = (request.POST.get('from_date') or '').strip()
+        to_date_raw = (request.POST.get('to_date') or '').strip()
+        start_time_raw = (request.POST.get('start_time') or '').strip()
+        end_time_raw = (request.POST.get('end_time') or '').strip()
+        reason = (request.POST.get('reason') or '').strip()
+        attachment = request.FILES.get('attachment')
+
+        try:
+            from_date = date.fromisoformat(from_date_raw)
+            to_date = date.fromisoformat(to_date_raw) if to_date_raw else from_date
+            start_time = time_cls.fromisoformat(start_time_raw) if start_time_raw else None
+            end_time = time_cls.fromisoformat(end_time_raw) if end_time_raw else None
+        except Exception:
+            messages.error(request, _tr(request, 'Invalid date or time format.', 'فرمت تاریخ یا ساعت نامعتبر است.'))
+            return redirect('hr_personnel:leave_request_create')
+
+        valid_types = {k for k, _v in leave_types}
+        if leave_type not in valid_types:
+            messages.error(request, _tr(request, 'Invalid leave type.', 'نوع مرخصی نامعتبر است.'))
+            return redirect('hr_personnel:leave_request_create')
+
+        try:
+            total_days, total_hours = _calc_leave_totals(is_hourly, from_date, to_date, start_time, end_time)
+        except ValidationError as exc:
+            messages.error(request, '; '.join(exc.messages))
+            return redirect('hr_personnel:leave_request_create')
+
+        # Check overlap with pending/approved requests
+        overlap = LeaveRequest.objects.filter(
+            employee=target_employee,
+            status__in=[LeaveRequest.Status.PENDING, LeaveRequest.Status.APPROVED],
+            from_date__lte=to_date,
+            to_date__gte=from_date,
+        ).exists()
+        if overlap:
+            messages.error(request, _tr(
+                request,
+                'This employee already has an overlapping pending/approved leave request.',
+                'این پرسنل یک درخواست مرخصی در حال بررسی/تأییدشده با بازه تداخل دارد.',
+            ))
+            return redirect('hr_personnel:leave_request_create')
+
+        LeaveRequest.objects.create(
+            employee=target_employee,
+            leave_type=leave_type,
+            is_hourly=is_hourly,
+            from_date=from_date,
+            to_date=to_date,
+            start_time=start_time,
+            end_time=end_time,
+            total_days=total_days,
+            total_hours=total_hours,
+            reason=reason,
+            attachment=attachment,
+            status=LeaveRequest.Status.PENDING,
+        )
+        messages.success(request, _tr(request, 'Leave request submitted.', 'درخواست مرخصی ثبت شد.'))
+        return redirect('hr_personnel:leave_request_list')
+
+    today_iso = timezone.localdate().isoformat()
+    return render(request, 'hr_personnel/leave_request_form.html', {
+        'employees': employees_qs,
+        'can_pick_employee': can_pick_employee,
+        'leave_types': leave_types,
+        'today_iso': today_iso,
+        'current_employee': me,
+    })
+
+
+@login_required
+def leave_request_detail(request, request_id):
+    leave = get_object_or_404(_leave_requests_for_request(request), id=request_id)
+    can_manage = _can_manage_leave(request, leave)
+    me = _current_employee(request)
+    is_owner = (leave.employee_id is not None and (
+        (me is not None and leave.employee_id == me.id) or leave.employee.user_id == request.user.id
+    ))
+    return render(request, 'hr_personnel/leave_request_detail.html', {
+        'leave': leave,
+        'can_manage': can_manage,
+        'is_owner': is_owner,
+    })
+
+
+@login_required
+def leave_request_approve(request, request_id):
+    if request.method != 'POST':
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    leave = get_object_or_404(_leave_requests_for_request(request), id=request_id)
+    if not _can_manage_leave(request, leave):
+        messages.error(request, _tr(request, 'You are not allowed to approve this request.', 'مجاز به تأیید این درخواست نیستید.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    if leave.status != LeaveRequest.Status.PENDING:
+        messages.error(request, _tr(request, 'Only pending requests can be approved.', 'فقط درخواست‌های در حال بررسی قابل تأیید هستند.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+
+    leave.status = LeaveRequest.Status.APPROVED
+    leave.approved_by = request.user
+    leave.approved_at = timezone.now()
+    leave.rejection_reason = None
+    leave.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
+    messages.success(request, _tr(request, 'Leave request approved.', 'درخواست مرخصی تأیید شد.'))
+    return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+
+
+@login_required
+def leave_request_reject(request, request_id):
+    if request.method != 'POST':
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    leave = get_object_or_404(_leave_requests_for_request(request), id=request_id)
+    if not _can_manage_leave(request, leave):
+        messages.error(request, _tr(request, 'You are not allowed to reject this request.', 'مجاز به رد این درخواست نیستید.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    if leave.status != LeaveRequest.Status.PENDING:
+        messages.error(request, _tr(request, 'Only pending requests can be rejected.', 'فقط درخواست‌های در حال بررسی قابل رد هستند.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+
+    reason = (request.POST.get('rejection_reason') or '').strip()
+    leave.status = LeaveRequest.Status.REJECTED
+    leave.approved_by = request.user
+    leave.approved_at = timezone.now()
+    leave.rejection_reason = reason
+    leave.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
+    messages.success(request, _tr(request, 'Leave request rejected.', 'درخواست مرخصی رد شد.'))
+    return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+
+
+@login_required
+def leave_request_cancel(request, request_id):
+    if request.method != 'POST':
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    leave = get_object_or_404(_leave_requests_for_request(request), id=request_id)
+
+    me = _current_employee(request)
+    is_owner = leave.employee_id is not None and (
+        (me is not None and leave.employee_id == me.id) or leave.employee.user_id == request.user.id
+    )
+    if not (is_owner or _can_manage_leave(request, leave)):
+        messages.error(request, _tr(request, 'You are not allowed to cancel this request.', 'مجاز به لغو این درخواست نیستید.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+    if leave.status not in (LeaveRequest.Status.PENDING, LeaveRequest.Status.APPROVED):
+        messages.error(request, _tr(request, 'This request cannot be cancelled.', 'این درخواست قابل لغو نیست.'))
+        return redirect('hr_personnel:leave_request_detail', request_id=request_id)
+
+    leave.status = LeaveRequest.Status.CANCELLED
+    leave.save(update_fields=['status', 'updated_at'])
+    messages.success(request, _tr(request, 'Leave request cancelled.', 'درخواست مرخصی لغو شد.'))
+    return redirect('hr_personnel:leave_request_detail', request_id=request_id)

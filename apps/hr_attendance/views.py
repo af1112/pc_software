@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
-from .models import Attendance, AttendanceAIInsight, Timesheet, AttendanceChangeLog
+from .models import Attendance, AttendanceAIInsight, Timesheet, AttendanceChangeLog, Holiday
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.contrib.auth.models import User
@@ -488,9 +488,30 @@ def _is_target_in_scope(request, target):
         return False
 
     role = getattr(request.user.profile, 'role', 'user')
-    if role == 'supervisor':
-        return target.profile.supervisor_id == request.user.id and not target.is_superuser and getattr(target.profile, 'role', 'user') != 'admin'
-    return True
+    if role != 'supervisor':
+        return True
+
+    if target.is_superuser or getattr(target.profile, 'role', 'user') == 'admin':
+        return False
+
+    # Primary check: target user's profile.supervisor points to current user.
+    if getattr(target.profile, 'supervisor_id', None) == request.user.id:
+        return True
+
+    # Legacy / employee-record-based fallbacks (mirrors employee_list scope).
+    target_employee = getattr(target, 'employee', None)
+    if target_employee is not None:
+        # Employee.supervisor (FK to User)
+        if getattr(target_employee, 'supervisor_id', None) == request.user.id:
+            return True
+        current_employee = _employee_for_user(request.user)
+        if current_employee is not None:
+            if getattr(target_employee, 'reporting_manager_id', None) == current_employee.id:
+                return True
+            if getattr(getattr(target_employee, 'work_unit', None), 'supervisor_id', None) == current_employee.id:
+                return True
+
+    return False
 
 
 def _is_employee_in_scope(request, employee):
@@ -517,8 +538,18 @@ def _is_employee_in_scope(request, employee):
         target_role = getattr(getattr(target_user, 'profile', None), 'role', 'user')
         if target_user.is_superuser or target_role == 'admin':
             return False
-        return getattr(getattr(target_user, 'profile', None), 'supervisor_id', None) == request.user.id
+        if getattr(getattr(target_user, 'profile', None), 'supervisor_id', None) == request.user.id:
+            return True
+        if employee.reporting_manager_id == current_employee.id:
+            return True
+        if getattr(employee.work_unit, 'supervisor_id', None) == current_employee.id:
+            return True
+        if getattr(employee, 'supervisor_id', None) == request.user.id:
+            return True
+        return False
 
+    if getattr(employee, 'supervisor_id', None) == request.user.id:
+        return True
     is_assigned_to_supervisor = (
         employee.reporting_manager_id == current_employee.id
         or getattr(employee.work_unit, 'supervisor_id', None) == current_employee.id
@@ -526,8 +557,7 @@ def _is_employee_in_scope(request, employee):
     if is_assigned_to_supervisor:
         return True
 
-    # Fallback: allow supervisors to manage org employees that are still unassigned.
-    return employee.reporting_manager_id is None and getattr(employee.work_unit, 'supervisor_id', None) is None
+    return False
 
 
 def _clock_redirect(request):
@@ -630,11 +660,14 @@ def _attendance_users_for_manager(request):
         except Exception:
             role = 'user'
         if role == 'supervisor':
+            # Personnel (with User account) under this supervisor: their User.profile.supervisor
+            # must be the current request user. We also keep optional fallbacks via Employee
+            # hierarchy when the supervisor itself has an Employee record.
             scope_filter = Q(profile__supervisor=request.user)
             if current_employee:
                 scope_filter |= Q(employee__work_unit__supervisor=current_employee)
-            scope_filter |= Q(id=request.user.id)
-            users_qs = users_qs.filter(scope_filter).exclude(profile__role='admin').exclude(is_superuser=True).distinct()
+                scope_filter |= Q(employee__reporting_manager=current_employee)
+            users_qs = users_qs.filter(scope_filter).exclude(id=request.user.id).exclude(profile__role='admin').exclude(is_superuser=True).distinct()
 
     return users_qs
 
@@ -646,13 +679,15 @@ def _scoped_unlinked_employees(request, org, current_employee, role):
     elif not request.user.is_superuser and not org:
         return Employee.objects.none()
 
-    if not request.user.is_superuser and role == 'supervisor' and current_employee:
-        unlinked_employees = unlinked_employees.filter(
-            Q(work_unit__supervisor=current_employee)
-            | Q(reporting_manager=current_employee)
-            | (Q(reporting_manager__isnull=True) & Q(work_unit__isnull=True))
-            | (Q(reporting_manager__isnull=True) & Q(work_unit__supervisor__isnull=True))
-        )
+    if not request.user.is_superuser and role == 'supervisor':
+        # Primary source of truth for personnel without User account: Employee.supervisor.
+        # Optional fallback: Employee.reporting_manager / work_unit.supervisor when
+        # the supervisor has an Employee record themselves.
+        scope = Q(supervisor=request.user)
+        if current_employee:
+            scope |= Q(work_unit__supervisor=current_employee)
+            scope |= Q(reporting_manager=current_employee)
+        unlinked_employees = unlinked_employees.filter(scope).distinct()
     return unlinked_employees
 
 
@@ -712,6 +747,73 @@ def _parse_month_start(month_value, fallback_date):
         return datetime.date(year, month, 1)
     except Exception:
         return fallback_date.replace(day=1)
+
+
+def _approved_leaves_by_date(employee, user, month_start, month_end):
+    """Return {date: LeaveRequest} for approved leaves overlapping the month range.
+
+    Accepts either (or both) of: an hr_personnel.Employee or a User; uses whichever
+    resolves to an Employee record.
+    """
+    target_employee = employee
+    if target_employee is None and user is not None:
+        try:
+            target_employee = Employee.objects.filter(user=user).first()
+        except Exception:
+            target_employee = None
+    if target_employee is None:
+        return {}
+
+    try:
+        leaves = LeaveRequest.objects.filter(
+            employee=target_employee,
+            status=LeaveRequest.Status.APPROVED,
+            from_date__lte=month_end,
+            to_date__gte=month_start,
+        )
+    except Exception:
+        return {}
+
+    mapping = {}
+    for lv in leaves:
+        # For hourly leave only mark the single day; full-day leave fills range.
+        start = max(lv.from_date, month_start)
+        end = min(lv.to_date, month_end)
+        d = start
+        while d <= end:
+            # Don't overwrite an earlier leave if already present
+            mapping.setdefault(d, lv)
+            d += datetime.timedelta(days=1)
+    return mapping
+
+
+def _holidays_by_date(organization, month_start, month_end):
+    """Return {date: Holiday} for holidays in the month range for the organization.
+
+    Includes both exact date matches and recurring holidays (month-day match).
+    Organization-specific holidays + global (organization=NULL) are both included.
+    """
+    try:
+        qs = Holiday.objects.filter(date__lte=month_end)
+        if organization is not None:
+            qs = qs.filter(Q(organization=organization) | Q(organization__isnull=True))
+        else:
+            qs = qs.filter(organization__isnull=True)
+    except Exception:
+        return {}
+
+    mapping = {}
+    for h in qs:
+        if month_start <= h.date <= month_end:
+            mapping[h.date] = h
+        elif h.is_recurring:
+            try:
+                recurring_date = datetime.date(month_start.year, h.date.month, h.date.day)
+            except ValueError:
+                continue
+            if month_start <= recurring_date <= month_end:
+                mapping.setdefault(recurring_date, h)
+    return mapping
 
 
 def _shift_month(date_value, delta_months):
@@ -882,6 +984,7 @@ def attendance_card(request):
     summary = {
         'days_present': 0,
         'days_absent': 0,
+        'days_on_leave': 0,
         'total_worked_hours': 0.0,
     }
 
@@ -901,14 +1004,25 @@ def attendance_card(request):
         )
         timesheet_by_date = {item.work_date: item for item in timesheets}
 
+        leaves_by_date = _approved_leaves_by_date(selected_employee, None, month_start, month_end)
+        organization = getattr(selected_employee, 'organization', None)
+        holidays_by_date = _holidays_by_date(organization, month_start, month_end)
+
         for day in range(1, month_days + 1):
             current_date = month_start.replace(day=day)
             attendance = attendance_by_date.get(current_date)
             timesheet = timesheet_by_date.get(current_date)
+            leave = leaves_by_date.get(current_date)
+            holiday = holidays_by_date.get(current_date)
 
             worked_hours = float(getattr(timesheet, 'worked_hours', 0) or 0)
             if attendance and attendance.clock_in:
                 summary['days_present'] += 1
+            elif leave is not None:
+                summary['days_on_leave'] += 1
+            elif holiday is not None:
+                # Holidays are not counted as absences
+                pass
             else:
                 summary['days_absent'] += 1
             summary['total_worked_hours'] += worked_hours
@@ -918,6 +1032,12 @@ def attendance_card(request):
                     'date': current_date,
                     'attendance': attendance,
                     'timesheet': timesheet,
+                    'leave': leave,
+                    'leave_type_display': leave.get_leave_type_display() if leave else None,
+                    'is_hourly_leave': bool(leave and leave.is_hourly),
+                    'holiday': holiday,
+                    'holiday_name': holiday.name if holiday else None,
+                    'holiday_type_display': holiday.get_holiday_type_display() if holiday else None,
                     'worked_hours': round(worked_hours, 2),
                     'worked_hours_display': _format_hours_hhmm(worked_hours),
                 }
@@ -939,6 +1059,7 @@ def attendance_card(request):
         'summary': {
             'days_present': summary['days_present'],
             'days_absent': summary['days_absent'],
+            'days_on_leave': summary['days_on_leave'],
             'total_worked_hours': round(summary['total_worked_hours'], 2),
             'total_worked_hours_display': _format_hours_hhmm(summary['total_worked_hours']),
         },
@@ -1087,22 +1208,37 @@ def my_attendance_card(request):
     ).order_by('date')
     attendance_by_date = {item.date: item for item in attendances}
 
+    # User / org info for holidays + header
+    profile = getattr(request.user, 'profile', None)
+    org = getattr(profile, 'organization', None) if profile else None
+
+    leaves_by_date = _approved_leaves_by_date(None, request.user, month_start, month_end)
+    holidays_by_date = _holidays_by_date(org, month_start, month_end)
+
     rows = []
     summary = {
         'days_present': 0,
         'days_absent': 0,
+        'days_on_leave': 0,
         'total_worked_hours': 0.0,
     }
 
     for day in range(1, month_days + 1):
         current_date = month_start.replace(day=day)
         attendance = attendance_by_date.get(current_date)
+        leave = leaves_by_date.get(current_date)
+        holiday = holidays_by_date.get(current_date)
         worked_hours = 0.0
         if attendance and attendance.clock_in and attendance.clock_out:
             worked_hours = _worked_hours_from_attendance(attendance)
 
         if attendance and attendance.clock_in:
             summary['days_present'] += 1
+        elif leave is not None:
+            summary['days_on_leave'] += 1
+        elif holiday is not None:
+            # Holidays are not counted as absences
+            pass
         else:
             summary['days_absent'] += 1
         summary['total_worked_hours'] += worked_hours
@@ -1111,13 +1247,17 @@ def my_attendance_card(request):
             {
                 'date': current_date,
                 'attendance': attendance,
+                'leave': leave,
+                'leave_type_display': leave.get_leave_type_display() if leave else None,
+                'is_hourly_leave': bool(leave and leave.is_hourly),
+                'holiday': holiday,
+                'holiday_name': holiday.name if holiday else None,
+                'holiday_type_display': holiday.get_holiday_type_display() if holiday else None,
                 'worked_hours': round(worked_hours, 2),
             }
         )
 
-    # User / org info for header
-    profile = getattr(request.user, 'profile', None)
-    org = getattr(profile, 'organization', None) if profile else None
+    # User / org info for header (profile/org already resolved above for holidays)
     user_full_name = request.user.get_full_name() or request.user.username
     org_name = getattr(org, 'name', '') if org else ''
 
@@ -1129,6 +1269,7 @@ def my_attendance_card(request):
         'summary': {
             'days_present': summary['days_present'],
             'days_absent': summary['days_absent'],
+            'days_on_leave': summary['days_on_leave'],
             'total_worked_hours': round(summary['total_worked_hours'], 2),
         },
         'user_full_name': user_full_name,
@@ -1468,8 +1609,6 @@ def supervisor_panel(request):
     role = getattr(getattr(request.user, 'profile', None), 'role', 'user')
 
     users = list(users_qs)
-    if request.user.is_authenticated and request.user.id and all(u.id != request.user.id for u in users):
-        users.append(request.user)
     records = []
 
     linked_employee_ids = {
@@ -1517,14 +1656,6 @@ def supervisor_panel(request):
                 pass
             filtered_unlinked.append(emp)
         unlinked_employees = filtered_unlinked
-    if current_employee and all(e.id != current_employee.id for e in unlinked_employees):
-        try:
-            # Only append the supervisor's employee record if it's truly unlinked.
-            # If the employee is linked to a user, it will already be represented via `users_qs`.
-            if getattr(current_employee, 'user_id', None) is None:
-                unlinked_employees.append(current_employee)
-        except Exception:
-            pass
 
     attendance_by_user_id, attendance_by_employee_id = _attendance_maps_for_targets(
         selected_date,
@@ -1612,6 +1743,29 @@ def supervisor_panel(request):
     if supervisor_employee:
         supervisor_name = f"{supervisor_employee.first_name} {supervisor_employee.last_name}".strip() or supervisor_name
 
+    # Weekday name (Persian + English) — Python weekday(): Mon=0..Sun=6
+    weekday_idx = selected_date.weekday()
+    weekday_fa_map = {
+        5: "شنبه",
+        6: "یکشنبه",
+        0: "دوشنبه",
+        1: "سه‌شنبه",
+        2: "چهارشنبه",
+        3: "پنجشنبه",
+        4: "جمعه",
+    }
+    weekday_en_map = {
+        0: "Monday",
+        1: "Tuesday",
+        2: "Wednesday",
+        3: "Thursday",
+        4: "Friday",
+        5: "Saturday",
+        6: "Sunday",
+    }
+    weekday_fa = weekday_fa_map.get(weekday_idx, "")
+    weekday_en = weekday_en_map.get(weekday_idx, "")
+
     return render(request, 'hr_attendance/supervisor_panel.html', {
         'records': records,
         'today': selected_date,
@@ -1624,6 +1778,8 @@ def supervisor_panel(request):
         'next_month_str': next_month.isoformat(),
         'supervisor_name': supervisor_name,
         'supervisor_employee': supervisor_employee,
+        'weekday_fa': weekday_fa,
+        'weekday_en': weekday_en,
     })
 
 

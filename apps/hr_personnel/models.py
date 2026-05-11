@@ -165,6 +165,16 @@ class Employee(models.Model):
         verbose_name=_('Reporting Manager'),
         db_constraint=False,
     )
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_employees',
+        verbose_name=_('Supervisor'),
+        db_constraint=False,
+        help_text=_('Used for personnel without their own user account, to assign a supervising user.'),
+    )
 
     bank_name = models.CharField(_('Bank Name'), max_length=120, blank=True, null=True)
     iban = models.CharField(_('IBAN'), max_length=64, blank=True, null=True)
@@ -608,9 +618,13 @@ class LeaveRequest(models.Model):
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='leave_requests')
     leave_type = models.CharField(_('Leave Type'), max_length=20, choices=LeavePolicy.LeaveType.choices)
+    is_hourly = models.BooleanField(_('Hourly Leave'), default=False)
     from_date = models.DateField(_('From Date'))
     to_date = models.DateField(_('To Date'))
+    start_time = models.TimeField(_('Start Time'), blank=True, null=True)
+    end_time = models.TimeField(_('End Time'), blank=True, null=True)
     total_days = models.DecimalField(_('Total Days'), max_digits=6, decimal_places=2)
+    total_hours = models.DecimalField(_('Total Hours'), max_digits=6, decimal_places=2, default=Decimal('0.00'))
     reason = models.TextField(_('Reason'), blank=True, null=True)
     attachment = models.FileField(_('Attachment'), upload_to='leave_attachments/%Y/%m/', blank=True, null=True)
     status = models.CharField(_('Status'), max_length=10, choices=Status.choices, default=Status.PENDING)
@@ -624,6 +638,7 @@ class LeaveRequest(models.Model):
         verbose_name=_('Approved By'),
     )
     approved_at = models.DateTimeField(_('Approved At'), blank=True, null=True)
+    rejection_reason = models.TextField(_('Rejection Reason'), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

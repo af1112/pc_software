@@ -34,6 +34,14 @@ urlpatterns = [
 
     path('<uuid:employee_id>/payroll/create/', views.payroll_create, name='payroll_create'),
 
+    # Leave request workflow
+    path('leave-requests/', views.leave_request_list, name='leave_request_list'),
+    path('leave-requests/new/', views.leave_request_create, name='leave_request_create'),
+    path('leave-requests/<int:request_id>/', views.leave_request_detail, name='leave_request_detail'),
+    path('leave-requests/<int:request_id>/approve/', views.leave_request_approve, name='leave_request_approve'),
+    path('leave-requests/<int:request_id>/reject/', views.leave_request_reject, name='leave_request_reject'),
+    path('leave-requests/<int:request_id>/cancel/', views.leave_request_cancel, name='leave_request_cancel'),
+
     path('api/salary-structure/', views.salary_structure_api_create, name='salary_structure_api_create'),
     path('api/salary-structure/<uuid:employee_id>/', views.salary_structure_api_get, name='salary_structure_api_get'),
     path('api/salary-component/', views.salary_component_api_create, name='salary_component_api_create'),

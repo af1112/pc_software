@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.forms import inlineformset_factory
-from django.utils.translation import get_language
+from django.utils.translation import get_language, gettext_lazy as _
 
 from .models import (
     BankAccount,
@@ -37,6 +37,7 @@ class EmployeeForm(forms.ModelForm):
                 'department',
                 'position_title',
                 'reporting_manager',
+                'supervisor',
                 'work_unit',
                 'supply_company',
                 'is_active',
@@ -193,6 +194,23 @@ class EmployeeForm(forms.ModelForm):
             self.fields['reporting_manager'].queryset = managers
             self.fields['reporting_manager'].widget.attrs.update({'class': 'form-select'})
 
+        if 'supervisor' in self.fields:
+            supervisor_qs = User.objects.all().order_by('username')
+            if organization is not None:
+                supervisor_qs = supervisor_qs.filter(
+                    Q(profile__organization=organization) | Q(is_superuser=True)
+                )
+            # Prefer users that are supervisors or admins
+            self.fields['supervisor'].queryset = supervisor_qs.filter(
+                Q(profile__role__in=['supervisor', 'admin']) | Q(is_superuser=True)
+            ).distinct()
+            self.fields['supervisor'].required = False
+            self.fields['supervisor'].widget.attrs.update({'class': 'form-select'})
+            self.fields['supervisor'].help_text = _(
+                "Optional. Use this when the personnel does not have their own user account, "
+                "so attendance supervisor panels can still scope them to a supervising user."
+            )
+
         if 'supply_company' in self.fields:
             company_filter = Q(is_active=True)
             if organization is not None:
@@ -290,6 +308,12 @@ class EmployeeForm(forms.ModelForm):
             self.fields['contract_start'].label = 'شروع قرارداد'
             self.fields['contract_end'].label = 'پایان قرارداد'
             self.fields['reporting_manager'].label = 'مدیر مستقیم'
+            if 'supervisor' in self.fields:
+                self.fields['supervisor'].label = 'سوپروایزر (برای پرسنل بدون نام کاربری)'
+                self.fields['supervisor'].help_text = (
+                    'اختیاری. اگر این پرسنل نام کاربری ندارد، می\u200cتوانید سوپروایزر را اینجا انتخاب کنید '
+                    'تا در پنل سوپروایزر مربوطه نمایش داده شود.'
+                )
             self.fields['bank_name'].label = 'نام بانک'
             self.fields['iban'].label = 'شماره شبا'
             self.fields['attendance_card_number'].label = 'شماره کارت حضور و غیاب'
@@ -407,6 +431,7 @@ class EmployeeForm(forms.ModelForm):
             'contract_start',
             'contract_end',
             'reporting_manager',
+            'supervisor',
             'bank_name',
             'iban',
             'attendance_card_number',
@@ -447,6 +472,7 @@ class EmployeeForm(forms.ModelForm):
             'contract_start': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'contract_end': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'reporting_manager': forms.Select(attrs={'class': 'form-select'}),
+            'supervisor': forms.Select(attrs={'class': 'form-select'}),
             'bank_name': forms.TextInput(attrs={'class': 'form-control'}),
             'iban': forms.TextInput(attrs={'class': 'form-control'}),
             'attendance_card_number': forms.TextInput(attrs={'class': 'form-control'}),

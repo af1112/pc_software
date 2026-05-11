@@ -270,3 +270,34 @@ class AttendanceChangeLog(models.Model):
 
     def __str__(self):
         return f"{self.attendance_id}:{self.field_name}:{self.action_type}"
+
+
+class Holiday(models.Model):
+    class HolidayType(models.TextChoices):
+        WEEKEND = 'weekend', _('Weekend')
+        PUBLIC_HOLIDAY = 'public_holiday', _('Public Holiday')
+        COMPANY_HOLIDAY = 'company_holiday', _('Company Holiday')
+
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='holidays',
+        verbose_name=_('Organization'),
+        null=True,
+        blank=True,
+        db_constraint=False,
+    )
+    name = models.CharField(_('Name'), max_length=200)
+    date = models.DateField(_('Date'))
+    holiday_type = models.CharField(_('Holiday Type'), max_length=20, choices=HolidayType.choices, default=HolidayType.PUBLIC_HOLIDAY)
+    is_recurring = models.BooleanField(_('Recurring Yearly'), default=False)
+    notes = models.TextField(_('Notes'), blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Holiday')
+        verbose_name_plural = _('Holidays')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.name} ({self.date})"

@@ -66,19 +66,25 @@
     </div>
 
     <div class="row g-2 mb-3">
-        <div class="col-12 col-md-4">
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}روزهای حضور{% else %}{% trans "Present Days" %}{% endif %}</div>
                 <div class="h4 mb-0">{{ summary.days_present|unlocalize }}</div>
             </div></div>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent Days" %}{% endif %}</div>
                 <div class="h4 mb-0">{{ summary.days_absent|unlocalize }}</div>
             </div></div>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}روزهای مرخصی{% else %}{% trans "Leave Days" %}{% endif %}</div>
+                <div class="h4 mb-0">{{ summary.days_on_leave|default:0|unlocalize }}</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="text-muted small">{% if request.LANGUAGE_CODE == 'fa' %}مجموع ساعات کار{% else %}{% trans "Total Worked Hours" %}{% endif %}</div>
                 <div class="h4 mb-0">{{ summary.total_worked_hours_display|default:"00:00"|unlocalize }}</div>
@@ -121,6 +127,11 @@
                             <td>
                                 {% if row.attendance and row.attendance.clock_in %}
                                     <span class="badge bg-success">{% trans "Present" %}</span>
+                                    {% if row.leave %}<span class="badge bg-info ms-1" title="{{ row.leave_type_display }}">{{ row.leave_type_display }}{% if row.is_hourly_leave %} ({% if request.LANGUAGE_CODE == 'fa' %}ساعتی{% else %}{% trans "hourly" %}{% endif %}){% endif %}</span>{% endif %}
+                                {% elif row.holiday %}
+                                    <span class="badge bg-warning text-dark" title="{{ row.holiday_type_display }}">{% if request.LANGUAGE_CODE == 'fa' %}تعطیل{% else %}{% trans "Holiday" %}{% endif %} — {{ row.holiday_name }}</span>
+                                {% elif row.leave %}
+                                    <span class="badge bg-info">{% if request.LANGUAGE_CODE == 'fa' %}مرخصی{% else %}{% trans "On Leave" %}{% endif %} — {{ row.leave_type_display }}{% if row.is_hourly_leave %} ({% if request.LANGUAGE_CODE == 'fa' %}ساعتی{% else %}{% trans "hourly" %}{% endif %}){% endif %}</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{% trans "Absent" %}</span>
                                 {% endif %}

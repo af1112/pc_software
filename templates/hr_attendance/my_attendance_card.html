@@ -330,6 +330,10 @@
           <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای غیبت{% else %}{% trans "Absent days" %}{% endif %}</div>
           <div class="value">{{ summary.days_absent|unlocalize }}</div>
         </div>
+        <div class="box box-present">
+          <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}روزهای مرخصی{% else %}{% trans "Leave days" %}{% endif %}</div>
+          <div class="value">{{ summary.days_on_leave|default:0|unlocalize }}</div>
+        </div>
         <div class="box box-hours">
           <div class="label">{% if request.LANGUAGE_CODE == 'fa' %}جمع ساعات کار{% else %}{% trans "Total worked hours" %}{% endif %}</div>
           <div class="value">{{ summary.total_worked_hours|unlocalize }}</div>
@@ -378,7 +382,11 @@
           <tbody>
             {% for row in rows %}
             <tr>
-              <td>{% localized_date row.date "Y/m/d" %}</td>
+              <td>
+                {% localized_date row.date "Y/m/d" %}
+                {% if row.holiday %}<br><small style="color:#f59e0b;">{% if request.LANGUAGE_CODE == 'fa' %}تعطیل{% else %}{% trans "Holiday" %}{% endif %}: {{ row.holiday_name }}</small>{% endif %}
+                {% if row.leave %}<br><small style="color:#0ea5e9;">{% if request.LANGUAGE_CODE == 'fa' %}مرخصی{% else %}{% trans "On Leave" %}{% endif %}: {{ row.leave_type_display }}{% if row.is_hourly_leave %} ({% if request.LANGUAGE_CODE == 'fa' %}ساعتی{% else %}{% trans "hourly" %}{% endif %}){% endif %}</small>{% endif %}
+              </td>
               <td>{% if row.attendance and row.attendance.clock_in %}{{ row.attendance.clock_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
               <td>{% if row.attendance and row.attendance.lunch_out %}{{ row.attendance.lunch_out|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>
               <td>{% if row.attendance and row.attendance.lunch_in %}{{ row.attendance.lunch_in|time:"H:i"|unlocalize }}{% else %}-{% endif %}</td>

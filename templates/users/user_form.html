@@ -65,13 +65,14 @@
 
                             {% if can_assign_supervisor %}
                             <div id="supervisor-field-create" class="col-md-6">
-                                <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %}</label>
+                                <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %} <span class="text-muted fw-normal">({% trans "optional" %})</span></label>
                                 <select name="supervisor" class="form-select">
                                     <option value="">-</option>
                                     {% for s in supervisors %}
                                         <option value="{{ s.id }}" data-org-id="{{ s.profile.organization_id|default:'' }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.username }}</option>
                                     {% endfor %}
                                 </select>
+                                <div class="form-text small text-muted">{% trans "Primary supervisor is set on the employee record (Reporting Manager)." %}</div>
                             </div>
                             {% endif %}
                         </div>
@@ -122,7 +123,7 @@
                         {% endif %}
                         {% if can_assign_supervisor %}
                         <div id="supervisor-field-edit" class="col-md-3">
-                            <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %}</label>
+                            <label class="form-label fw-bold text-dark small">{% trans "Supervisor" %} <span class="text-muted fw-normal">({% trans "optional" %})</span></label>
                             <select name="supervisor" class="form-select">
                                 <option value="">-</option>
                                 {% for s in supervisors %}
