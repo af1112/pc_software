@@ -1202,15 +1202,20 @@ def my_attendance_card(request):
     month_end = month_start.replace(day=month_days)
     show_details = str(request.GET.get('details', '')).lower() in {'1', 'true', 'yes', 'on'}
 
-    attendances = Attendance.objects.filter(
-        user=request.user,
-        date__range=(month_start, month_end),
-    ).order_by('date')
-    attendance_by_date = {item.date: item for item in attendances}
-
     # User / org info for holidays + header
     profile = getattr(request.user, 'profile', None)
     org = getattr(profile, 'organization', None) if profile else None
+    employee = _employee_for_user(request.user)
+
+    # Match by user OR by linked employee (legacy records may have only employee set)
+    attendance_filter = Q(user=request.user)
+    if employee is not None:
+        attendance_filter |= Q(employee=employee)
+    attendances = Attendance.objects.filter(
+        attendance_filter,
+        date__range=(month_start, month_end),
+    ).distinct().order_by('date')
+    attendance_by_date = {item.date: item for item in attendances}
 
     leaves_by_date = _approved_leaves_by_date(None, request.user, month_start, month_end)
     holidays_by_date = _holidays_by_date(org, month_start, month_end)
