@@ -765,10 +765,6 @@
                         <i class="fas fa-id-card"></i>
                         <span>{% trans "Team Attendance Card" %}</span>
                     </a>
-                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
-                        <i class="fas fa-mobile-alt"></i>
-                        <span>{% trans "Mobile Quick Clock" %}</span>
-                    </a>
                     <a href="{% url 'hr_attendance:supervisor_panel' %}" class="nav-link {% if request.resolver_match.url_name == 'supervisor_panel' %}active{% endif %}">
                         <i class="fas fa-user-clock"></i>
                         <span>{% trans "Supervisor Panel" %}</span>
@@ -796,14 +792,6 @@
                     </a>
                     {% endif %}
                     {% else %}
-                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
-                        <i class="fas fa-mobile-alt"></i>
-                        <span>{% trans "Clock In / Clock Out" %}</span>
-                    </a>
-                    <a href="{% url 'hr_attendance:my_attendance_card' %}" class="nav-link {% if request.resolver_match.url_name == 'my_attendance_card' %}active{% endif %}">
-                        <i class="fas fa-id-card"></i>
-                        <span>{% trans "My Monthly Card" %}</span>
-                    </a>
                     <a href="{% url 'hr_attendance:hub' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'hub' %}active{% endif %}">
                         <i class="fas fa-sitemap"></i>
                         <span>{% trans "Attendance Hub" %}</span>
@@ -828,14 +816,6 @@
                         <i class="fas fa-sitemap"></i>
                         <span>{% trans "Attendance Hub" %}</span>
                     </a>
-                    <a href="{% url 'hr_attendance:quick_clock' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'quick_clock' %}active{% endif %}">
-                        <i class="fas fa-mobile-alt"></i>
-                        <span>{% trans "Quick Clock" %}</span>
-                    </a>
-                    <a href="{% url 'hr_attendance:my_attendance_card' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'my_attendance_card' %}active{% endif %}">
-                        <i class="fas fa-id-card"></i>
-                        <span>{% trans "My Monthly Card" %}</span>
-                    </a>
                     {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'supervisor' %}
                     <a href="{% url 'hr_attendance:dashboard' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <i class="fas fa-gauge"></i>
@@ -852,10 +832,6 @@
                     <a href="{% url 'hr_attendance:supervisor_panel' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'supervisor_panel' %}active{% endif %}">
                         <i class="fas fa-user-clock"></i>
                         <span>{% trans "Supervisor Panel" %}</span>
-                    </a>
-                    <a href="{% url 'hr_attendance:supervisor_bulk_range_entry' %}" class="nav-link {% if request.resolver_match.namespace == 'hr_attendance' and request.resolver_match.url_name == 'supervisor_bulk_range_entry' %}active{% endif %}">
-                        <i class="fas fa-calendar-plus"></i>
-                        <span>{% trans "Bulk Range Entry" %}</span>
                     </a>
                     {% endif %}
                 </div>

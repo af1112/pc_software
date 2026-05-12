@@ -12,13 +12,27 @@
     th, td { border: 1px solid #ddd; padding: 6px; }
     th { background: #f4f7fe; text-align: left; }
     .muted { color: #666; font-size: 11px; }
+    .org-header { border-bottom: 3px solid #1f3a8a; padding-bottom: 10px; margin-bottom: 14px; }
+    .org-header td { border: none; padding: 0; vertical-align: middle; }
+    .org-logo { width: 70px; height: 70px; object-fit: contain; }
+    .org-name { font-size: 24px; font-weight: bold; color: #1f3a8a; }
+    .report-title { font-size: 14px; margin-top: 4px; color: #333; }
   </style>
 </head>
 <body>
-  <h2>{% trans "Attendance Report" %}</h2>
+  <div class="org-header">
+    <table style="border:none;width:100%;">
+      <tr>
+        {% if org.logo %}<td style="width:80px;border:none;"><img src="{{ org.logo.url }}" class="org-logo" /></td>{% endif %}
+        <td style="border:none;">
+          <div class="org-name">{{ org.name|default:"-" }}</div>
+          <div class="report-title">{% trans "Attendance Report" %}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
   <div class="meta">
-    <div><strong>{% trans "Date" %}:</strong> {% localized_date date "Y-m-d" %}</div>
-    <div><strong>{% trans "Organization" %}:</strong> {{ org.name|default:"-" }}</div>
+    <div><strong>{% trans "Date" %}:</strong> {% localized_date date "l، Y-m-d" %}</div>
   </div>
 
   <table>
@@ -43,57 +57,21 @@
         <td>
           {% if a and a.clock_in %}
             <div>{{ a.clock_in|time:"H:i" }}</div>
-            {% if a.user_clock_in %}
-              <div class="muted">{% trans "User entry" %}: {{ a.user_clock_in|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.supervisor_clock_in %}
-              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_clock_in|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.clock_in_by %}
-              <div class="muted">({% trans "by" %} {{ a.clock_in_by.username }})</div>
-            {% endif %}
           {% else %}-{% endif %}
         </td>
         <td>
           {% if a and a.lunch_out %}
             <div>{{ a.lunch_out|time:"H:i" }}</div>
-            {% if a.user_lunch_out %}
-              <div class="muted">{% trans "User entry" %}: {{ a.user_lunch_out|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.supervisor_lunch_out %}
-              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_lunch_out|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.lunch_out_by %}
-              <div class="muted">({% trans "by" %} {{ a.lunch_out_by.username }})</div>
-            {% endif %}
           {% else %}-{% endif %}
         </td>
         <td>
           {% if a and a.lunch_in %}
             <div>{{ a.lunch_in|time:"H:i" }}</div>
-            {% if a.user_lunch_in %}
-              <div class="muted">{% trans "User entry" %}: {{ a.user_lunch_in|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.supervisor_lunch_in %}
-              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_lunch_in|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.lunch_in_by %}
-              <div class="muted">({% trans "by" %} {{ a.lunch_in_by.username }})</div>
-            {% endif %}
           {% else %}-{% endif %}
         </td>
         <td>
           {% if a and a.clock_out %}
             <div>{{ a.clock_out|time:"H:i" }}</div>
-            {% if a.user_clock_out %}
-              <div class="muted">{% trans "User entry" %}: {{ a.user_clock_out|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.supervisor_clock_out %}
-              <div class="muted">{% trans "Supervisor correction" %}: {{ a.supervisor_clock_out|time:"H:i" }}</div>
-            {% endif %}
-            {% if a.clock_out_by %}
-              <div class="muted">({% trans "by" %} {{ a.clock_out_by.username }})</div>
-            {% endif %}
           {% else %}-{% endif %}
         </td>
       </tr>
